@@ -180,9 +180,10 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-					INFOPLIST_KEY_NSCameraUsageDescription = "Calorie Tracker uses the camera to scan food barcodes.";
-					INFOPLIST_KEY_NSHealthShareUsageDescription = "Calorie Tracker reads your Health data to calculate BMR and daily calories burned.";
-					INFOPLIST_KEY_NSMotionUsageDescription = "Calorie Tracker uses your step count to adjust your daily calorie goal.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Calorie Tracker uses the camera to scan food barcodes.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Calorie Tracker reads your Health data to personalize your calorie estimates.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Calorie Tracker requests Health access so it can read your profile data to personalize calorie estimates. It does not write Health data.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "Calorie Tracker uses your step count to adjust your daily calorie goal.";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
@@ -241,9 +242,10 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-					INFOPLIST_KEY_NSCameraUsageDescription = "Calorie Tracker uses the camera to scan food barcodes.";
-					INFOPLIST_KEY_NSHealthShareUsageDescription = "Calorie Tracker reads your Health data to calculate BMR and daily calories burned.";
-					INFOPLIST_KEY_NSMotionUsageDescription = "Calorie Tracker uses your step count to adjust your daily calorie goal.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Calorie Tracker uses the camera to scan food barcodes.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Calorie Tracker reads your Health data to personalize your calorie estimates.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Calorie Tracker requests Health access so it can read your profile data to personalize calorie estimates. It does not write Health data.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "Calorie Tracker uses your step count to adjust your daily calorie goal.";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -268,10 +270,11 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Calorie-Tracker-Info.plist";
-					INFOPLIST_KEY_NSCameraUsageDescription = "Calorie Tracker uses the camera to scan food barcodes.";
-					INFOPLIST_KEY_NSHealthShareUsageDescription = "Calorie Tracker reads your Health data to calculate BMR and daily calories burned.";
-					INFOPLIST_KEY_NSMotionUsageDescription = "Calorie Tracker uses your step count to adjust your daily calorie goal.";
-					INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Calorie Tracker uses the camera to scan food barcodes.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Calorie Tracker reads your Health data to personalize your calorie estimates.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Calorie Tracker requests Health access so it can read your profile data to personalize calorie estimates. It does not write Health data.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "Calorie Tracker uses your step count to adjust your daily calorie goal.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -281,7 +284,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = "Micah.Calorie-Tracker";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -309,10 +312,11 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Calorie-Tracker-Info.plist";
-					INFOPLIST_KEY_NSCameraUsageDescription = "Calorie Tracker uses the camera to scan food barcodes.";
-					INFOPLIST_KEY_NSHealthShareUsageDescription = "Calorie Tracker reads your Health data to calculate BMR and daily calories burned.";
-					INFOPLIST_KEY_NSMotionUsageDescription = "Calorie Tracker uses your step count to adjust your daily calorie goal.";
-					INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Calorie Tracker uses the camera to scan food barcodes.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Calorie Tracker reads your Health data to personalize your calorie estimates.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Calorie Tracker requests Health access so it can read your profile data to personalize calorie estimates. It does not write Health data.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "Calorie Tracker uses your step count to adjust your daily calorie goal.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -322,7 +326,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = "Micah.Calorie-Tracker";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

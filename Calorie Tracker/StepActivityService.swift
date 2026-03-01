@@ -4,6 +4,12 @@ import Combine
 
 @MainActor
 final class StepActivityService: ObservableObject {
+    private static let defaultWeightPounds = 170.0
+    private static let defaultHeightInches = 68.0
+    // Net walking-energy approximation used because BMR is already counted separately.
+    private static let netWalkingCaloriesPerKgPerKm = 0.80
+    private static let strideMultiplier = 0.415
+
     enum AuthorizationState: Equatable {
         case unavailable
         case notDetermined
@@ -39,9 +45,8 @@ final class StepActivityService: ObservableObject {
 
     @Published private(set) var authorizationState: AuthorizationState
     @Published private(set) var todayStepCount: Int = 0
+    @Published private(set) var todayDistanceMeters: Double = 0
     @Published private(set) var lastErrorMessage: String?
-
-    let stepCalorieFactor: Double = 0.04
 
     private let pedometer = CMPedometer()
     private let calendar: Calendar
@@ -53,8 +58,18 @@ final class StepActivityService: ObservableObject {
         authorizationState = Self.resolveAuthorizationState()
     }
 
-    var estimatedCaloriesToday: Int {
-        Int((Double(todayStepCount) * stepCalorieFactor).rounded())
+    func estimatedCaloriesToday(profile: BMRProfile?) -> Int {
+        guard todayStepCount > 0 else {
+            return 0
+        }
+
+        let distanceKm = resolvedDistanceKm(profile: profile)
+        guard distanceKm > 0 else {
+            return 0
+        }
+
+        let weightKg = resolvedWeightKg(profile: profile)
+        return max(Int((weightKg * distanceKm * Self.netWalkingCaloriesPerKgPerKm).rounded()), 0)
     }
 
     func refreshIfAuthorized() {
@@ -62,6 +77,7 @@ final class StepActivityService: ObservableObject {
         guard authorizationState == .authorized else {
             if authorizationState != .notDetermined {
                 todayStepCount = 0
+                todayDistanceMeters = 0
             }
             return
         }
@@ -98,13 +114,46 @@ final class StepActivityService: ObservableObject {
             lastErrorMessage = error.localizedDescription
             if authorizationState != .authorized {
                 todayStepCount = 0
+                todayDistanceMeters = 0
             }
             return
         }
 
         lastErrorMessage = nil
         todayStepCount = data?.numberOfSteps.intValue ?? 0
+        todayDistanceMeters = max(data?.distance?.doubleValue ?? 0, 0)
         authorizationState = Self.resolveAuthorizationState(afterSuccessfulQuery: true)
+    }
+
+    private func resolvedWeightKg(profile: BMRProfile?) -> Double {
+        let weightPounds = Double(profile?.weightPounds ?? 0)
+        let resolvedWeightPounds = weightPounds > 0 ? weightPounds : Self.defaultWeightPounds
+        return resolvedWeightPounds * 0.45359237
+    }
+
+    private func resolvedHeightMeters(profile: BMRProfile?) -> Double {
+        let feet = Double(profile?.heightFeet ?? 0)
+        let inches = Double(profile?.heightInches ?? 0)
+        let totalInches = feet > 0 || inches > 0 ? max((feet * 12) + inches, 0) : Self.defaultHeightInches
+        return totalInches * 0.0254
+    }
+
+    private func resolvedDistanceKm(profile: BMRProfile?) -> Double {
+        if todayDistanceMeters > 0 {
+            return todayDistanceMeters / 1000
+        }
+
+        let strideMeters = estimatedStrideMeters(heightMeters: resolvedHeightMeters(profile: profile))
+        let estimatedDistanceMeters = Double(todayStepCount) * strideMeters
+        guard estimatedDistanceMeters > 0 else {
+            return 0
+        }
+
+        return estimatedDistanceMeters / 1000
+    }
+
+    private func estimatedStrideMeters(heightMeters: Double) -> Double {
+        max(heightMeters * Self.strideMultiplier, 0)
     }
 
     private static func resolveAuthorizationState(afterSuccessfulQuery: Bool = false) -> AuthorizationState {

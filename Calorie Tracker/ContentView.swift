@@ -482,7 +482,6 @@ struct ContentView: View {
     @AppStorage("nutrientGoalsData") private var storedNutrientGoalsData: String = ""
     @AppStorage("lastCentralDayIdentifier") private var lastCentralDayIdentifier: String = ""
     @AppStorage("selectedAppIconChoice") private var selectedAppIconChoiceRaw: String = AppIconChoice.standard.rawValue
-    @AppStorage("isStepCalorieAdjustmentEnabled") private var isStepCalorieAdjustmentEnabled: Bool = true
     @AppStorage("dailyEntryArchiveData") private var storedDailyEntryArchiveData: String = ""
     @AppStorage("dailyCalorieGoalArchiveData") private var storedDailyCalorieGoalArchiveData: String = ""
     @AppStorage("dailyBurnedCalorieArchiveData") private var storedDailyBurnedCalorieArchiveData: String = ""
@@ -634,11 +633,8 @@ struct ContentView: View {
 
     private var deficitCalories: Int { min(max(storedDeficitCalories, 0), 2500) }
     private var resolvedBMRProfile: BMRProfile? { healthKitService.profile?.bmrProfile }
-    private var stepCaloriesToday: Int {
-        stepActivityService.estimatedCaloriesToday
-    }
     private var activityCaloriesToday: Int {
-        max(stepCaloriesToday, healthKitService.activeCaloriesToday)
+        stepActivityService.estimatedCaloriesToday(profile: resolvedBMRProfile)
     }
     private var currentDailyCalorieModel: DailyCalorieModel {
         let bmr = resolvedBMRProfile.flatMap(calculatedBMR(for:)) ?? ContentView.fallbackAverageBMR
@@ -963,10 +959,10 @@ struct ContentView: View {
             .onChange(of: storedDeficitCalories) { _, _ in
                 syncCurrentDayGoalArchive()
             }
-            .onChange(of: stepActivityService.estimatedCaloriesToday) { _, _ in
+            .onChange(of: stepActivityService.todayStepCount) { _, _ in
                 syncCurrentDayGoalArchive()
             }
-            .onChange(of: healthKitService.activeCaloriesToday) { _, _ in
+            .onChange(of: stepActivityService.todayDistanceMeters) { _, _ in
                 syncCurrentDayGoalArchive()
             }
     }
@@ -986,12 +982,6 @@ struct ContentView: View {
             }
             .onChange(of: selectedAppIconChoiceRaw) { _, newValue in
                 AppIconManager.apply(AppIconChoice(rawValue: newValue) ?? .standard)
-            }
-            .onChange(of: isStepCalorieAdjustmentEnabled) { _, isEnabled in
-                syncCurrentDayGoalArchive()
-                if isEnabled {
-                    stepActivityService.requestAccessAndRefresh()
-                }
             }
             .onChange(of: firebaseMenu) { _, _ in
                 normalizeTrackingState()
@@ -1181,7 +1171,7 @@ struct ContentView: View {
         applyCentralTimeTransitions(forceMenuReload: false)
         syncInputFieldsToTrackedNutrients()
         AppIconManager.apply(selectedAppIconChoice)
-        refreshStepGoalIfNeeded(promptIfNeeded: true)
+        stepActivityService.requestAccessAndRefresh()
         Task {
             await healthKitService.refreshIfPossible()
         }
@@ -1220,7 +1210,7 @@ struct ContentView: View {
     private func handleScenePhaseChange(_ newPhase: ScenePhase) {
         guard newPhase == .active else { return }
         applyCentralTimeTransitions(forceMenuReload: false)
-        refreshStepGoalIfNeeded(promptIfNeeded: false)
+        stepActivityService.refreshIfAuthorized()
         Task {
             await healthKitService.refreshIfPossible()
         }
@@ -1233,7 +1223,7 @@ struct ContentView: View {
 
     private func handleClockTick() {
         applyCentralTimeTransitions(forceMenuReload: false)
-        refreshStepGoalIfNeeded(promptIfNeeded: false)
+        stepActivityService.refreshIfAuthorized()
         Task {
             await healthKitService.refreshIfPossible()
         }
@@ -1608,6 +1598,30 @@ struct ContentView: View {
             }
             .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 4, trailing: 0))
             .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+
+            Section {
+                Button {
+                    if let url = URL(string: "https://calorie-tracker-364e3.web.app/privacy") {
+                        UIApplication.shared.open(url)
+                    }
+                } label: {
+                    HStack {
+                        Label("Privacy Policy", systemImage: "doc.text")
+                        Spacer()
+                        Image(systemName: "arrow.up.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(18)
+                }
+                .buttonStyle(.plain)
+            }
+            .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 4, trailing: 0))
+            .listRowBackground(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color(uiColor: .secondarySystemBackground).opacity(0.55))
+            )
             .listRowSeparator(.hidden)
         }
         .listStyle(.insetGrouped)
@@ -3940,14 +3954,6 @@ struct ContentView: View {
         )
     }
 
-    private func refreshStepGoalIfNeeded(promptIfNeeded: Bool) {
-        if promptIfNeeded && stepActivityService.authorizationState == .notDetermined {
-            stepActivityService.requestAccessAndRefresh()
-        } else {
-            stepActivityService.refreshIfAuthorized()
-        }
-    }
-
     private func openFoodReview(for product: OpenFoodFactsProduct) {
         selectedFoodReviewMultiplier = 1.0
         foodReviewItem = FoodReviewItem(
@@ -4289,7 +4295,7 @@ private struct ProfileGoalsView: View {
             HStack(spacing: 10) {
                 statPill(title: "BMR", value: bmrCalories.map { "\($0) cal" } ?? "--")
                 statPill(title: "Burned", value: "\(burnedCaloriesToday) cal")
-                statPill(title: "Active Burn", value: "\(activeBurnedCaloriesToday) cal")
+                statPill(title: "Step Burn", value: "\(activeBurnedCaloriesToday) cal")
             }
 
             DeficitGoalEditor(
@@ -4320,7 +4326,7 @@ private struct ProfileGoalsView: View {
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
-                    Text("Burned today includes BMR plus the best available activity burn from Health and steps.")
+                    Text("Burned today includes BMR plus estimated step activity calories personalized with your available profile data.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -6273,7 +6279,7 @@ private struct OnboardingFlowView: View {
                 welcomeFeatureCard(
                     icon: "heart.text.square.fill",
                     title: "Connect Health",
-                    detail: "Use Apple Health for automatic BMR and activity burn.",
+                    detail: "Use Apple Health for automatic BMR and more accurate step-calorie estimates.",
                     tint: Color(red: 0.46, green: 0.90, blue: 0.60)
                 )
                 welcomeFeatureCard(
@@ -6297,7 +6303,7 @@ private struct OnboardingFlowView: View {
             slideHeading(
                 eyebrow: "Slide 2 of 4",
                 title: "Connect Apple Health",
-                detail: "Read height, weight, sex, age, and active calories so the app can calculate a better daily goal."
+                detail: "Read height, weight, sex, and age so the app can calculate BMR and personalize step-calorie estimates."
             )
 
             if let healthProfile, healthAuthorizationState == .connected {

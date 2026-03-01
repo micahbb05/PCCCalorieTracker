@@ -25,7 +25,7 @@ final class HealthKitService: ObservableObject {
             case .unavailable:
                 return "Health data is not available on this device."
             case .notConnected:
-                return "Connect Apple Health to read height, weight, sex, age, and activity burn."
+                return "Connect Apple Health to read height, weight, sex, and age for more accurate calorie estimates."
             case .connected:
                 return "BMR is calculated from Health data."
             }
@@ -60,7 +60,6 @@ final class HealthKitService: ObservableObject {
 
     @Published private(set) var authorizationState: AuthorizationState = .notConnected
     @Published private(set) var profile: SyncedProfile?
-    @Published private(set) var activeCaloriesToday: Int = 0
     @Published private(set) var lastErrorMessage: String?
 
     private let healthStore = HKHealthStore()
@@ -84,7 +83,6 @@ final class HealthKitService: ObservableObject {
         guard HKHealthStore.isHealthDataAvailable() else {
             authorizationState = .unavailable
             profile = nil
-            activeCaloriesToday = 0
             return
         }
 
@@ -93,7 +91,6 @@ final class HealthKitService: ObservableObject {
             authorizationState = (status == .unnecessary) ? .connected : .notConnected
             guard authorizationState == .connected else {
                 profile = nil
-                activeCaloriesToday = 0
                 return
             }
             await loadHealthData()
@@ -149,14 +146,7 @@ final class HealthKitService: ObservableObject {
     }
 
     private func loadHealthData() async {
-        async let fetchedProfile = fetchProfile()
-        async let fetchedActiveCalories = fetchActiveCaloriesToday()
-
-        let profile = await fetchedProfile
-        let activeCalories = await fetchedActiveCalories
-
-        self.profile = profile
-        activeCaloriesToday = activeCalories
+        profile = await fetchProfile()
         lastErrorMessage = nil
     }
 
@@ -199,25 +189,6 @@ final class HealthKitService: ObservableObject {
         } catch {
             lastErrorMessage = error.localizedDescription
             return nil
-        }
-    }
-
-    private func fetchActiveCaloriesToday() async -> Int {
-        let startOfDay = calendar.startOfDay(for: Date())
-        let now = Date()
-        guard
-            let quantityType = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)
-        else {
-            return 0
-        }
-
-        let predicate = HKQuery.predicateForSamples(withStart: startOfDay, end: now)
-        return await withCheckedContinuation { continuation in
-            let query = HKStatisticsQuery(quantityType: quantityType, quantitySamplePredicate: predicate, options: .cumulativeSum) { _, statistics, _ in
-                let total = statistics?.sumQuantity()?.doubleValue(for: .kilocalorie()) ?? 0
-                continuation.resume(returning: max(Int(total.rounded()), 0))
-            }
-            healthStore.execute(query)
         }
     }
 
@@ -265,10 +236,6 @@ final class HealthKitService: ObservableObject {
         if let weight = HKObjectType.quantityType(forIdentifier: .bodyMass) {
             types.insert(weight)
         }
-        if let activeEnergy = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned) {
-            types.insert(activeEnergy)
-        }
-
         return types
     }
 }

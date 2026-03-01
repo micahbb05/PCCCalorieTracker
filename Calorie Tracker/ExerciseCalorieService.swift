@@ -1,0 +1,52 @@
+import Foundation
+
+/// MET-based calorie estimation for exercise. Always uses light intensity.
+/// Running uses extra-only calories (steps already cover walking-equivalent burn).
+struct ExerciseCalorieService {
+    private static let walkingBaselineMET = 3.0
+
+    /// Light MET values.
+    private static func metLight(for type: ExerciseType) -> Double {
+        switch type {
+        case .weightLifting: return 3.0
+        case .running: return 6.0
+        case .cycling: return 4.0
+        case .swimming: return 5.0
+        }
+    }
+
+    /// Calories from duration (weight lifting, walking). Uses light intensity.
+    static func caloriesFromDuration(type: ExerciseType, durationMinutes: Int, weightPounds: Int) -> Int {
+        guard durationMinutes > 0, weightPounds > 0 else { return 0 }
+        let weightKg = Double(weightPounds) * 0.453592
+        let hours = Double(durationMinutes) / 60.0
+        var metValue = metLight(for: type)
+        if type == .running {
+            metValue = max(metValue - walkingBaselineMET, 0)
+        }
+        return max(Int((metValue * weightKg * hours).rounded()), 0)
+    }
+
+    /// Calories from distance in miles (running, cycling). Uses light intensity.
+    /// Running ~10 min/mi, cycling ~5 min/mi.
+    static func caloriesFromDistance(type: ExerciseType, distanceMiles: Double, weightPounds: Int) -> Int {
+        guard distanceMiles > 0, weightPounds > 0 else { return 0 }
+        let weightKg = Double(weightPounds) * 0.453592
+        let minutesPerMile: Double = type == .running ? 10 : 5
+        let durationMinutes = distanceMiles * minutesPerMile
+        let hours = durationMinutes / 60.0
+        var metValue = metLight(for: type)
+        if type == .running {
+            metValue = max(metValue - walkingBaselineMET, 0)
+        }
+        return max(Int((metValue * weightKg * hours).rounded()), 0)
+    }
+
+    /// Unified: use distance for running/cycling when provided, else duration.
+    static func calories(type: ExerciseType, durationMinutes: Int, distanceMiles: Double?, weightPounds: Int) -> Int {
+        if type == .running || type == .cycling, let miles = distanceMiles, miles > 0 {
+            return caloriesFromDistance(type: type, distanceMiles: miles, weightPounds: weightPounds)
+        }
+        return caloriesFromDuration(type: type, durationMinutes: durationMinutes, weightPounds: weightPounds)
+    }
+}

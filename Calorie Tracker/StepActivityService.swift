@@ -53,7 +53,7 @@ final class StepActivityService: ObservableObject {
 
     init() {
         var centralCalendar = Calendar(identifier: .gregorian)
-        centralCalendar.timeZone = TimeZone(identifier: "America/Chicago") ?? .current
+        centralCalendar.timeZone = .autoupdatingCurrent
         calendar = centralCalendar
         authorizationState = Self.resolveAuthorizationState()
     }

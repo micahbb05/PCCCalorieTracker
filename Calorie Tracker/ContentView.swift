@@ -687,8 +687,20 @@ struct ContentView: View {
         stepActivityService.estimatedCaloriesToday(profile: resolvedBMRProfile)
     }
     private var currentDailyCalorieModel: DailyCalorieModel {
-        let bmr = resolvedBMRProfile.flatMap(calculatedBMR(for:)) ?? ContentView.fallbackAverageBMR
+        // Use archived goal/burned for today while HealthKit hasn't loaded, to avoid flash of fallback value
+        if resolvedBMRProfile == nil,
+           let archivedGoal = dailyCalorieGoalArchive[todayDayIdentifier],
+           let archivedBurned = dailyBurnedCalorieArchive[todayDayIdentifier] {
+            return DailyCalorieModel(
+                bmr: nil,
+                burned: archivedBurned,
+                goal: archivedGoal,
+                deficit: deficitForDay(todayDayIdentifier),
+                usesBMR: false
+            )
+        }
 
+        let bmr = resolvedBMRProfile.flatMap(calculatedBMR(for:)) ?? ContentView.fallbackAverageBMR
         let burned = max(bmr + activityCaloriesToday, 1)
         let dayGoalType = goalTypeForDay(todayDayIdentifier)
         let amount = deficitForDay(todayDayIdentifier)
@@ -950,11 +962,6 @@ struct ContentView: View {
             return false
         }
         return calories + nutrientMap.values.reduce(0, +) > 0
-    }
-
-    private var addTabKeyboardLift: CGFloat {
-        guard selectedTab == .add, isKeyboardVisible else { return 0 }
-        return min(250, max(0, keyboardHeight - 150))
     }
 
     var body: some View {
@@ -1423,8 +1430,7 @@ struct ContentView: View {
     }
 
     private var addTabView: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
+        ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     HStack(alignment: .top, spacing: 16) {
                         tabHeader(title: "Add Food", subtitle: "Search, scan, or add manually")
@@ -1597,26 +1603,10 @@ struct ContentView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 18)
-                .padding(.bottom, isKeyboardVisible ? max(96, keyboardHeight - 140) : 140)
-                .offset(y: -addTabKeyboardLift)
+                .padding(.bottom, isKeyboardVisible ? max(140, keyboardHeight) : 140)
             }
             .scrollIndicators(.hidden)
             .scrollDismissesKeyboard(.interactively)
-            .onChange(of: isKeyboardVisible) { _, visible in
-                guard visible, selectedTab == .add else { return }
-                withAnimation(.easeInOut(duration: 0.22)) {
-                    proxy.scrollTo(ScrollTarget.addManualEntryCard.rawValue, anchor: .bottom)
-                }
-            }
-            .onChange(of: focusedField) { _, newField in
-                guard newField != nil, selectedTab == .add else { return }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    withAnimation(.easeInOut(duration: 0.22)) {
-                        proxy.scrollTo(ScrollTarget.addManualEntryCard.rawValue, anchor: .bottom)
-                    }
-                }
-            }
-        }
     }
 
     private var profileTabView: some View {

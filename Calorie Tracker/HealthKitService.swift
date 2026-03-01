@@ -62,12 +62,15 @@ final class HealthKitService: ObservableObject {
     @Published private(set) var profile: SyncedProfile?
     @Published private(set) var lastErrorMessage: String?
 
+    /// Today's workouts from Health, mapped to ExerciseEntry for calorie integration.
+    @Published private(set) var todayWorkouts: [ExerciseEntry] = []
+
     private let healthStore = HKHealthStore()
     private let calendar: Calendar
 
     init() {
         var centralCalendar = Calendar(identifier: .gregorian)
-        centralCalendar.timeZone = TimeZone(identifier: "America/Chicago") ?? .current
+        centralCalendar.timeZone = .autoupdatingCurrent
         calendar = centralCalendar
 
         if !HKHealthStore.isHealthDataAvailable() {
@@ -147,7 +150,59 @@ final class HealthKitService: ObservableObject {
 
     private func loadHealthData() async {
         profile = await fetchProfile()
+        todayWorkouts = await fetchTodayWorkouts()
         lastErrorMessage = nil
+    }
+
+    func refreshWorkouts() async {
+        guard authorizationState == .connected else { return }
+        todayWorkouts = await fetchTodayWorkouts()
+    }
+
+    private func fetchTodayWorkouts() async -> [ExerciseEntry] {
+        let workoutType = HKObjectType.workoutType()
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .autoupdatingCurrent
+        let startOfToday = calendar.startOfDay(for: Date())
+        let predicate = HKQuery.predicateForSamples(withStart: startOfToday, end: Date(), options: .strictStartDate)
+        let profileSnapshot = profile
+
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(sampleType: workoutType, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)]) { _, samples, _ in
+                let workouts = (samples as? [HKWorkout]) ?? []
+                let entries = workouts.compactMap { workout -> ExerciseEntry? in
+                    Self.mapWorkoutToExercise(workout, profile: profileSnapshot)
+                }
+                continuation.resume(returning: entries)
+            }
+            healthStore.execute(query)
+        }
+    }
+
+    private nonisolated static func mapWorkoutToExercise(_ workout: HKWorkout, profile: SyncedProfile?) -> ExerciseEntry? {
+        guard let type = mapActivityType(workout.workoutActivityType) else { return nil }
+        let durationMinutes = max(Int(workout.duration / 60), 1)
+        let weight = profile?.weightPounds ?? 170
+        let distanceMiles: Double? = nil
+        let calories = ExerciseCalorieService.calories(type: type, durationMinutes: durationMinutes, distanceMiles: distanceMiles, weightPounds: weight)
+        return ExerciseEntry(
+            id: UUID(),
+            exerciseType: type,
+            durationMinutes: durationMinutes,
+            distanceMiles: distanceMiles,
+            calories: calories,
+            createdAt: workout.startDate
+        )
+    }
+
+    private nonisolated static func mapActivityType(_ activity: HKWorkoutActivityType) -> ExerciseType? {
+        switch activity {
+        case .running: return .running
+        case .cycling, .handCycling: return .cycling
+        case .swimming: return .swimming
+        case .traditionalStrengthTraining, .functionalStrengthTraining, .crossTraining, .highIntensityIntervalTraining: return .weightLifting
+        default: return nil
+        }
     }
 
     private func fetchProfile() async -> SyncedProfile? {
@@ -236,6 +291,7 @@ final class HealthKitService: ObservableObject {
         if let weight = HKObjectType.quantityType(forIdentifier: .bodyMass) {
             types.insert(weight)
         }
+        types.insert(HKObjectType.workoutType())
         return types
     }
 }

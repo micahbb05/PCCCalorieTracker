@@ -184,7 +184,7 @@ final class NutrisliceMenuService {
         }
     }
 
-    private let centralTimeZone = TimeZone(identifier: "America/Chicago") ?? .current
+    private let centralTimeZone = TimeZone.autoupdatingCurrent
 
     func currentMenuSignature(for venue: DiningVenue, now: Date = Date()) -> String {
         "\(venue.rawValue)-\(currentMenuType(now: now).rawValue)-\(currentISODate(now: now))"
@@ -366,21 +366,6 @@ final class NutrisliceMenuService {
             result[key] = Double(nulls) / Double(total)
         }
         return result
-    }
-
-    private func extractLineNumber(from title: String) -> Int? {
-        let pattern = #"(?i)line\s*(\d+)"#
-        guard let regex = try? NSRegularExpression(pattern: pattern) else {
-            return nil
-        }
-        let range = NSRange(title.startIndex..<title.endIndex, in: title)
-        guard let match = regex.firstMatch(in: title, range: range),
-              match.numberOfRanges > 1,
-              let numberRange = Range(match.range(at: 1), in: title)
-        else {
-            return nil
-        }
-        return Int(title[numberRange])
     }
 
     private func trimmed(_ input: String?) -> String {

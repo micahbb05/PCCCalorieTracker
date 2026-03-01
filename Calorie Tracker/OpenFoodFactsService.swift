@@ -129,7 +129,7 @@ final class OpenFoodFactsService {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("CalorieTracker/1.0 (micah@example.com)", forHTTPHeaderField: "User-Agent")
+        request.setValue("CalorieTracker/1.0 (micahbb05@icloud.com)", forHTTPHeaderField: "User-Agent")
 
         let data: Data
         let response: URLResponse

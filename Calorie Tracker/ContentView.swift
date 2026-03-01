@@ -478,6 +478,32 @@ struct ContentView: View {
     @AppStorage("deficitCalories") private var storedDeficitCalories: Int = 500
     @AppStorage("useWeekendDeficit") private var useWeekendDeficit: Bool = false
     @AppStorage("weekendDeficitCalories") private var storedWeekendDeficitCalories: Int = 0
+    @AppStorage("goalTypeRaw") private var goalTypeRaw: String = GoalType.deficit.rawValue
+    @AppStorage("surplusCalories") private var storedSurplusCalories: Int = 300
+    @AppStorage("dailyGoalTypeArchiveData") private var storedDailyGoalTypeArchiveData: String = ""
+
+    private enum GoalType: String, CaseIterable {
+        case deficit
+        case surplus
+
+        var title: String {
+            switch self {
+            case .deficit: return "Deficit"
+            case .surplus: return "Surplus"
+            }
+        }
+
+        var subtitle: String {
+            switch self {
+            case .deficit: return "Subtract from burned to lose weight"
+            case .surplus: return "Add to burned to gain weight"
+            }
+        }
+    }
+
+    private var goalType: GoalType {
+        GoalType(rawValue: goalTypeRaw) ?? .deficit
+    }
     @AppStorage("proteinGoal") private var legacyStoredProteinGoal: Int = 150
     @AppStorage("mealEntriesData") private var storedEntriesData: String = ""
     @AppStorage("trackedNutrientsData") private var storedTrackedNutrientsData: String = ""
@@ -493,6 +519,7 @@ struct ContentView: View {
     @State private var dailyEntryArchive: [String: [MealEntry]] = [:]
     @State private var dailyCalorieGoalArchive: [String: Int] = [:]
     @State private var dailyBurnedCalorieArchive: [String: Int] = [:]
+    @State private var dailyGoalTypeArchive: [String: String] = [:]
     @State private var quickAddFoods: [QuickAddFood] = []
     @State private var trackedNutrientKeys: [String] = ["g_protein"]
     @State private var nutrientGoals: [String: Int] = [:]
@@ -634,14 +661,26 @@ struct ContentView: View {
     }
 
     private var deficitCalories: Int { min(max(storedDeficitCalories, 0), 2500) }
+    private var surplusCalories: Int { min(max(storedSurplusCalories, 0), 2500) }
     private var weekendDeficitCalories: Int { min(max(storedWeekendDeficitCalories, 0), 2500) }
 
+    private func goalTypeForDay(_ identifier: String) -> GoalType {
+        if let raw = dailyGoalTypeArchive[identifier], let type = GoalType(rawValue: raw) {
+            return type
+        }
+        return goalType
+    }
+
     private func deficitForDay(_ identifier: String) -> Int {
-        guard useWeekendDeficit else { return deficitCalories }
-        guard let date = date(fromCentralDayIdentifier: identifier) else { return deficitCalories }
+        guard useWeekendDeficit else {
+            return goalTypeForDay(identifier) == .surplus ? surplusCalories : deficitCalories
+        }
+        guard let date = date(fromCentralDayIdentifier: identifier) else {
+            return goalTypeForDay(identifier) == .surplus ? surplusCalories : deficitCalories
+        }
         let weekday = centralCalendar.component(.weekday, from: date)
         let isWeekend = (weekday == 1) || (weekday == 7)
-        return isWeekend ? weekendDeficitCalories : deficitCalories
+        return isWeekend ? weekendDeficitCalories : (goalTypeForDay(identifier) == .surplus ? surplusCalories : deficitCalories)
     }
     private var resolvedBMRProfile: BMRProfile? { healthKitService.profile?.bmrProfile }
     private var activityCaloriesToday: Int {
@@ -651,13 +690,19 @@ struct ContentView: View {
         let bmr = resolvedBMRProfile.flatMap(calculatedBMR(for:)) ?? ContentView.fallbackAverageBMR
 
         let burned = max(bmr + activityCaloriesToday, 1)
-        let deficit = deficitForDay(todayDayIdentifier)
-        let goal = max(burned - deficit, 1)
+        let dayGoalType = goalTypeForDay(todayDayIdentifier)
+        let amount = deficitForDay(todayDayIdentifier)
+        let goal: Int
+        if dayGoalType == .surplus {
+            goal = max(burned + amount, 1)
+        } else {
+            goal = max(burned - amount, 1)
+        }
         return DailyCalorieModel(
             bmr: bmr,
             burned: burned,
             goal: goal,
-            deficit: deficit,
+            deficit: amount,
             usesBMR: resolvedBMRProfile != nil
         )
     }
@@ -977,6 +1022,12 @@ struct ContentView: View {
             .onChange(of: storedWeekendDeficitCalories) { _, _ in
                 syncCurrentDayGoalArchive()
             }
+            .onChange(of: goalTypeRaw) { _, _ in
+                syncCurrentDayGoalArchive()
+            }
+            .onChange(of: storedSurplusCalories) { _, _ in
+                syncCurrentDayGoalArchive()
+            }
             .onChange(of: stepActivityService.todayStepCount) { _, _ in
                 syncCurrentDayGoalArchive()
             }
@@ -1023,6 +1074,8 @@ struct ContentView: View {
         OnboardingFlowView(
             currentPage: $onboardingPage,
             deficitCalories: $storedDeficitCalories,
+            goalTypeRaw: $goalTypeRaw,
+            surplusCalories: $storedSurplusCalories,
             trackedNutrientKeys: $trackedNutrientKeys,
             nutrientGoals: $nutrientGoals,
             availableNutrients: availableNutrients,
@@ -1337,7 +1390,9 @@ struct ContentView: View {
         List {
             pageHeader(title: "Today", subtitle: "Calories, nutrients, and today's log")
             calorieHeroSection
-            progressSection
+            if !activeNutrients.isEmpty {
+                progressSection
+            }
             foodLogSections
             mealDistributionSection
         }
@@ -1455,7 +1510,7 @@ struct ContentView: View {
                                 .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
                         }
 
-                        if shouldExpandCaloriesField {
+                        if activeNutrients.isEmpty || shouldExpandCaloriesField {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Calories")
                                     .font(.caption.weight(.semibold))
@@ -1467,8 +1522,9 @@ struct ContentView: View {
                                     .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
                             }
 
-                            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                                ForEach(activeNutrients) { nutrient in
+                            if !activeNutrients.isEmpty {
+                                LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                                    ForEach(activeNutrients) { nutrient in
                                     VStack(alignment: .leading, spacing: 8) {
                                         Text("\(nutrient.name) (\(nutrient.unit))")
                                             .font(.caption.weight(.semibold))
@@ -1479,6 +1535,7 @@ struct ContentView: View {
                                             .focused($focusedField, equals: .nutrient(nutrient.key))
                                             .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
                                     }
+                                }
                                 }
                             }
                         } else {
@@ -1569,6 +1626,8 @@ struct ContentView: View {
             Section {
                 ProfileGoalsView(
                     deficitCalories: $storedDeficitCalories,
+                    goalTypeRaw: $goalTypeRaw,
+                    surplusCalories: $storedSurplusCalories,
                     useWeekendDeficit: $useWeekendDeficit,
                     weekendDeficitCalories: $storedWeekendDeficitCalories,
                     trackedNutrientKeys: trackedNutrientKeys,
@@ -1957,25 +2016,36 @@ struct ContentView: View {
     private func historyDayDetailSheet(summary: HistoryDaySummary) -> some View {
         let dayGoal = calorieGoalForDay(summary.dayIdentifier)
         let dayBurned = burnedCaloriesForDay(summary.dayIdentifier)
+        let dayGoalType = goalTypeForDay(summary.dayIdentifier)
         let nutrientTotals = nutrientTotals(for: summary.dayIdentifier)
         let dayMealDistribution = mealDistributionData(for: summary.dayIdentifier)
         let calorieColor = historyBarColor(calories: summary.totalCalories, goal: dayGoal, burned: dayBurned)
-        let rawProgress = Double(summary.totalCalories) / Double(max(dayBurned, 1))
+        let rawProgress = Double(summary.totalCalories) / Double(max(dayGoal, 1))
         let barProgress = min(max(rawProgress, 0), 1)
         let statusText: String
         let statusColor: Color
         if summary.totalCalories == 0 {
             statusText = "No Intake"
             statusColor = textSecondary
-        } else if summary.totalCalories <= dayGoal {
+        } else if summary.totalCalories < dayBurned {
+            // Under burned = in deficit; adapted to that day's goal type
+            if dayGoalType == .deficit && summary.totalCalories > dayGoal {
+                statusText = "Above Goal"
+                statusColor = Color.yellow
+            } else {
+                statusText = "In Deficit"
+                statusColor = dayGoalType == .deficit ? Color.green : Color.yellow
+            }
+        } else if dayGoalType == .surplus && summary.totalCalories > dayBurned && summary.totalCalories <= dayGoal {
             statusText = "On Target"
             statusColor = Color.green
-        } else if summary.totalCalories <= dayBurned {
-            statusText = "Above Goal"
-            statusColor = Color.yellow
-        } else {
+        } else if summary.totalCalories > dayGoal {
             statusText = "Over Burned"
             statusColor = Color.red
+        } else {
+            // totalCalories == dayBurned (at maintenance)
+            statusText = dayGoalType == .surplus ? "Below Goal" : "Above Goal"
+            statusColor = Color.yellow
         }
 
         return NavigationStack {
@@ -2526,14 +2596,18 @@ struct ContentView: View {
 
     private func historyBarColor(calories: Int, goal: Int, burned: Int) -> Color {
         let safeGoal = max(goal, 1)
-        let safeBurned = max(max(burned, safeGoal), 1)
-        if calories > safeBurned {
+        let safeBurned = max(burned, 1)
+        let isSurplus = safeGoal > safeBurned
+
+        if isSurplus {
+            if calories < safeBurned { return Color.yellow }
+            if calories <= safeGoal { return Color.green }
             return Color.red
+        } else {
+            if calories > safeBurned { return Color.red }
+            if calories >= safeGoal { return Color.yellow }
+            return Color.green
         }
-        if calories >= safeGoal {
-            return Color.yellow
-        }
-        return Color.green
     }
 
     private func progressRow(
@@ -2622,8 +2696,32 @@ struct ContentView: View {
 
     private func calorieBarPalette(consumed: Int, goal: Int, burned: Int) -> (start: Color, end: Color) {
         let safeGoal = max(goal, 1)
-        let safeBurned = max(burned, safeGoal)
+        let safeBurned = max(burned, 1)
         let consumedValue = max(consumed, 0)
+        let isSurplus = safeGoal > safeBurned
+
+        if isSurplus {
+            if consumedValue < safeBurned {
+                let progress = safeBurned > 0 ? min(Double(consumedValue) / Double(safeBurned), 1.0) : 0
+                return (
+                    interpolateColor(from: UIColor.systemYellow, to: UIColor.systemYellow, progress: progress),
+                    interpolateColor(from: UIColor.systemOrange, to: UIColor.systemOrange, progress: progress)
+                )
+            }
+            if consumedValue <= safeGoal {
+                let range = max(safeGoal - safeBurned, 1)
+                let progress = min(Double(consumedValue - safeBurned) / Double(range), 1.0)
+                return (
+                    interpolateColor(from: UIColor.systemGreen, to: UIColor.systemGreen, progress: progress),
+                    interpolateColor(from: UIColor.systemMint, to: UIColor.systemTeal, progress: progress)
+                )
+            }
+            let overflow = min(Double(consumedValue - safeGoal) / Double(max(safeGoal, 1)), 1.0)
+            return (
+                interpolateColor(from: UIColor.systemRed, to: UIColor(red: 0.70, green: 0.12, blue: 0.18, alpha: 1.0), progress: overflow),
+                interpolateColor(from: UIColor.systemOrange, to: UIColor.systemRed, progress: overflow)
+            )
+        }
 
         if safeBurned == safeGoal {
             let progress = min(Double(consumedValue) / Double(safeGoal), 1.0)
@@ -3265,17 +3363,24 @@ struct ContentView: View {
                 .font(.headline.weight(.semibold))
                 .foregroundStyle(textPrimary)
 
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+            if nutrients.isEmpty {
                 reviewNutrientTile(
                     title: "Calories",
                     value: "\(scaledReviewCalories(item))"
                 )
-
-                ForEach(nutrients, id: \.key) { nutrient in
+            } else {
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                     reviewNutrientTile(
-                        title: nutrient.definition.name,
-                        value: "\(scaledReviewNutrientValue(for: nutrient.key, item: item)) \(nutrient.definition.unit)"
+                        title: "Calories",
+                        value: "\(scaledReviewCalories(item))"
                     )
+
+                    ForEach(nutrients, id: \.key) { nutrient in
+                        reviewNutrientTile(
+                            title: nutrient.definition.name,
+                            value: "\(scaledReviewNutrientValue(for: nutrient.key, item: item)) \(nutrient.definition.unit)"
+                        )
+                    }
                 }
             }
         }
@@ -3387,15 +3492,18 @@ struct ContentView: View {
             }
             dailyCalorieGoalArchive[currentCentralDay] = calorieGoal
             dailyBurnedCalorieArchive[currentCentralDay] = burnedCaloriesToday
+            dailyGoalTypeArchive[currentCentralDay] = goalType.rawValue
             saveDailyEntryArchive()
             saveDailyCalorieGoalArchive()
             saveDailyBurnedCalorieArchive()
+            saveDailyGoalTypeArchive()
         }
 
         if lastCentralDayIdentifier != currentCentralDay {
             dailyEntryArchive[lastCentralDayIdentifier] = normalizedEntries(entries)
             dailyCalorieGoalArchive[lastCentralDayIdentifier] = calorieGoalForDay(lastCentralDayIdentifier)
             dailyBurnedCalorieArchive[lastCentralDayIdentifier] = burnedCaloriesForDay(lastCentralDayIdentifier)
+            dailyGoalTypeArchive[lastCentralDayIdentifier] = goalType.rawValue
             lastCentralDayIdentifier = currentCentralDay
             entries = entries(forDayIdentifier: currentCentralDay)
             if dailyEntryArchive[currentCentralDay] == nil {
@@ -3403,10 +3511,12 @@ struct ContentView: View {
             }
             dailyCalorieGoalArchive[currentCentralDay] = calorieGoal
             dailyBurnedCalorieArchive[currentCentralDay] = burnedCaloriesToday
+            dailyGoalTypeArchive[currentCentralDay] = goalType.rawValue
             saveEntries()
             saveDailyEntryArchive()
             saveDailyCalorieGoalArchive()
             saveDailyBurnedCalorieArchive()
+            saveDailyGoalTypeArchive()
             selectedMenuItemQuantities.removeAll()
             selectedMenuItemMultipliers.removeAll()
             firebaseMenu = .empty
@@ -3635,13 +3745,10 @@ struct ContentView: View {
     }
 
     private func normalizeTrackingState() {
-        var valid = trackedNutrientKeys
+        let valid = trackedNutrientKeys
             .map { $0.lowercased() }
             .filter { !$0.isEmpty && !NutrientCatalog.nonTrackableKeys.contains($0) }
             .filter { !excludedNutrientKeys.contains($0) }
-        if valid.isEmpty {
-            valid = ["g_protein"]
-        }
         trackedNutrientKeys = Array(NSOrderedSet(array: valid)) as? [String] ?? valid
 
         for key in trackedNutrientKeys {
@@ -3697,6 +3804,7 @@ struct ContentView: View {
         entries = entries(forDayIdentifier: todayDayIdentifier)
         loadDailyCalorieGoalArchive()
         loadDailyBurnedCalorieArchive()
+        loadDailyGoalTypeArchive()
         syncCurrentDayGoalArchive()
         syncHistorySelection(preferToday: true)
         saveDailyEntryArchive()
@@ -3755,6 +3863,25 @@ struct ContentView: View {
             return
         }
         storedDailyBurnedCalorieArchiveData = String(decoding: data, as: UTF8.self)
+    }
+
+    private func loadDailyGoalTypeArchive() {
+        guard
+            !storedDailyGoalTypeArchiveData.isEmpty,
+            let data = storedDailyGoalTypeArchiveData.data(using: .utf8),
+            let decoded = try? JSONDecoder().decode([String: String].self, from: data)
+        else {
+            dailyGoalTypeArchive = [:]
+            return
+        }
+        dailyGoalTypeArchive = decoded
+    }
+
+    private func saveDailyGoalTypeArchive() {
+        guard let data = try? JSONEncoder().encode(dailyGoalTypeArchive) else {
+            return
+        }
+        storedDailyGoalTypeArchiveData = String(decoding: data, as: UTF8.self)
     }
 
     private func syncCurrentEntriesToArchive() {
@@ -3879,7 +4006,12 @@ struct ContentView: View {
         }
 
         let fallbackBurned = max(ContentView.fallbackAverageBMR, 1)
-        return max(fallbackBurned - deficitForDay(identifier), 1)
+        let amount = deficitForDay(identifier)
+        if goalTypeForDay(identifier) == .surplus {
+            return max(fallbackBurned + amount, 1)
+        } else {
+            return max(fallbackBurned - amount, 1)
+        }
     }
 
     private func burnedCaloriesForDay(_ identifier: String) -> Int {
@@ -3899,8 +4031,10 @@ struct ContentView: View {
     private func syncCurrentDayGoalArchive() {
         dailyCalorieGoalArchive[todayDayIdentifier] = calorieGoal
         dailyBurnedCalorieArchive[todayDayIdentifier] = burnedCaloriesToday
+        dailyGoalTypeArchive[todayDayIdentifier] = goalType.rawValue
         saveDailyCalorieGoalArchive()
         saveDailyBurnedCalorieArchive()
+        saveDailyGoalTypeArchive()
     }
 
     private func historySummary(for identifier: String) -> HistoryDaySummary {
@@ -3908,13 +4042,22 @@ struct ContentView: View {
         let total = dayEntries.reduce(0) { $0 + $1.calories }
         let date = date(fromCentralDayIdentifier: identifier) ?? currentCentralDate()
         let goal = calorieGoalForDay(identifier)
+        let burned = burnedCaloriesForDay(identifier)
+        let dayGoalType = goalTypeForDay(identifier)
+
+        let goalMet: Bool
+        if dayGoalType == .surplus {
+            goalMet = total > 0 && total >= burned && total <= goal
+        } else {
+            goalMet = total > 0 && total <= goal
+        }
 
         return HistoryDaySummary(
             dayIdentifier: identifier,
             date: date,
             totalCalories: total,
             entryCount: dayEntries.count,
-            goalMet: total > 0 && total <= goal
+            goalMet: goalMet
         )
     }
 
@@ -4237,6 +4380,8 @@ private struct DeficitGoalEditor: View {
 
 private struct ProfileGoalsView: View {
     @Binding var deficitCalories: Int
+    @Binding var goalTypeRaw: String
+    @Binding var surplusCalories: Int
     @Binding var useWeekendDeficit: Bool
     @Binding var weekendDeficitCalories: Int
     let trackedNutrientKeys: [String]
@@ -4320,13 +4465,29 @@ private struct ProfileGoalsView: View {
                 statPill(title: "Step Burn", value: "\(activeBurnedCaloriesToday) cal")
             }
 
-            DeficitGoalEditor(
-                deficitCalories: $deficitCalories,
-                title: "Deficit Goal",
-                subtitle: "Subtracted from burned calories",
-                helperText: nil,
-                accent: Color(red: 0.19, green: 0.52, blue: 1.0)
-            )
+            Picker("Goal Type", selection: $goalTypeRaw) {
+                Text("Deficit").tag("deficit")
+                Text("Surplus").tag("surplus")
+            }
+            .pickerStyle(.segmented)
+
+            if goalTypeRaw == "surplus" {
+                DeficitGoalEditor(
+                    deficitCalories: $surplusCalories,
+                    title: "Surplus Goal",
+                    subtitle: "Added to burned calories",
+                    helperText: nil,
+                    accent: Color(red: 0.19, green: 0.52, blue: 1.0)
+                )
+            } else {
+                DeficitGoalEditor(
+                    deficitCalories: $deficitCalories,
+                    title: "Deficit Goal",
+                    subtitle: "Subtracted from burned calories",
+                    helperText: nil,
+                    accent: Color(red: 0.19, green: 0.52, blue: 1.0)
+                )
+            }
 
             Toggle(isOn: $useWeekendDeficit) {
                 Text("Different goal on weekend")
@@ -4338,7 +4499,7 @@ private struct ProfileGoalsView: View {
             if useWeekendDeficit {
                 DeficitGoalEditor(
                     deficitCalories: $weekendDeficitCalories,
-                    title: "Weekend Deficit",
+                    title: goalTypeRaw == "surplus" ? "Weekend Surplus" : "Weekend Deficit",
                     subtitle: "Used on Saturday & Sunday",
                     helperText: nil,
                     accent: Color(red: 0.19, green: 0.52, blue: 1.0)
@@ -5070,20 +5231,44 @@ private struct QuickAddEditorView: View {
                                     .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
                             }
 
-                            labeledField("Calories") {
-                                TextField("Calories", text: $caloriesText)
-                                    .keyboardType(.numberPad)
-                                    .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
-                            }
+                            if editableNutrients.isEmpty {
+                                labeledField("Calories") {
+                                    TextField("Calories", text: $caloriesText)
+                                        .keyboardType(.numberPad)
+                                        .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
+                                }
+                            } else if editableNutrients.count.isMultiple(of: 2) {
+                                labeledField("Calories") {
+                                    TextField("Calories", text: $caloriesText)
+                                        .keyboardType(.numberPad)
+                                        .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
+                                }
 
-                            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                                ForEach(Array(editableNutrients.enumerated()), id: \.element.id) { index, nutrient in
-                                    labeledField("\(nutrient.name) (\(nutrient.unit))", spacing: 8) {
-                                        TextField("\(nutrient.name) (\(nutrient.unit))", text: nutrientBinding(for: nutrient.key))
-                                            .keyboardType(.numberPad)
-                                            .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
+                                Grid(horizontalSpacing: 12, verticalSpacing: 12) {
+                                    ForEach(Array(stride(from: 0, to: editableNutrients.count, by: 2)), id: \.self) { startIndex in
+                                        GridRow {
+                                            quickAddNutrientGridCell(at: startIndex)
+                                            quickAddNutrientGridCell(at: startIndex + 1)
+                                        }
                                     }
-                                    .gridCellColumns(editableNutrients.count.isMultiple(of: 2) == false && index == editableNutrients.count - 1 ? 2 : 1)
+                                }
+                            } else {
+                                Grid(horizontalSpacing: 12, verticalSpacing: 12) {
+                                    GridRow {
+                                        labeledField("Calories") {
+                                            TextField("Calories", text: $caloriesText)
+                                                .keyboardType(.numberPad)
+                                                .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
+                                        }
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        quickAddNutrientGridCell(at: 0)
+                                    }
+                                    ForEach(Array(stride(from: 1, to: editableNutrients.count, by: 2)), id: \.self) { startIndex in
+                                        GridRow {
+                                            quickAddNutrientGridCell(at: startIndex)
+                                            quickAddNutrientGridCell(at: startIndex + 1)
+                                        }
+                                    }
                                 }
                             }
 
@@ -5176,6 +5361,16 @@ private struct QuickAddEditorView: View {
                 quickAddUSDASearchSheet
             }
         }
+    }
+
+    private func quickAddNutrientGridCell(at index: Int) -> some View {
+        let nutrient = editableNutrients[index]
+        return labeledField("\(nutrient.name) (\(nutrient.unit))", spacing: 8) {
+            TextField("\(nutrient.name) (\(nutrient.unit))", text: nutrientBinding(for: nutrient.key))
+                .keyboardType(.numberPad)
+                .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var parsedCalories: Int? {
@@ -5672,14 +5867,19 @@ private struct EditMealEntrySheet: View {
                             .pickerStyle(.segmented)
                         }
 
-                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                            ForEach(Array(editableNutrients.enumerated()), id: \.element.id) { index, nutrient in
-                                labeledField("\(nutrient.name) (\(nutrient.unit))", spacing: 8) {
-                                    TextField("\(nutrient.name) (\(nutrient.unit))", text: nutrientBinding(for: nutrient.key))
-                                        .keyboardType(.numberPad)
-                                        .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
+                        if !editableNutrients.isEmpty {
+                            Grid(horizontalSpacing: 12, verticalSpacing: 12) {
+                                ForEach(Array(stride(from: 0, to: editableNutrients.count, by: 2)), id: \.self) { startIndex in
+                                    GridRow {
+                                        if startIndex + 1 < editableNutrients.count {
+                                            nutrientGridCell(at: startIndex)
+                                            nutrientGridCell(at: startIndex + 1)
+                                        } else {
+                                            nutrientGridCell(at: startIndex)
+                                                .gridCellColumns(2)
+                                        }
+                                    }
                                 }
-                                .gridCellColumns(shouldExpandLastNutrientField(at: index) ? 2 : 1)
                             }
                         }
 
@@ -5781,8 +5981,15 @@ private struct EditMealEntrySheet: View {
         }
     }
 
-    private func shouldExpandLastNutrientField(at index: Int) -> Bool {
-        editableNutrients.count.isMultiple(of: 2) == false && index == editableNutrients.count - 1
+    @ViewBuilder
+    private func nutrientGridCell(at index: Int) -> some View {
+        let nutrient = editableNutrients[index]
+        labeledField("\(nutrient.name) (\(nutrient.unit))", spacing: 8) {
+            TextField("\(nutrient.name) (\(nutrient.unit))", text: nutrientBinding(for: nutrient.key))
+                .keyboardType(.numberPad)
+                .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func parseInput(_ text: String) -> Int? {
@@ -6076,7 +6283,6 @@ private struct NutrientSelectionList: View {
         VStack(alignment: .leading, spacing: 12) {
             ForEach(availableNutrients) { nutrient in
                 let isSelected = selectedKeys.contains(nutrient.key)
-                let isLocked = isSelected && selectedKeys.count == 1
 
                 Button {
                     toggleSelection(for: nutrient.key)
@@ -6098,7 +6304,7 @@ private struct NutrientSelectionList: View {
                         }
 
                         Text(nutrient.name)
-                            .foregroundStyle(isLocked ? Color.white.opacity(0.7) : .primary)
+                            .foregroundStyle(.primary)
 
                         Spacer()
 
@@ -6116,11 +6322,9 @@ private struct NutrientSelectionList: View {
                     .padding(.vertical, 6)
                 }
                 .buttonStyle(.plain)
-                .disabled(isLocked)
-                .opacity(isLocked ? 0.82 : 1)
                 .accessibilityLabel("\(nutrient.name), \(isSelected ? "selected" : "not selected")")
                 .accessibilityAddTraits(isSelected ? .isSelected : [])
-                .accessibilityHint(isLocked ? "At least one nutrient must remain selected." : "Double tap to toggle selection.")
+                .accessibilityHint("Double tap to toggle selection.")
             }
         }
     }
@@ -6128,9 +6332,6 @@ private struct NutrientSelectionList: View {
     private func toggleSelection(for key: String) {
         if selectedKeys.contains(key) {
             trackedNutrientKeys.removeAll { $0 == key }
-            if trackedNutrientKeys.isEmpty {
-                trackedNutrientKeys = ["g_protein"]
-            }
         } else if !trackedNutrientKeys.contains(key) {
             trackedNutrientKeys.append(key)
         }
@@ -6184,6 +6385,8 @@ private struct AppSettingsTabView: View {
 private struct OnboardingFlowView: View {
     @Binding var currentPage: Int
     @Binding var deficitCalories: Int
+    @Binding var goalTypeRaw: String
+    @Binding var surplusCalories: Int
     @Binding var trackedNutrientKeys: [String]
     @Binding var nutrientGoals: [String: Int]
     let availableNutrients: [NutrientDefinition]
@@ -6203,7 +6406,7 @@ private struct OnboardingFlowView: View {
     private let pageCount = 4
 
     private var canFinish: Bool {
-        !trackedNutrientKeys.isEmpty
+        true
     }
 
     var body: some View {
@@ -6323,8 +6526,8 @@ private struct OnboardingFlowView: View {
                 )
                 welcomeFeatureCard(
                     icon: "target",
-                    title: "Set a deficit",
-                    detail: "Choose how aggressively your calorie goal is reduced.",
+                    title: "Deficit or surplus",
+                    detail: "Choose deficit to lose weight or surplus to gain. Set the daily amount.",
                     tint: accent
                 )
                 welcomeFeatureCard(
@@ -6392,20 +6595,39 @@ private struct OnboardingFlowView: View {
     }
 
     private var deficitSlide: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        let isSurplus = goalTypeRaw == "surplus"
+        return VStack(alignment: .leading, spacing: 18) {
             slideHeading(
                 eyebrow: "Slide 3 of 4",
-                title: "Set Your Deficit Goal",
-                detail: "This amount is subtracted from calories burned to create your daily intake target."
+                title: isSurplus ? "Set Your Surplus Goal" : "Set Your Deficit Goal",
+                detail: isSurplus
+                    ? "This amount is added to calories burned to create your daily intake target."
+                    : "This amount is subtracted from calories burned to create your daily intake target."
             )
 
-            DeficitGoalEditor(
-                deficitCalories: $deficitCalories,
-                title: "Daily deficit",
-                subtitle: "Common moderate range: 250-500 cal",
-                helperText: "You can change this later in Profile. The app allows any value from 0 to 2500 calories.",
-                accent: accent
-            )
+            Picker("Goal Type", selection: $goalTypeRaw) {
+                Text("Deficit").tag("deficit")
+                Text("Surplus").tag("surplus")
+            }
+            .pickerStyle(.segmented)
+
+            if !isSurplus {
+                DeficitGoalEditor(
+                    deficitCalories: $deficitCalories,
+                    title: "Daily deficit",
+                    subtitle: "Common moderate range: 250-500 cal",
+                    helperText: "You can change this later in Profile. The app allows any value from 0 to 2500 calories.",
+                    accent: accent
+                )
+            } else {
+                DeficitGoalEditor(
+                    deficitCalories: $surplusCalories,
+                    title: "Daily surplus",
+                    subtitle: "Common moderate range: 200-500 cal",
+                    helperText: "You can change this later in Profile. The app allows any value from 0 to 2500 calories.",
+                    accent: accent
+                )
+            }
         }
     }
 
@@ -6417,7 +6639,7 @@ private struct OnboardingFlowView: View {
                 detail: "Your selections determine which nutrient inputs, progress cards, and goals appear throughout the app."
             )
 
-            Text("You can change this later in Settings. At least one nutrient stays selected at all times.")
+            Text("You can change this later in Settings. Deselect all to track calories only.")
                 .font(.subheadline)
                 .foregroundStyle(textSecondary)
 

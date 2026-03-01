@@ -476,6 +476,8 @@ struct ContentView: View {
 
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
     @AppStorage("deficitCalories") private var storedDeficitCalories: Int = 500
+    @AppStorage("useWeekendDeficit") private var useWeekendDeficit: Bool = false
+    @AppStorage("weekendDeficitCalories") private var storedWeekendDeficitCalories: Int = 0
     @AppStorage("proteinGoal") private var legacyStoredProteinGoal: Int = 150
     @AppStorage("mealEntriesData") private var storedEntriesData: String = ""
     @AppStorage("trackedNutrientsData") private var storedTrackedNutrientsData: String = ""
@@ -632,6 +634,15 @@ struct ContentView: View {
     }
 
     private var deficitCalories: Int { min(max(storedDeficitCalories, 0), 2500) }
+    private var weekendDeficitCalories: Int { min(max(storedWeekendDeficitCalories, 0), 2500) }
+
+    private func deficitForDay(_ identifier: String) -> Int {
+        guard useWeekendDeficit else { return deficitCalories }
+        guard let date = date(fromCentralDayIdentifier: identifier) else { return deficitCalories }
+        let weekday = centralCalendar.component(.weekday, from: date)
+        let isWeekend = (weekday == 1) || (weekday == 7)
+        return isWeekend ? weekendDeficitCalories : deficitCalories
+    }
     private var resolvedBMRProfile: BMRProfile? { healthKitService.profile?.bmrProfile }
     private var activityCaloriesToday: Int {
         stepActivityService.estimatedCaloriesToday(profile: resolvedBMRProfile)
@@ -640,12 +651,13 @@ struct ContentView: View {
         let bmr = resolvedBMRProfile.flatMap(calculatedBMR(for:)) ?? ContentView.fallbackAverageBMR
 
         let burned = max(bmr + activityCaloriesToday, 1)
-        let goal = max(burned - deficitCalories, 1)
+        let deficit = deficitForDay(todayDayIdentifier)
+        let goal = max(burned - deficit, 1)
         return DailyCalorieModel(
             bmr: bmr,
             burned: burned,
             goal: goal,
-            deficit: deficitCalories,
+            deficit: deficit,
             usesBMR: resolvedBMRProfile != nil
         )
     }
@@ -957,6 +969,12 @@ struct ContentView: View {
                 handleHealthProfileChange(newProfile)
             }
             .onChange(of: storedDeficitCalories) { _, _ in
+                syncCurrentDayGoalArchive()
+            }
+            .onChange(of: useWeekendDeficit) { _, _ in
+                syncCurrentDayGoalArchive()
+            }
+            .onChange(of: storedWeekendDeficitCalories) { _, _ in
                 syncCurrentDayGoalArchive()
             }
             .onChange(of: stepActivityService.todayStepCount) { _, _ in
@@ -1551,6 +1569,8 @@ struct ContentView: View {
             Section {
                 ProfileGoalsView(
                     deficitCalories: $storedDeficitCalories,
+                    useWeekendDeficit: $useWeekendDeficit,
+                    weekendDeficitCalories: $storedWeekendDeficitCalories,
                     trackedNutrientKeys: trackedNutrientKeys,
                     nutrientGoals: $nutrientGoals,
                     healthAuthorizationState: healthKitService.authorizationState,
@@ -3859,7 +3879,7 @@ struct ContentView: View {
         }
 
         let fallbackBurned = max(ContentView.fallbackAverageBMR, 1)
-        return max(fallbackBurned - deficitCalories, 1)
+        return max(fallbackBurned - deficitForDay(identifier), 1)
     }
 
     private func burnedCaloriesForDay(_ identifier: String) -> Int {
@@ -4217,6 +4237,8 @@ private struct DeficitGoalEditor: View {
 
 private struct ProfileGoalsView: View {
     @Binding var deficitCalories: Int
+    @Binding var useWeekendDeficit: Bool
+    @Binding var weekendDeficitCalories: Int
     let trackedNutrientKeys: [String]
     @Binding var nutrientGoals: [String: Int]
     let healthAuthorizationState: HealthKitService.AuthorizationState
@@ -4305,6 +4327,23 @@ private struct ProfileGoalsView: View {
                 helperText: nil,
                 accent: Color(red: 0.19, green: 0.52, blue: 1.0)
             )
+
+            Toggle(isOn: $useWeekendDeficit) {
+                Text("Different goal on weekend")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+            }
+            .tint(Color(red: 0.19, green: 0.52, blue: 1.0))
+
+            if useWeekendDeficit {
+                DeficitGoalEditor(
+                    deficitCalories: $weekendDeficitCalories,
+                    title: "Weekend Deficit",
+                    subtitle: "Used on Saturday & Sunday",
+                    helperText: nil,
+                    accent: Color(red: 0.19, green: 0.52, blue: 1.0)
+                )
+            }
 
                 if healthAuthorizationState != .connected {
                     Button(action: onRequestHealthAccess) {

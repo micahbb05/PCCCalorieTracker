@@ -308,31 +308,6 @@ async function performUSDASearch(query: string) {
   return { status: 200, body: { foods } };
 }
 
-export const syncTodayMenuDaily = onSchedule(
-  {
-    schedule: "0 6 * * *",
-    timeZone: TIME_ZONE,
-    region: "us-central1"
-  },
-  async () => {
-    await syncMenu(new Date());
-  }
-);
-
-// Manual trigger endpoint for testing after deploy.
-export const syncTodayMenuNow = onRequest({ region: "us-central1" }, async (_req, res) => {
-  try {
-    const result = await syncMenu(new Date());
-    res.status(200).json({ ok: true, ...result });
-  } catch (error) {
-    logger.error("Manual menu sync failed", error);
-    res.status(500).json({
-      ok: false,
-      error: error instanceof Error ? error.message : "Unknown error"
-    });
-  }
-});
-
 export const searchUSDAFoods = onRequest({ region: "us-central1", secrets: [usdaApiKeySecret] }, async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
   res.set("Access-Control-Allow-Methods", "GET, OPTIONS");

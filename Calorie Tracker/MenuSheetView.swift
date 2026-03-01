@@ -617,7 +617,7 @@ struct MenuSheetView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text(item.name)
                     .font(.title3.weight(.bold))
-                Text("Base serve: \(formattedDisplayServingAmount(item.servingAmount, unit: item.servingUnit)) \(displayServingUnit(for: item.servingUnit))")
+                Text("Base serving size: \(formattedDisplayServingAmount(item.servingAmount, unit: item.servingUnit)) \(displayServingUnit(for: item.servingUnit))")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
@@ -632,7 +632,7 @@ struct MenuSheetView: View {
                     .frame(width: 96, height: 320)
 
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Serve")
+                        Text("Serving size")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
                         Text("\(formattedDisplayServingAmount(item.servingAmount * selectedMultiplierValue, unit: item.servingUnit)) \(displayServingUnit(for: item.servingUnit))")
@@ -665,7 +665,7 @@ struct MenuSheetView: View {
                 Button {
                     applySelectedMultiplier()
                 } label: {
-                    Text("Set Serve")
+                    Text("Set Serving Size")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
@@ -682,7 +682,7 @@ struct MenuSheetView: View {
                 )
                 .ignoresSafeArea()
             )
-            .navigationTitle("Serve")
+            .navigationTitle("Serving Size")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

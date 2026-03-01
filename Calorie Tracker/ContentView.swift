@@ -200,6 +200,8 @@ struct ContentView: View {
     @AppStorage("dailyCalorieGoalArchiveData") private var storedDailyCalorieGoalArchiveData: String = ""
     @AppStorage("dailyBurnedCalorieArchiveData") private var storedDailyBurnedCalorieArchiveData: String = ""
     @AppStorage("dailyExerciseArchiveData") private var storedDailyExerciseArchiveData: String = ""
+    @AppStorage("venueMenusData") private var storedVenueMenusData: String = ""
+    @AppStorage("venueMenuSignaturesData") private var storedVenueMenuSignaturesData: String = ""
     @AppStorage("quickAddFoodsData") private var storedQuickAddFoodsData: String = ""
 
     @State private var entries: [MealEntry] = []
@@ -244,12 +246,12 @@ struct ContentView: View {
     @State private var onboardingPage = 0
     @State private var hasRequestedHealthDuringOnboarding = false
 
-    @State private var firebaseMenu: NutrisliceMenu = .empty
+    @State private var venueMenus: [DiningVenue: NutrisliceMenu] = [:]
     @State private var selectedMenuItemQuantities: [String: Int] = [:]
     @State private var selectedMenuItemMultipliers: [String: Double] = [:]
     @State private var isMenuLoading = false
-    @State private var menuLoadError: String?
-    @State private var lastLoadedMenuSignature = ""
+    @State private var menuLoadErrorsByVenue: [DiningVenue: String] = [:]
+    @State private var lastLoadedMenuSignatureByVenue: [DiningVenue: String] = [:]
     @State private var isResetConfirmationPresented = false
     @State private var isKeyboardVisible = false
     @State private var keyboardHeight: CGFloat = 0
@@ -419,9 +421,17 @@ struct ContentView: View {
         AppIconChoice(rawValue: selectedAppIconChoiceRaw) ?? .standard
     }
 
+    private var currentMenu: NutrisliceMenu {
+        venueMenus[selectedMenuVenue] ?? .empty
+    }
+
+    private var currentMenuError: String? {
+        menuLoadErrorsByVenue[selectedMenuVenue]
+    }
+
     private var excludedNutrientKeys: Set<String> {
         let threshold = 0.95
-        let dynamic = Set<String>(firebaseMenu.nutrientNullRateByKey.compactMap { key, rate in
+        let dynamic = Set<String>(currentMenu.nutrientNullRateByKey.compactMap { key, rate in
             let normalized = key.lowercased()
             guard normalized != "g_protein", rate >= threshold else { return nil }
             return normalized
@@ -432,7 +442,7 @@ struct ContentView: View {
     private var availableNutrientKeys: [String] {
         var keys = Set<String>(NutrientCatalog.knownKeys)
 
-        for line in firebaseMenu.lines {
+        for line in currentMenu.lines {
             for item in line.items {
                 for key in item.nutrientValues.keys where !NutrientCatalog.nonTrackableKeys.contains(key.lowercased()) {
                     keys.insert(key.lowercased())
@@ -489,6 +499,33 @@ struct ContentView: View {
 
     private var primaryNutrient: NutrientDefinition {
         activeNutrients.first ?? NutrientCatalog.definition(for: "g_protein")
+    }
+
+    private func loadVenueMenus() {
+        if !storedVenueMenusData.isEmpty,
+           let data = storedVenueMenusData.data(using: .utf8),
+           let decoded = try? JSONDecoder().decode([DiningVenue: NutrisliceMenu].self, from: data) {
+            venueMenus = decoded
+        } else {
+            venueMenus = [:]
+        }
+
+        if !storedVenueMenuSignaturesData.isEmpty,
+           let data = storedVenueMenuSignaturesData.data(using: .utf8),
+           let decoded = try? JSONDecoder().decode([DiningVenue: String].self, from: data) {
+            lastLoadedMenuSignatureByVenue = decoded
+        } else {
+            lastLoadedMenuSignatureByVenue = [:]
+        }
+    }
+
+    private func saveVenueMenus() {
+        if let data = try? JSONEncoder().encode(venueMenus) {
+            storedVenueMenusData = String(decoding: data, as: UTF8.self)
+        }
+        if let data = try? JSONEncoder().encode(lastLoadedMenuSignatureByVenue) {
+            storedVenueMenuSignaturesData = String(decoding: data, as: UTF8.self)
+        }
     }
 
     private var totalCalories: Int { entries.reduce(0) { $0 + $1.calories } }
@@ -761,7 +798,7 @@ struct ContentView: View {
             .onChange(of: selectedAppIconChoiceRaw) { _, newValue in
                 AppIconManager.apply(AppIconChoice(rawValue: newValue) ?? .standard)
             }
-            .onChange(of: firebaseMenu) { _, _ in
+            .onChange(of: venueMenus) { _, _ in
                 normalizeTrackingState()
                 saveTrackingPreferences()
                 syncInputFieldsToTrackedNutrients()
@@ -884,14 +921,14 @@ struct ContentView: View {
 
     private var menuSheet: some View {
         MenuSheetView(
-            menu: firebaseMenu,
+            menu: currentMenu,
             venue: selectedMenuVenue,
             sourceTitle: selectedMenuVenue.title,
             mealTitle: menuService.currentMenuType().title,
             selectedItemQuantities: $selectedMenuItemQuantities,
             selectedItemMultipliers: $selectedMenuItemMultipliers,
             isLoading: isMenuLoading,
-            errorMessage: menuLoadError,
+            errorMessage: currentMenuError,
             onRetry: {
                 await loadMenuFromFirebase()
             },
@@ -948,6 +985,7 @@ struct ContentView: View {
         loadTrackingPreferences()
         loadDailyEntryArchive()
         loadQuickAddFoods()
+        loadVenueMenus()
         applyCentralTimeTransitions(forceMenuReload: false)
         syncInputFieldsToTrackedNutrients()
         AppIconManager.apply(selectedAppIconChoice)
@@ -1027,10 +1065,9 @@ struct ContentView: View {
     }
 
     private func updateKeyboardState(from notification: Notification) {
-        let screenHeight = UIScreen.main.bounds.height
         let endFrame = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect) ?? .zero
         let duration = (notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double) ?? 0.25
-        let visibleHeight = max(0, screenHeight - endFrame.minY)
+        let visibleHeight = max(0, endFrame.height)
 
         withAnimation(.easeOut(duration: duration)) {
             keyboardHeight = visibleHeight
@@ -3285,12 +3322,19 @@ struct ContentView: View {
     private func presentMenu(for venue: DiningVenue) {
         selectedMenuVenue = venue
         let signature = menuService.currentMenuSignature(for: venue)
-        if lastLoadedMenuSignature != signature {
-            firebaseMenu = .empty
-            menuLoadError = nil
+        let shouldLoadMenu = (venueMenus[venue] ?? .empty).lines.isEmpty
+            || lastLoadedMenuSignatureByVenue[venue] != signature
+            || menuLoadErrorsByVenue[venue] != nil
+
+        if lastLoadedMenuSignatureByVenue[venue] != signature {
+            venueMenus[venue] = .empty
+            menuLoadErrorsByVenue.removeValue(forKey: venue)
         }
+
+        isMenuLoading = shouldLoadMenu
         isMenuSheetPresented = true
-        if firebaseMenu.lines.isEmpty || lastLoadedMenuSignature != signature || menuLoadError != nil {
+
+        if shouldLoadMenu {
             Task {
                 await loadMenuFromFirebase(for: venue)
             }
@@ -3301,15 +3345,25 @@ struct ContentView: View {
     private func loadMenuFromFirebase(for venue: DiningVenue? = nil) async {
         let venue = venue ?? selectedMenuVenue
         isMenuLoading = true
-        menuLoadError = nil
+        menuLoadErrorsByVenue.removeValue(forKey: venue)
         do {
-            firebaseMenu = try await menuService.fetchTodayMenu(for: venue)
-            lastLoadedMenuSignature = menuService.currentMenuSignature(for: venue)
+            let menu = try await menuService.fetchTodayMenu(for: venue)
+            venueMenus[venue] = menu
+            lastLoadedMenuSignatureByVenue[venue] = menuService.currentMenuSignature(for: venue)
             selectedMenuItemQuantities.removeAll()
             selectedMenuItemMultipliers.removeAll()
+            saveVenueMenus()
         } catch {
-            menuLoadError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-            firebaseMenu = .empty
+            if let nutrisliceError = error as? NutrisliceMenuError,
+               case .noMenuAvailable = nutrisliceError {
+                // Treat "no menu" as a neutral state, not an error
+                venueMenus[venue] = .empty
+                menuLoadErrorsByVenue.removeValue(forKey: venue)
+            } else {
+                menuLoadErrorsByVenue[venue] = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                venueMenus[venue] = .empty
+            }
+            venueMenus[venue] = .empty
             selectedMenuItemQuantities.removeAll()
             selectedMenuItemMultipliers.removeAll()
         }
@@ -3319,12 +3373,16 @@ struct ContentView: View {
     @MainActor
     private func preloadMenuForNutrientDiscovery() async {
         let currentSignature = menuService.currentMenuSignature(for: selectedMenuVenue)
-        guard firebaseMenu.lines.isEmpty || lastLoadedMenuSignature != currentSignature else {
+        let existingMenu = currentMenu
+        let lastSignature = lastLoadedMenuSignatureByVenue[selectedMenuVenue]
+        guard existingMenu.lines.isEmpty || lastSignature != currentSignature else {
             return
         }
         do {
-            firebaseMenu = try await menuService.fetchTodayMenu(for: selectedMenuVenue)
-            lastLoadedMenuSignature = currentSignature
+            let menu = try await menuService.fetchTodayMenu(for: selectedMenuVenue)
+            venueMenus[selectedMenuVenue] = menu
+            lastLoadedMenuSignatureByVenue[selectedMenuVenue] = currentSignature
+            saveVenueMenus()
         } catch {
             // Keep this silent so startup does not show menu errors.
         }
@@ -3332,7 +3390,6 @@ struct ContentView: View {
 
     private func applyCentralTimeTransitions(forceMenuReload: Bool) {
         let currentCentralDay = menuService.currentCentralDayIdentifier()
-        let currentMenuSignature = menuService.currentMenuSignature(for: selectedMenuVenue)
 
         if lastCentralDayIdentifier.isEmpty {
             lastCentralDayIdentifier = currentCentralDay
@@ -3376,15 +3433,17 @@ struct ContentView: View {
             saveDailyGoalTypeArchive()
             selectedMenuItemQuantities.removeAll()
             selectedMenuItemMultipliers.removeAll()
-            firebaseMenu = .empty
-            lastLoadedMenuSignature = ""
-            menuLoadError = nil
+            venueMenus = [:]
+            lastLoadedMenuSignatureByVenue = [:]
+            menuLoadErrorsByVenue = [:]
+            saveVenueMenus()
             syncHistorySelection(preferToday: true)
         }
 
-        if forceMenuReload || (!firebaseMenu.lines.isEmpty && lastLoadedMenuSignature != currentMenuSignature) {
-            firebaseMenu = .empty
-            lastLoadedMenuSignature = ""
+        if forceMenuReload {
+            venueMenus = [:]
+            lastLoadedMenuSignatureByVenue = [:]
+            saveVenueMenus()
             Task {
                 await preloadMenuForNutrientDiscovery()
             }
@@ -3393,7 +3452,7 @@ struct ContentView: View {
 
     private func addSelectedMenuItems() {
         var itemByID: [String: MenuItem] = [:]
-        for item in firebaseMenu.lines.flatMap(\.items) {
+        for item in currentMenu.lines.flatMap(\.items) {
             if itemByID[item.id] == nil {
                 itemByID[item.id] = item
             }

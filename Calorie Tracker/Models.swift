@@ -170,18 +170,6 @@ enum ExerciseType: String, Codable, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let raw = try container.decode(String.self)
-        if raw == "walking" {
-            self = .swimming
-        } else if let value = ExerciseType(rawValue: raw) {
-            self = value
-        } else {
-            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid ExerciseType: \(raw)")
-        }
-    }
-
     var title: String {
         switch self {
         case .weightLifting: return "Weight Lifting"

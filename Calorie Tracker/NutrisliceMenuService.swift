@@ -1,6 +1,6 @@
 import Foundation
 
-enum DiningVenue: String, CaseIterable, Identifiable {
+enum DiningVenue: String, Codable, CaseIterable, Identifiable {
     case fourWinds
     case varsity
     case grabNGo
@@ -39,7 +39,7 @@ enum DiningVenue: String, CaseIterable, Identifiable {
     }
 }
 
-struct MenuItem: Identifiable, Hashable {
+struct MenuItem: Identifiable, Hashable, Codable {
     let id: String
     let name: String
     let calories: Int
@@ -52,13 +52,13 @@ struct MenuItem: Identifiable, Hashable {
     }
 }
 
-struct MenuLine: Identifiable, Hashable {
+struct MenuLine: Identifiable, Hashable, Codable {
     let id: String
     let name: String
     let items: [MenuItem]
 }
 
-struct NutrisliceMenu: Hashable {
+struct NutrisliceMenu: Hashable, Codable {
     let lines: [MenuLine]
     let nutrientNullRateByKey: [String: Double]
 

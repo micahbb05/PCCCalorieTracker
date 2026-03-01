@@ -3,11 +3,11 @@ import SwiftUI
 struct QuickAddMenuImportView: View {
     @Environment(\.dismiss) private var dismiss
 
-    let menu: NutrisliceMenu
+    @Binding var menu: NutrisliceMenu
     let sourceTitle: String
     let mealTitle: String
-    let isLoading: Bool
-    let errorMessage: String?
+    @Binding var isLoading: Bool
+    @Binding var errorMessage: String?
     let surfacePrimary: Color
     let surfaceSecondary: Color
     let textPrimary: Color
@@ -122,7 +122,7 @@ struct QuickAddMenuImportView: View {
                                 )
                             }
                         } else if filteredLines.isEmpty {
-                            statusCard(title: "No menu items available", message: "Today's menu has not been published yet.") {
+                            statusCard(title: "Menu not available yet", message: "Today's menu hasn't been published yet for this venue.") {
                                 EmptyView()
                             }
                         } else {
@@ -139,7 +139,7 @@ struct QuickAddMenuImportView: View {
                 }
             }
             .onAppear {
-                expandedLineIDs = Set(menu.lines.map(\.id))
+                expandedLineIDs = []
             }
         }
     }

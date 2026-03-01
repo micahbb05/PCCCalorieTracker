@@ -32,6 +32,10 @@ struct QuickAddEditorView: View {
     @State private var usdaSearchError: String?
     @State private var usdaSearchDebounceTask: Task<Void, Never>?
 
+    // Shared PCC menu storage (same as main app)
+    @AppStorage("venueMenusData") private var storedVenueMenusData: String = ""
+    @AppStorage("venueMenuSignaturesData") private var storedVenueMenuSignaturesData: String = ""
+
     private let menuService = NutrisliceMenuService()
     private let openFoodFactsService = OpenFoodFactsService()
     private let usdaFoodService = USDAFoodService()
@@ -276,11 +280,11 @@ struct QuickAddEditorView: View {
             }
             .sheet(isPresented: $isMenuImportPresented) {
                 QuickAddMenuImportView(
-                    menu: importedMenu,
+                    menu: $importedMenu,
                     sourceTitle: selectedMenuVenue.title,
                     mealTitle: menuService.currentMenuType().title,
-                    isLoading: isMenuLoading,
-                    errorMessage: menuLoadError,
+                    isLoading: $isMenuLoading,
+                    errorMessage: $menuLoadError,
                     surfacePrimary: surfacePrimary,
                     surfaceSecondary: surfaceSecondary,
                     textPrimary: textPrimary,
@@ -399,12 +403,51 @@ struct QuickAddEditorView: View {
         isMenuLoading = true
         menuLoadError = nil
         isMenuImportPresented = true
+        // Decode existing shared menus and signatures
+        var menus = decodedVenueMenus()
+        var signatures = decodedVenueMenuSignatures()
+        let currentSignature = menuService.currentMenuSignature(for: venue)
+
+        if let cached = menus[venue],
+           let lastSignature = signatures[venue],
+           lastSignature == currentSignature,
+           !cached.lines.isEmpty {
+            // Use cached menu for this venue
+            importedMenu = cached
+            isMenuLoading = false
+            return
+        }
+
+        func performFetch() async throws {
+            let menu = try await menuService.fetchTodayMenu(for: venue)
+            importedMenu = menu
+            menus[venue] = menu
+            signatures[venue] = currentSignature
+            encodeVenueMenus(menus, signatures: signatures)
+        }
 
         do {
-            importedMenu = try await menuService.fetchTodayMenu(for: venue)
+            try await performFetch()
         } catch {
-            importedMenu = .empty
-            menuLoadError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            // If Nutrislice reports "no menu available" but we have no cache yet,
+            // retry once before surfacing the error – this avoids the "first tap
+            // shows no menu, second tap works" glitch.
+            if let nutrisliceError = error as? NutrisliceMenuError,
+               case .noMenuAvailable = nutrisliceError,
+               (menus[venue]?.lines.isEmpty ?? true) {
+                do {
+                    try await Task.sleep(nanoseconds: 300_000_000) // 0.3s backoff
+                    try await performFetch()
+                    isMenuLoading = false
+                    return
+                } catch {
+                    importedMenu = menus[venue] ?? .empty
+                    menuLoadError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                }
+            } else {
+                importedMenu = menus[venue] ?? .empty
+                menuLoadError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            }
         }
 
         isMenuLoading = false
@@ -430,6 +473,39 @@ struct QuickAddEditorView: View {
             hasScannedBarcodeInCurrentSheet = false
             barcodeLookupError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             Haptics.notification(.warning)
+        }
+    }
+
+    // MARK: - Shared PCC menu storage helpers
+
+    private func decodedVenueMenus() -> [DiningVenue: NutrisliceMenu] {
+        guard
+            !storedVenueMenusData.isEmpty,
+            let data = storedVenueMenusData.data(using: .utf8),
+            let decoded = try? JSONDecoder().decode([DiningVenue: NutrisliceMenu].self, from: data)
+        else {
+            return [:]
+        }
+        return decoded
+    }
+
+    private func decodedVenueMenuSignatures() -> [DiningVenue: String] {
+        guard
+            !storedVenueMenuSignaturesData.isEmpty,
+            let data = storedVenueMenuSignaturesData.data(using: .utf8),
+            let decoded = try? JSONDecoder().decode([DiningVenue: String].self, from: data)
+        else {
+            return [:]
+        }
+        return decoded
+    }
+
+    private func encodeVenueMenus(_ menus: [DiningVenue: NutrisliceMenu], signatures: [DiningVenue: String]) {
+        if let data = try? JSONEncoder().encode(menus) {
+            storedVenueMenusData = String(decoding: data, as: UTF8.self)
+        }
+        if let data = try? JSONEncoder().encode(signatures) {
+            storedVenueMenuSignaturesData = String(decoding: data, as: UTF8.self)
         }
     }
 

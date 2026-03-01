@@ -6386,22 +6386,26 @@ private struct OnboardingFlowView: View {
     private var footer: some View {
         HStack(spacing: 12) {
             if currentPage > 0 {
-                Button("Back") {
+                Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         currentPage = max(currentPage - 1, 0)
                     }
+                } label: {
+                    Text("Back")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(Color.white.opacity(0.06))
+                        )
+                        .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 }
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(textSecondary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color.white.opacity(0.06))
-                )
+                .buttonStyle(.plain)
             }
 
-            Button(currentPage == pageCount - 1 ? "Finish" : "Continue") {
+            Button {
                 if currentPage == pageCount - 1 {
                     onFinish()
                 } else {
@@ -6409,16 +6413,19 @@ private struct OnboardingFlowView: View {
                         currentPage = min(currentPage + 1, pageCount - 1)
                     }
                 }
+            } label: {
+                Text(currentPage == pageCount - 1 ? "Finish" : "Continue")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(accent)
+                    )
+                    .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
             .buttonStyle(.plain)
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(accent)
-            )
             .disabled(currentPage == pageCount - 1 && !canFinish)
             .opacity(currentPage == pageCount - 1 && !canFinish ? 0.6 : 1)
         }

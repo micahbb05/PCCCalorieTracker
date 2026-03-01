@@ -40,33 +40,29 @@ enum USDAFoodError: LocalizedError {
 }
 
 final class USDAFoodService {
+    private struct SearchRequestErrorResponse: Decodable {
+        let error: String?
+    }
+
     private struct SearchResponse: Decodable {
         struct Food: Decodable {
-            struct FoodNutrient: Decodable {
-                let nutrientNumber: String?
-                let nutrientName: String?
-                let unitName: String?
-                let value: Double?
-            }
-
             let fdcId: Int
-            let description: String
-            let brandOwner: String?
-            let brandName: String?
-            let servingSize: Double?
-            let servingSizeUnit: String?
-            let householdServingFullText: String?
-            let foodNutrients: [FoodNutrient]?
+            let name: String
+            let brand: String?
+            let calories: Int
+            let nutrientValues: [String: Int]
+            let servingAmount: Double
+            let servingUnit: String
+            let servingDescription: String?
         }
 
         let foods: [Food]
     }
 
-    private let apiKey: String
+    private let backendBaseURL: URL
 
-    init(apiKey: String? = nil) {
-        let bundledKey = Bundle.main.object(forInfoDictionaryKey: "USDA_API_KEY") as? String
-        self.apiKey = apiKey ?? bundledKey ?? "DEMO_KEY"
+    init(backendBaseURL: URL? = nil) {
+        self.backendBaseURL = backendBaseURL ?? URL(string: "https://us-central1-calorie-tracker-364e3.cloudfunctions.net")!
     }
 
     func searchFoods(query: String) async throws -> [USDAFoodSearchResult] {
@@ -75,13 +71,11 @@ final class USDAFoodService {
             throw USDAFoodError.invalidQuery
         }
 
-        guard var components = URLComponents(string: "https://api.nal.usda.gov/fdc/v1/foods/search") else {
+        guard var components = URLComponents(url: backendBaseURL.appendingPathComponent("searchUSDAFoods"), resolvingAgainstBaseURL: false) else {
             throw USDAFoodError.invalidURL
         }
         components.queryItems = [
-            URLQueryItem(name: "api_key", value: apiKey),
-            URLQueryItem(name: "query", value: trimmed),
-            URLQueryItem(name: "pageSize", value: "15")
+            URLQueryItem(name: "query", value: trimmed)
         ]
         guard let url = components.url else {
             throw USDAFoodError.invalidURL
@@ -103,6 +97,13 @@ final class USDAFoodService {
             throw USDAFoodError.invalidPayload
         }
         guard (200...299).contains(httpResponse.statusCode) else {
+            if let decodedError = try? JSONDecoder().decode(SearchRequestErrorResponse.self, from: data),
+               let message = decodedError.error?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !message.isEmpty {
+                throw NSError(domain: "USDAFoodService", code: httpResponse.statusCode, userInfo: [
+                    NSLocalizedDescriptionKey: message
+                ])
+            }
             throw USDAFoodError.fetchFailed(statusCode: httpResponse.statusCode)
         }
 
@@ -121,80 +122,25 @@ final class USDAFoodService {
     }
 
     private func mapFood(_ food: SearchResponse.Food) -> USDAFoodSearchResult? {
-        let nutrientValues = mapNutrients(food.foodNutrients ?? [])
-        let calories = nutrientValues["calories"] ?? 0
+        let nutrientValues = food.nutrientValues
+        let calories = max(food.calories, 0)
 
         guard calories > 0 || nutrientValues.contains(where: { $0.key != "calories" && $0.value > 0 }) else {
             return nil
         }
 
-        let servingDescription = food.householdServingFullText?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .nilIfEmpty
-        let servingAmount = normalizedServingAmount(food.servingSize, servingDescription: servingDescription)
-        let servingUnit = normalizedServingUnit(food.servingSizeUnit, servingDescription: servingDescription)
-        let brand = [food.brandOwner, food.brandName]
-            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty }
-            .first
-
         return USDAFoodSearchResult(
             fdcId: food.fdcId,
-            name: food.description.trimmingCharacters(in: .whitespacesAndNewlines),
-            brand: brand,
+            name: food.name.trimmingCharacters(in: .whitespacesAndNewlines),
+            brand: food.brand?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
             calories: calories,
             nutrientValues: nutrientValues.filter { $0.key != "calories" },
-            servingAmount: servingAmount,
-            servingUnit: servingUnit,
-            servingDescription: servingDescription
+            servingAmount: max(food.servingAmount, 0),
+            servingUnit: food.servingUnit.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+            servingDescription: food.servingDescription?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
         )
     }
 
-    private func normalizedServingAmount(_ servingSize: Double?, servingDescription: String?) -> Double {
-        if let servingSize, servingSize > 0 {
-            return servingSize
-        }
-        return servingDescription == nil ? 100.0 : 1.0
-    }
-
-    private func normalizedServingUnit(_ unit: String?, servingDescription: String?) -> String {
-        let trimmed = unit?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if !trimmed.isEmpty {
-            return trimmed.lowercased()
-        }
-        return servingDescription == nil ? "g" : "serving"
-    }
-
-    private func mapNutrients(_ nutrients: [SearchResponse.Food.FoodNutrient]) -> [String: Int] {
-        var mapped: [String: Int] = [:]
-
-        func set(_ key: String, from numbers: Set<String>) {
-            guard let value = nutrients.first(where: { numbers.contains($0.nutrientNumber ?? "") })?.value,
-                  value >= 0 else {
-                return
-            }
-            mapped[key] = Int(value.rounded())
-        }
-
-        set("calories", from: ["208"])
-        set("g_protein", from: ["203"])
-        set("g_fat", from: ["204"])
-        set("g_carbs", from: ["205"])
-        set("g_fiber", from: ["291"])
-        set("g_sugar", from: ["269"])
-        set("mg_calcium", from: ["301"])
-        set("mg_iron", from: ["303"])
-        set("mg_potassium", from: ["306"])
-        set("mg_sodium", from: ["307"])
-        set("iu_vitamin_a", from: ["318"])
-        set("mcg_vitamin_a", from: ["320"])
-        set("mg_vitamin_c", from: ["401"])
-        set("mg_cholesterol", from: ["601"])
-        set("g_trans_fat", from: ["605"])
-        set("g_saturated_fat", from: ["606"])
-        set("mcg_vitamin_d", from: ["328"])
-
-        return mapped
-    }
 }
 
 private extension String {

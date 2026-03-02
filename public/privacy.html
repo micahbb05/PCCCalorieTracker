@@ -105,7 +105,7 @@
 
   <main>
     <h1>Privacy Policy</h1>
-    <p class="updated">Last updated: March 1, 2025</p>
+    <p class="updated">Last updated: March 1, 2026</p>
 
     <p>Calorie Tracker ("the App") is designed with privacy in mind. This policy describes what data the App collects, how it is used, and how it is protected. The App complies with Apple's App Store privacy requirements and best practices.</p>
 
@@ -135,7 +135,11 @@
     <p>With your permission, the App may read your step count from the device's pedometer to estimate activity burn and adjust your daily calorie goal. Step data stays on your device and is not transmitted.</p>
 
     <h2>4. Camera</h2>
-    <p>When you use barcode scanning, the camera is used to read barcodes. Images are processed on-device; no photos or video are stored or transmitted.</p>
+    <p>The App uses the camera for two features:</p>
+    <ul>
+      <li><strong>Barcode scanning</strong> — The camera is used to read barcodes. Images are processed on-device; no photos or video are stored or transmitted for this feature.</li>
+      <li><strong>Plate photos for AI portion estimates</strong> — When you use the plate estimate feature, the app captures a photo of your plate, converts it to an image file, and sends it to our backend so that Google Gemini can estimate portions. The photo is used only to provide this feature and is not linked to an account or profile.</li>
+    </ul>
 
     <h2>5. Data Sent to External Services</h2>
     <p>The App makes limited network requests for features:</p>
@@ -143,10 +147,11 @@
       <li><strong>USDA Food Search</strong> — When you search for foods, your search query is sent to our backend, which proxies the request to USDA FoodData Central. No account or identifying information is sent.</li>
       <li><strong>Open Food Facts</strong> — When you scan a barcode, the barcode number is sent to Open Food Facts to retrieve nutrition data. No other data is included.</li>
       <li><strong>PCC Dining (Nutrislice)</strong> — The App fetches today's dining menu directly from PCC Dining's Nutrislice API. No personal data is included in these requests.</li>
+      <li><strong>Plate portion AI (Google Gemini)</strong> — When you use the plate estimate feature, the app sends the plate photo plus the names, calories, and serving sizes of the menu items you selected to our backend. The backend calls Google Gemini to estimate ounces or counts for each item. We do not attach your name, email, or account identifier to these requests. Data is used only to return portion estimates.</li>
     </ul>
 
     <h2>6. Analytics & Tracking</h2>
-    <p>The App does not use third-party analytics, advertising, or tracking. We do not collect or sell your data.</p>
+    <p>The App does not use third-party analytics, advertising, or tracking. We do not collect or sell your data. Our backend and Google Gemini may log technical details (such as error messages or timestamps) needed to operate the service, but we do not build behavioral profiles or show ads.</p>
 
     <h2>7. Children</h2>
     <p>The App is not directed at children under 13. We do not knowingly collect personal information from children.</p>

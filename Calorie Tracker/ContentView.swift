@@ -203,6 +203,9 @@ struct ContentView: View {
     @AppStorage("venueMenusData") private var storedVenueMenusData: String = ""
     @AppStorage("venueMenuSignaturesData") private var storedVenueMenuSignaturesData: String = ""
     @AppStorage("quickAddFoodsData") private var storedQuickAddFoodsData: String = ""
+    /// When true, Gemini can override ambiguous base servings (e.g. \"1 each\" entrees) with its inferred base oz.
+    /// When false, base servings always come from the menu's serving size.
+    @AppStorage("useAIBaseServings") private var useAIBaseServings: Bool = true
 
     @State private var entries: [MealEntry] = []
     @State private var exercises: [ExerciseEntry] = []
@@ -258,6 +261,11 @@ struct ContentView: View {
     @State private var collapsedMealGroups: Set<MealGroup> = []
     @State private var isExerciseSectionCollapsed = false
     @State private var isAddExerciseSheetPresented = false
+    @State private var plateEstimateItems: [MenuItem]?
+    @State private var plateEstimateOzByItemId: [String: Double] = [:]
+    @State private var plateEstimateBaseOzByItemId: [String: Double] = [:]
+    @State private var isPlateEstimateLoading = false
+    @State private var plateEstimateErrorMessage: String?
 
     @FocusState private var focusedField: Field?
     @StateObject private var stepActivityService = StepActivityService()
@@ -597,8 +605,9 @@ struct ContentView: View {
 
     private func graphPoints(dayCount: Int) -> [CalorieGraphPoint] {
         let today = centralCalendar.startOfDay(for: Date())
+        // Use completed days only: last `dayCount` days, excluding today
         return (0..<dayCount).compactMap { offset in
-            guard let date = centralCalendar.date(byAdding: .day, value: -((dayCount - 1) - offset), to: today) else {
+            guard let date = centralCalendar.date(byAdding: .day, value: -(dayCount - offset), to: today) else {
                 return nil
             }
             let identifier = centralDayIdentifier(for: date)
@@ -624,12 +633,20 @@ struct ContentView: View {
         return (average: average, highest: highest, goalHitCount: goalHits)
     }
 
-    private var netCalorieSummary: (net: Int, consumed: Int, burned: Int) {
+    private var netCalorieSummary: (net: Int, hasData: Bool) {
         let identifiers = dayIdentifiers(forLast: netHistoryRange.dayCount)
             .filter { dailyCalories(for: $0) > 0 }
-        let consumed = identifiers.reduce(0) { $0 + dailyCalories(for: $1) }
-        let burned = identifiers.reduce(0) { $0 + burnedCaloriesForDay($1) }
-        return (net: consumed - burned, consumed: consumed, burned: burned)
+        guard !identifiers.isEmpty else {
+            return (net: 0, hasData: false)
+        }
+
+        let dayCount = identifiers.count
+        let totalConsumed = identifiers.reduce(0) { $0 + dailyCalories(for: $1) }
+        let totalBurned = identifiers.reduce(0) { $0 + burnedCaloriesForDay($1) }
+        let totalNet = totalConsumed - totalBurned
+        let averageNet = Int((Double(totalNet) / Double(dayCount)).rounded())
+
+        return (net: averageNet, hasData: true)
     }
 
     private var historyAverageMealDistribution: [(group: MealGroup, calories: Int)] {
@@ -934,8 +951,50 @@ struct ContentView: View {
             },
             onAddSelected: {
                 addSelectedMenuItems()
+            },
+            onPhotoPlate: { items, imageData in
+                handlePhotoPlate(items: items, imageData: imageData)
+            },
+            plateEstimateItems: $plateEstimateItems,
+            plateEstimateOzByItemId: $plateEstimateOzByItemId,
+            plateEstimateBaseOzByItemId: plateEstimateBaseOzByItemId,
+            mealGroup: mealGroup(for: menuService.currentMenuType(now: Date())),
+            onPlateEstimateConfirm: { pairs in
+                addMenuItemsWithPortions(pairs)
+                plateEstimateItems = nil
+                plateEstimateOzByItemId = [:]
+                plateEstimateBaseOzByItemId = [:]
+                isMenuSheetPresented = false
+                clearMenuSelection()
+            },
+            onPlateEstimateDismiss: {
+                plateEstimateItems = nil
+                plateEstimateOzByItemId = [:]
+                plateEstimateBaseOzByItemId = [:]
             }
         )
+        .fullScreenCover(isPresented: $isPlateEstimateLoading) {
+            ZStack {
+                Color.black.opacity(0.7)
+                    .ignoresSafeArea()
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .scaleEffect(1.2)
+                        .tint(.white)
+                    Text("Estimating portions…")
+                        .font(.headline.weight(.medium))
+                        .foregroundStyle(.white)
+                }
+            }
+            .interactiveDismissDisabled()
+        }
+        .alert("Portion estimate failed", isPresented: Binding(get: { plateEstimateErrorMessage != nil }, set: { if !$0 { plateEstimateErrorMessage = nil } })) {
+            Button("OK", role: .cancel) {
+                plateEstimateErrorMessage = nil
+            }
+        } message: {
+            Text(plateEstimateErrorMessage ?? "Unknown error")
+        }
     }
 
     private var quickAddManagerSheet: some View {
@@ -1429,7 +1488,8 @@ struct ContentView: View {
                 AppSettingsTabView(
                     trackedNutrientKeys: $trackedNutrientKeys,
                     availableNutrients: availableNutrients,
-                    selectedAppIconChoiceRaw: $selectedAppIconChoiceRaw
+                    selectedAppIconChoiceRaw: $selectedAppIconChoiceRaw,
+                    useAIBaseServings: $useAIBaseServings
                 )
             }
             .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 4, trailing: 0))
@@ -1993,10 +2053,10 @@ struct ContentView: View {
         return VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Net Calorie Intake")
+                    Text("Net Average Intake")
                         .font(.headline.weight(.semibold))
                         .foregroundStyle(textPrimary)
-                    Text("Consumed minus estimated calories burned.")
+                    Text("Average daily difference between consumed and burned.")
                         .font(.caption)
                         .foregroundStyle(textSecondary)
                 }
@@ -2033,18 +2093,17 @@ struct ContentView: View {
                 }
             }
 
-            Text(signedCalorieString(summary.net))
-                .font(.system(size: 40, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(netColor)
-
-            HStack(spacing: 12) {
-                statTile(title: "Consumed", value: summary.consumed.formatted(), detail: "calories")
-                statTile(title: "Burned", value: summary.burned.formatted(), detail: "BMR + active")
-                statTile(title: "Status", value: netCalorieStatus(summary.net), detail: netHistoryRange.title.lowercased())
-            }
-
-            if summary.consumed == 0 {
+            if summary.hasData {
+                (
+                    Text("\(netSign(summary.net))\(abs(summary.net).formatted())")
+                        .font(.system(size: 40, weight: .bold, design: .rounded))
+                        .foregroundStyle(netColor)
+                    +
+                    Text(" cal/day")
+                        .font(.system(size: 40, weight: .bold, design: .rounded))
+                        .foregroundStyle(textPrimary)
+                )
+            } else {
                 Text("No logged days in this range.")
                     .font(.caption)
                     .foregroundStyle(textSecondary)
@@ -2443,6 +2502,11 @@ struct ContentView: View {
         }
     }
 
+    /// Vivid bar colors so the calorie state is obvious at a glance.
+    private static let barGreen = Color(red: 0.22, green: 0.78, blue: 0.35)
+    private static let barYellow = Color(red: 1.0, green: 0.76, blue: 0.12)
+    private static let barRed = Color(red: 0.95, green: 0.26, blue: 0.21)
+
     private func calorieBarPalette(consumed: Int, goal: Int, burned: Int) -> (start: Color, end: Color) {
         let safeGoal = max(goal, 1)
         let safeBurned = max(burned, 1)
@@ -2451,56 +2515,26 @@ struct ContentView: View {
 
         if isSurplus {
             if consumedValue < safeBurned {
-                let progress = safeBurned > 0 ? min(Double(consumedValue) / Double(safeBurned), 1.0) : 0
-                return (
-                    interpolateColor(from: UIColor.systemYellow, to: UIColor.systemYellow, progress: progress),
-                    interpolateColor(from: UIColor.systemOrange, to: UIColor.systemOrange, progress: progress)
-                )
+                return (Self.barYellow, Self.barYellow)
             }
             if consumedValue <= safeGoal {
-                let range = max(safeGoal - safeBurned, 1)
-                let progress = min(Double(consumedValue - safeBurned) / Double(range), 1.0)
-                return (
-                    interpolateColor(from: UIColor.systemGreen, to: UIColor.systemGreen, progress: progress),
-                    interpolateColor(from: UIColor.systemMint, to: UIColor.systemTeal, progress: progress)
-                )
+                return (Self.barGreen, Self.barGreen)
             }
-            let overflow = min(Double(consumedValue - safeGoal) / Double(max(safeGoal, 1)), 1.0)
-            return (
-                interpolateColor(from: UIColor.systemRed, to: UIColor(red: 0.70, green: 0.12, blue: 0.18, alpha: 1.0), progress: overflow),
-                interpolateColor(from: UIColor.systemOrange, to: UIColor.systemRed, progress: overflow)
-            )
+            return (Self.barRed, Self.barRed)
         }
 
         if safeBurned == safeGoal {
-            let progress = min(Double(consumedValue) / Double(safeGoal), 1.0)
-            return (
-                interpolateColor(from: UIColor.systemGreen, to: UIColor.systemRed, progress: progress),
-                interpolateColor(from: UIColor.systemMint, to: UIColor.systemOrange, progress: progress)
-            )
+            if consumedValue <= safeGoal { return (Self.barGreen, Self.barGreen) }
+            return (Self.barRed, Self.barRed)
         }
 
         if consumedValue <= safeGoal {
-            let progress = min(Double(consumedValue) / Double(safeGoal), 1.0)
-            return (
-                interpolateColor(from: UIColor.systemGreen, to: UIColor.systemYellow, progress: progress),
-                interpolateColor(from: UIColor.systemMint, to: UIColor.systemOrange, progress: progress)
-            )
+            return (Self.barGreen, Self.barGreen)
         }
-
         if consumedValue <= safeBurned {
-            let progress = min(Double(consumedValue - safeGoal) / Double(max(safeBurned - safeGoal, 1)), 1.0)
-            return (
-                interpolateColor(from: UIColor.systemYellow, to: UIColor.systemOrange, progress: progress),
-                interpolateColor(from: UIColor.systemOrange, to: UIColor.systemRed.withAlphaComponent(0.82), progress: progress)
-            )
+            return (Self.barYellow, Self.barYellow)
         }
-
-        let overflow = min(Double(consumedValue - safeBurned) / Double(max(safeBurned, 1)), 1.0)
-        return (
-            interpolateColor(from: UIColor.systemRed, to: UIColor(red: 0.70, green: 0.12, blue: 0.18, alpha: 1.0), progress: overflow),
-            interpolateColor(from: UIColor.systemOrange, to: UIColor.systemRed, progress: overflow)
-        )
+        return (Self.barRed, Self.barRed)
     }
 
     @ViewBuilder
@@ -3408,8 +3442,21 @@ struct ContentView: View {
         }
 
         if lastCentralDayIdentifier != currentCentralDay {
-            dailyEntryArchive[lastCentralDayIdentifier] = normalizedEntries(entries)
-            dailyExerciseArchive[lastCentralDayIdentifier] = exercises
+            // When the app crosses midnight while running, `entries` and `exercises` still contain
+            // the previous day's data and should be archived under `lastCentralDayIdentifier`.
+            // On a cold start the next day, however, we load today's (empty) entries before
+            // calling this method. In that case we *must not* overwrite a non-empty archive
+            // for the previous day with an empty array.
+            let existingLastEntries = dailyEntryArchive[lastCentralDayIdentifier] ?? []
+            if !(entries.isEmpty && !existingLastEntries.isEmpty) {
+                dailyEntryArchive[lastCentralDayIdentifier] = normalizedEntries(entries)
+            }
+
+            let existingLastExercises = dailyExerciseArchive[lastCentralDayIdentifier] ?? []
+            if !(exercises.isEmpty && !existingLastExercises.isEmpty) {
+                dailyExerciseArchive[lastCentralDayIdentifier] = exercises
+            }
+
             dailyCalorieGoalArchive[lastCentralDayIdentifier] = calorieGoalForDay(lastCentralDayIdentifier)
             dailyBurnedCalorieArchive[lastCentralDayIdentifier] = burnedCaloriesForDay(lastCentralDayIdentifier)
             dailyGoalTypeArchive[lastCentralDayIdentifier] = goalType.rawValue
@@ -3497,6 +3544,81 @@ struct ContentView: View {
         selectedMenuItemQuantities.removeAll()
         selectedMenuItemMultipliers.removeAll()
         isMenuSheetPresented = false
+        selectedTab = .today
+    }
+
+    private func handlePhotoPlate(items: [MenuItem], imageData: Data) {
+        isPlateEstimateLoading = true
+        plateEstimateErrorMessage = nil
+        Task {
+            do {
+                let service = GeminiPlateEstimateService()
+                let result = try await service.estimatePortions(imageData: imageData, items: items)
+                let ozByName = result.ozByName
+                let countByName = result.countByName
+                let baseOzByName = result.baseOzByName
+                await MainActor.run {
+                    var ozById: [String: Double] = [:]
+                    var baseOzById: [String: Double] = [:]
+                    for item in items {
+                        let unit = item.servingUnit.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                        let ambiguousUnit = unit.isEmpty || unit == "serving" || unit == "servings" || unit == "each" || unit == "ea" || unit == "item"
+                        // Missing or zero = not on plate. Count-based items use quantity; others use oz.
+                        if item.isCountBased {
+                            ozById[item.id] = Double(countByName[item.name] ?? 0)
+                        } else {
+                            ozById[item.id] = ozByName[item.name] ?? 0
+                            // Only let Gemini override base serving when:
+                            // 1) The user has enabled AI base servings in Settings, and
+                            // 2) The menu unit is ambiguous ("1 each", "1 serving", etc).
+                            // For explicit weights/volumes like cups/oz/g, or when the toggle is off,
+                            // keep the Nutrislice base serving instead of Gemini's.
+                            if useAIBaseServings, ambiguousUnit, let base = baseOzByName[item.name] {
+                                baseOzById[item.id] = base
+                            }
+                        }
+                    }
+                    plateEstimateItems = items
+                    plateEstimateOzByItemId = ozById
+                    plateEstimateBaseOzByItemId = baseOzById
+                    isPlateEstimateLoading = false
+                }
+            } catch {
+                await MainActor.run {
+                    plateEstimateErrorMessage = error.localizedDescription
+                    isPlateEstimateLoading = false
+                }
+            }
+        }
+    }
+
+    private func addMenuItemsWithPortions(_ pairs: [(item: MenuItem, oz: Double, baseOz: Double)]) {
+        let now = Date()
+        let mealGrp = mealGroup(for: menuService.currentMenuType(now: now))
+        var expandedSelections: [MealEntry] = []
+        for (item, oz, baseOz) in pairs {
+            let multiplier: Double = item.isCountBased ? oz : (baseOz > 0 ? (oz / baseOz) : 1.0)
+            var scaledNutrients: [String: Int] = [:]
+            for (key, value) in item.nutrientValues {
+                scaledNutrients[key] = Int((Double(value) * multiplier).rounded())
+            }
+            let scaledCalories = Int((Double(item.calories) * multiplier).rounded())
+            expandedSelections.append(
+                MealEntry(
+                    id: UUID(),
+                    name: item.name,
+                    calories: scaledCalories,
+                    nutrientValues: scaledNutrients,
+                    createdAt: now,
+                    mealGroup: mealGrp
+                )
+            )
+        }
+        guard !expandedSelections.isEmpty else { return }
+        withAnimation(.easeInOut(duration: 0.25)) {
+            entries.append(contentsOf: expandedSelections)
+        }
+        Haptics.notification(.success)
         selectedTab = .today
     }
 
@@ -4019,35 +4141,48 @@ struct ContentView: View {
 
     private func dayIdentifiers(forLast dayCount: Int) -> [String] {
         let today = centralCalendar.startOfDay(for: Date())
+        // Use completed days only: last `dayCount` days, excluding today
         return (0..<dayCount).compactMap { offset in
-            centralCalendar.date(byAdding: .day, value: -((dayCount - 1) - offset), to: today)
+            centralCalendar.date(byAdding: .day, value: -(dayCount - offset), to: today)
                 .map { centralDayIdentifier(for: $0) }
         }
     }
 
     private func netCalorieColor(_ net: Int) -> Color {
-        if net > 500 {
-            return .red
+        switch goalType {
+        case .deficit:
+            // Negative net = deficit, positive = surplus
+            if net >= 0 {
+                // At or above maintenance while aiming for a deficit
+                return .red
+            }
+            let deficit = -net
+            if deficit >= storedDeficitCalories {
+                // At or beyond target deficit
+                return .green
+            } else {
+                // In a deficit but smaller than target
+                return .yellow
+            }
+        case .surplus:
+            // Positive net = surplus, negative = unintended deficit
+            if net < 0 {
+                return .red
+            }
+            if net <= storedSurplusCalories {
+                // Within target surplus range
+                return .green
+            } else {
+                // Surplus larger than goal
+                return .red
+            }
         }
-        if net < -500 {
-            return .green
-        }
-        return .yellow
     }
 
-    private func netCalorieStatus(_ net: Int) -> String {
-        if net > 500 {
-            return "Over"
-        }
-        if net < -500 {
-            return "Under"
-        }
-        return "Near Even"
-    }
-
-    private func signedCalorieString(_ value: Int) -> String {
-        let prefix = value > 0 ? "+" : ""
-        return "\(prefix)\(value.formatted()) cal"
+    private func netSign(_ net: Int) -> String {
+        if net > 0 { return "+" }
+        if net < 0 { return "-" }
+        return ""
     }
 
     private func interpolateColor(from: UIColor, to: UIColor, progress: Double) -> Color {

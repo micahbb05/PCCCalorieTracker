@@ -4,6 +4,7 @@ struct AppSettingsTabView: View {
     @Binding var trackedNutrientKeys: [String]
     let availableNutrients: [NutrientDefinition]
     @Binding var selectedAppIconChoiceRaw: String
+    @Binding var useAIBaseServings: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -19,6 +20,25 @@ struct AppSettingsTabView: View {
                     trackedNutrientKeys: $trackedNutrientKeys,
                     availableNutrients: availableNutrients
                 )
+            }
+
+            Divider()
+                .overlay(Color.secondary.opacity(0.18))
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("AI Plate Estimates")
+                    .font(.headline.weight(.semibold))
+
+                Toggle(isOn: $useAIBaseServings) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Let AI adjust base servings")
+                            .font(.subheadline.weight(.medium))
+                        Text("Only affects AI plate estimates for items with unclear menu units like \"serving\" or \"each.\" When on, AI can infer the base serving. When off, the menu serving is used.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .toggleStyle(SwitchToggleStyle(tint: .accentColor))
             }
 
             Divider()

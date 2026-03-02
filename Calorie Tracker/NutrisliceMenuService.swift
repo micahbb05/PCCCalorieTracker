@@ -50,6 +50,50 @@ struct MenuItem: Identifiable, Hashable, Codable {
     var protein: Int {
         nutrientValues["g_protein"] ?? 0
     }
+
+    /// True only for items unambiguously sold by count (cookies, chips, pieces, slices). Excludes generic "serving"/"item"/"each" so entrees like orange chicken use oz.
+    var isCountBased: Bool {
+        let u = servingUnit.trimmingCharacters(in: .whitespaces).lowercased()
+        let n = name.trimmingCharacters(in: .whitespaces).lowercased()
+        if ["piece", "pieces", "slice", "slices"].contains(u) { return true }
+        if n.contains("cookie") || n.contains("chips") || n.hasSuffix(" chip") { return true }
+        return false
+    }
+
+    /// Base serving size in oz (for portion scaling). Count-based items return 1. Shared by plate estimate preview and add-to-log.
+    var servingOzForPortions: Double {
+        if isCountBased { return 1.0 }
+        let unit = servingUnit.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let amount = max(servingAmount, 0.0)
+        if unit == "g" || unit == "gram" || unit == "grams" { return amount / 28.3495 }
+        if unit.contains("oz") { return amount > 0 ? amount : 4.0 }
+        if unit.contains("cup") { return (amount > 0 ? amount : 1.0) * 8.0 }
+        if unit.contains("tbsp") || unit.contains("tablespoon") { return (amount > 0 ? amount : 1.0) * 0.5 }
+        if unit.contains("tsp") || unit.contains("teaspoon") { return (amount > 0 ? amount : 1.0) * (1.0 / 6.0) }
+        if unit.isEmpty || unit == "serving" || unit == "servings" || unit == "each" || unit == "ea"
+            || unit == "piece" || unit == "pieces" || unit == "item" || unit == "slice" || unit == "slices" {
+            return inferredBaseOzFromCalories
+        }
+        return inferredBaseOzFromCalories
+    }
+
+    /// Infers base oz from calories when serving is unclear (e.g. "1 each"). Uses cal/oz by food type.
+    private var inferredBaseOzFromCalories: Double {
+        guard calories > 0 else { return 4.0 }
+        let n = name.trimmingCharacters(in: .whitespaces).lowercased()
+        let calPerOz: Double
+        if n.contains("chicken") || n.contains("beef") || n.contains("pork") || n.contains("meat") || n.contains("fish") || n.contains("protein") {
+            calPerOz = 50  // dense protein ~50–60 cal/oz
+        } else if n.contains("rice") || n.contains("pasta") || n.contains("grain") || n.contains("noodle") {
+            calPerOz = 35  // rice/grains ~35–40 cal/oz
+        } else if n.contains("sauce") || n.contains("gravy") || n.contains("dressing") {
+            calPerOz = 25  // sauces ~15–25 cal/oz
+        } else {
+            calPerOz = 40  // generic mixed dish
+        }
+        let oz = Double(calories) / calPerOz
+        return max(0.25, min(oz, 20.0))
+    }
 }
 
 struct MenuLine: Identifiable, Hashable, Codable {
@@ -381,7 +425,12 @@ final class NutrisliceMenuService {
     private func parseServingAmount(_ input: String?) -> Double {
         let trimmed = (input ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return 1.0 }
-        let normalized = trimmed.replacingOccurrences(of: ",", with: ".")
+
+        // Nutrislice sometimes includes units in the amount field (e.g. "113g", "4 oz").
+        // Extract the first numeric token and parse it.
+        let numericRange = trimmed.range(of: #"[-+]?\d+(?:[.,]\d+)?"#, options: .regularExpression)
+        let numericToken = numericRange.map { String(trimmed[$0]) } ?? trimmed
+        let normalized = numericToken.replacingOccurrences(of: ",", with: ".")
         return Double(normalized).flatMap { $0 > 0 ? $0 : nil } ?? 1.0
     }
 

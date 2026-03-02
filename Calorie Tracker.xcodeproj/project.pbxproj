@@ -184,6 +184,7 @@
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Calorie Tracker reads your Health data to personalize your calorie estimates.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Calorie Tracker requests Health access so it can read your profile data to personalize calorie estimates. It does not write Health data.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "Calorie Tracker uses your step count to adjust your daily calorie goal.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Calorie Tracker uses your photo library to estimate portion sizes from a plate photo.";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
@@ -246,6 +247,7 @@
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Calorie Tracker reads your Health data to personalize your calorie estimates.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Calorie Tracker requests Health access so it can read your profile data to personalize calorie estimates. It does not write Health data.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "Calorie Tracker uses your step count to adjust your daily calorie goal.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Calorie Tracker uses your photo library to estimate portion sizes from a plate photo.";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -275,6 +277,7 @@
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Calorie Tracker reads your Health data to personalize your calorie estimates.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Calorie Tracker requests Health access so it can read your profile data to personalize calorie estimates. It does not write Health data.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "Calorie Tracker uses your step count to adjust your daily calorie goal.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Calorie Tracker uses your photo library to estimate portion sizes from a plate photo.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -284,7 +287,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.4;
+				MARKETING_VERSION = 1.71;
 				PRODUCT_BUNDLE_IDENTIFIER = "Micah.Calorie-Tracker";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -317,6 +320,7 @@
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Calorie Tracker reads your Health data to personalize your calorie estimates.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Calorie Tracker requests Health access so it can read your profile data to personalize calorie estimates. It does not write Health data.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "Calorie Tracker uses your step count to adjust your daily calorie goal.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Calorie Tracker uses your photo library to estimate portion sizes from a plate photo.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -326,7 +330,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.4;
+				MARKETING_VERSION = 1.71;
 				PRODUCT_BUNDLE_IDENTIFIER = "Micah.Calorie-Tracker";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

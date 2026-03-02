@@ -20,8 +20,18 @@ struct MenuSheetView: View {
     let errorMessage: String?
     let onRetry: () async -> Void
     let onAddSelected: () -> Void
+    let onPhotoPlate: (([MenuItem], Data) -> Void)?
+    @Binding var plateEstimateItems: [MenuItem]?
+    @Binding var plateEstimateOzByItemId: [String: Double]
+    let plateEstimateBaseOzByItemId: [String: Double]
+    let mealGroup: MealGroup
+    let onPlateEstimateConfirm: ([(MenuItem, oz: Double, baseOz: Double)]) -> Void
+    let onPlateEstimateDismiss: () -> Void
 
     @State private var isRetrying = false
+    @State private var showImagePickerSource = false
+    @State private var imagePickerSource: PlateImagePickerView.Source = .camera
+    @State private var showImagePicker = false
     @State private var expandedLineIDs: Set<String> = []
     @State private var searchText = ""
     @State private var multiplierSheetContext: MultiplierSheetContext?
@@ -59,6 +69,20 @@ struct MenuSheetView: View {
 
     private var selectedCount: Int {
         selectedItemQuantities.values.reduce(0, +)
+    }
+
+    private var selectedMenuItems: [MenuItem] {
+        let ids = Set(selectedItemQuantities.filter { $0.value > 0 }.map(\.key))
+        let allSelected = menu.lines.flatMap(\.items).filter { ids.contains($0.id) }
+
+        // Only one card per food name on the plate estimate screen.
+        var seenNames = Set<String>()
+        return allSelected.filter { item in
+            let key = item.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if seenNames.contains(key) { return false }
+            seenNames.insert(key)
+            return true
+        }
     }
 
     private var filteredLines: [MenuLine] {
@@ -106,6 +130,45 @@ struct MenuSheetView: View {
             multiplierSheetContext = nil
         }) { context in
             multiplierSheet(item: context.item)
+        }
+        .confirmationDialog("AI portion estimation", isPresented: $showImagePickerSource, titleVisibility: .visible) {
+            Button("Use camera") {
+                imagePickerSource = .camera
+                showImagePicker = true
+            }
+            Button("Choose from library") {
+                imagePickerSource = .photoLibrary
+                showImagePicker = true
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Add a plate photo from camera or library.")
+        }
+        .fullScreenCover(isPresented: $showImagePicker) {
+            PlateImagePickerView(source: imagePickerSource, onPicked: { data in
+                showImagePicker = false
+                let items = selectedMenuItems
+                if !items.isEmpty {
+                    onPhotoPlate?(items, data)
+                }
+            }, onCancel: {
+                showImagePicker = false
+            })
+        }
+        .fullScreenCover(isPresented: Binding(
+            get: { plateEstimateItems != nil },
+            set: { if !$0 { onPlateEstimateDismiss() } }
+        )) {
+            if let items = plateEstimateItems {
+                PlateEstimateResultView(
+                    items: items,
+                    ozByItemId: $plateEstimateOzByItemId,
+                    baseOzByItemId: plateEstimateBaseOzByItemId,
+                    mealGroup: mealGroup,
+                    onConfirm: onPlateEstimateConfirm,
+                    onDismiss: onPlateEstimateDismiss
+                )
+            }
         }
     }
 
@@ -191,7 +254,7 @@ struct MenuSheetView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Menu")
-                    .font(.system(size: 30, weight: .bold, design: .rounded))
+                    .font(.system(size: 36, weight: .bold, design: .rounded))
                     .foregroundStyle(textPrimary)
                 Text("\(sourceTitle) • \(mealTitle)")
                     .font(.subheadline)
@@ -374,56 +437,95 @@ struct MenuSheetView: View {
 
     private var bottomCTA: some View {
         VStack(spacing: 0) {
-            Button {
-                isSearchFocused = false
-                dismissKeyboard()
-                guard selectedCount > 0 else {
-                    Haptics.notification(.warning)
-                    return
-                }
-                Haptics.impact(.medium)
-                onAddSelected()
-            } label: {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Add Selected")
-                            .font(.headline.weight(.semibold))
-                        Text("\(selectedCount) item\(selectedCount == 1 ? "" : "s") ready")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.78))
+            GeometryReader { geo in
+                let spacing: CGFloat = 12
+                let quarterWidth = (geo.size.width - spacing) / 4
+                HStack(spacing: spacing) {
+                    // Show AI plate photo capture only for Four Winds and Varsity, not Grab N Go.
+                    if onPhotoPlate != nil && venue != .grabNGo {
+                        Button {
+                            isSearchFocused = false
+                            dismissKeyboard()
+                            guard selectedCount > 0 else {
+                                Haptics.notification(.warning)
+                                return
+                            }
+                            Haptics.impact(.light)
+                            showImagePickerSource = true
+                        } label: {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 22, weight: .semibold))
+                                .foregroundStyle(selectedCount == 0 || isLoading || errorMessage != nil ? textSecondary : .white)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 52)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                        .fill(selectedCount == 0 || isLoading || errorMessage != nil ? surfaceSecondary.opacity(0.98) : accent.opacity(0.9))
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                        .stroke(textSecondary.opacity(selectedCount == 0 ? 0.18 : 0), lineWidth: 1)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(selectedCount == 0 || isLoading || errorMessage != nil)
+                        .frame(width: quarterWidth)
                     }
 
-                    Spacer()
+                    Button {
+                    isSearchFocused = false
+                    dismissKeyboard()
+                    guard selectedCount > 0 else {
+                        Haptics.notification(.warning)
+                        return
+                    }
+                    Haptics.impact(.medium)
+                    onAddSelected()
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Add Selected")
+                                .font(.headline.weight(.semibold))
+                            Text("\(selectedCount) item\(selectedCount == 1 ? "" : "s") ready")
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.78))
+                        }
 
-                    Text("\(selectedCount)")
-                        .font(.headline.monospacedDigit())
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(
-                            Capsule(style: .continuous)
-                                .fill(.white.opacity(0.14))
-                        )
+                        Spacer()
+
+                        Text("\(selectedCount)")
+                            .font(.headline.monospacedDigit())
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(
+                                Capsule(style: .continuous)
+                                    .fill(.white.opacity(0.14))
+                            )
+                    }
+                    .foregroundStyle(.white)
+                    .frame(height: 52)
+                    .padding(.horizontal, 18)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(selectedCount == 0 || isLoading || errorMessage != nil ? surfaceSecondary.opacity(0.98) : accent)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(
+                                selectedCount == 0 || isLoading || errorMessage != nil
+                                    ? textSecondary.opacity(0.18)
+                                    : accent.opacity(0.0),
+                                lineWidth: 1
+                            )
+                    )
                 }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 18)
-                .padding(.vertical, 16)
-                .background(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .fill(selectedCount == 0 || isLoading || errorMessage != nil ? surfaceSecondary.opacity(0.98) : accent)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .stroke(
-                            selectedCount == 0 || isLoading || errorMessage != nil
-                                ? textSecondary.opacity(0.18)
-                                : accent.opacity(0.0),
-                            lineWidth: 1
-                        )
-                )
+                .buttonStyle(.plain)
+                .disabled(selectedCount == 0 || isLoading || errorMessage != nil)
+                .frame(maxWidth: .infinity)
+                }
             }
-            .buttonStyle(.plain)
-            .disabled(selectedCount == 0 || isLoading || errorMessage != nil)
+            .frame(height: 60)
         }
         .padding(.horizontal, 16)
         .padding(.top, 10)

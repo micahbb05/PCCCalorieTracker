@@ -23,11 +23,11 @@ enum MealGroup: String, Codable, CaseIterable, Identifiable {
 
     var logSortRank: Int {
         switch self {
-        case .dinner:
+        case .breakfast:
             return 0
         case .lunch:
             return 1
-        case .breakfast:
+        case .dinner:
             return 2
         case .snack:
             return 3
@@ -35,7 +35,7 @@ enum MealGroup: String, Codable, CaseIterable, Identifiable {
     }
 
     static var logDisplayOrder: [MealGroup] {
-        [dinner, lunch, breakfast, snack]
+        [breakfast, lunch, dinner, snack]
     }
 }
 

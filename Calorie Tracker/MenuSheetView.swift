@@ -27,6 +27,7 @@ struct MenuSheetView: View {
     let mealGroup: MealGroup
     let onPlateEstimateConfirm: ([(MenuItem, oz: Double, baseOz: Double)]) -> Void
     let onPlateEstimateDismiss: () -> Void
+    let onVenueChange: (DiningVenue) -> Void
 
     @State private var isRetrying = false
     @State private var showImagePickerSource = false
@@ -114,6 +115,7 @@ struct MenuSheetView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     header
+                    venuePicker
                     searchCard
                     content
                 }
@@ -271,6 +273,37 @@ struct MenuSheetView: View {
                 Text("selected")
                     .font(.caption.weight(.medium))
                     .foregroundStyle(textSecondary)
+            }
+        }
+    }
+
+    private var venuePicker: some View {
+        HStack(spacing: 8) {
+            ForEach(DiningVenue.allCases) { v in
+                let isSelected = v == venue
+                Button {
+                    if !isSelected {
+                        Haptics.selection()
+                        onVenueChange(v)
+                    }
+                } label: {
+                    Text(v.title)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(isSelected ? .white : textSecondary)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(isSelected ? accent : surfacePrimary.opacity(0.6))
+                )
+                .overlay(
+                    Capsule(style: .continuous)
+                        .stroke(isSelected ? Color.clear : textSecondary.opacity(0.2), lineWidth: 1)
+                )
             }
         }
     }
@@ -439,39 +472,8 @@ struct MenuSheetView: View {
         VStack(spacing: 0) {
             GeometryReader { geo in
                 let spacing: CGFloat = 12
-                let quarterWidth = (geo.size.width - spacing) / 4
+                let aiButtonWidth: CGFloat = 56
                 HStack(spacing: spacing) {
-                    // Show AI plate photo capture only for Four Winds and Varsity, not Grab N Go.
-                    if onPhotoPlate != nil && venue != .grabNGo {
-                        Button {
-                            isSearchFocused = false
-                            dismissKeyboard()
-                            guard selectedCount > 0 else {
-                                Haptics.notification(.warning)
-                                return
-                            }
-                            Haptics.impact(.light)
-                            showImagePickerSource = true
-                        } label: {
-                            Image(systemName: "sparkles")
-                                .font(.system(size: 22, weight: .semibold))
-                                .foregroundStyle(selectedCount == 0 || isLoading || errorMessage != nil ? textSecondary : .white)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 52)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                        .fill(selectedCount == 0 || isLoading || errorMessage != nil ? surfaceSecondary.opacity(0.98) : accent.opacity(0.9))
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                        .stroke(textSecondary.opacity(selectedCount == 0 ? 0.18 : 0), lineWidth: 1)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(selectedCount == 0 || isLoading || errorMessage != nil)
-                        .frame(width: quarterWidth)
-                    }
-
                     Button {
                     isSearchFocused = false
                     dismissKeyboard()
@@ -523,6 +525,42 @@ struct MenuSheetView: View {
                 .buttonStyle(.plain)
                 .disabled(selectedCount == 0 || isLoading || errorMessage != nil)
                 .frame(maxWidth: .infinity)
+
+                    // Show AI plate photo capture only for Four Winds and Varsity, not Grab N Go. Placed to the right of Add Selected.
+                    if onPhotoPlate != nil && venue != .grabNGo {
+                        Button {
+                            isSearchFocused = false
+                            dismissKeyboard()
+                            guard selectedCount > 0 else {
+                                Haptics.notification(.warning)
+                                return
+                            }
+                            Haptics.impact(.light)
+                            showImagePickerSource = true
+                        } label: {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 22, weight: .semibold))
+                                .foregroundStyle(selectedCount == 0 || isLoading || errorMessage != nil ? textSecondary : .white)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 52)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                        .fill(selectedCount == 0 || isLoading || errorMessage != nil ? surfaceSecondary.opacity(0.98) : accent)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                        .stroke(
+                                            selectedCount == 0 || isLoading || errorMessage != nil
+                                                ? textSecondary.opacity(0.18)
+                                                : Color.clear,
+                                            lineWidth: 1
+                                        )
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(selectedCount == 0 || isLoading || errorMessage != nil)
+                        .frame(width: aiButtonWidth)
+                    }
                 }
             }
             .frame(height: 60)

@@ -28,6 +28,7 @@ struct MenuSheetView: View {
     let onPlateEstimateConfirm: ([(MenuItem, oz: Double, baseOz: Double)]) -> Void
     let onPlateEstimateDismiss: () -> Void
     let onVenueChange: (DiningVenue) -> Void
+    let onClose: (() -> Void)?
 
     @State private var isRetrying = false
     @State private var showImagePickerSource = false
@@ -112,19 +113,27 @@ struct MenuSheetView: View {
             )
             .ignoresSafeArea()
 
-            ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 18) {
                     header
                     venuePicker
-                    searchCard
-                    content
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 28)
-                .padding(.bottom, 132)
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        searchCard
+                        content
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 132)
+                }
+                .scrollIndicators(.hidden)
+                .scrollDismissesKeyboard(.interactively)
             }
-            .scrollIndicators(.hidden)
         }
+        .ignoresSafeArea(.keyboard, edges: .bottom)
         .safeAreaInset(edge: .bottom) {
             bottomCTA
         }
@@ -235,24 +244,28 @@ struct MenuSheetView: View {
 
     private var header: some View {
         HStack(alignment: .top, spacing: 14) {
-            Button {
-                Haptics.selection()
-                dismiss()
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(textPrimary)
-                    .frame(width: 42, height: 42)
-                    .background(
-                        Circle()
-                            .fill(surfacePrimary.opacity(0.94))
-                    )
-                    .overlay(
-                        Circle()
-                            .stroke(textSecondary.opacity(0.16), lineWidth: 1)
-                    )
+            if let onClose {
+                Button {
+                    Haptics.selection()
+                    onClose()
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(textPrimary)
+                        .frame(width: 42, height: 42)
+                        .background(
+                            Circle()
+                                .fill(surfacePrimary.opacity(0.94))
+                        )
+                        .overlay(
+                            Circle()
+                                .stroke(textSecondary.opacity(0.16), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+            } else {
+                EmptyView()
             }
-            .buttonStyle(.plain)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Menu")
@@ -265,14 +278,24 @@ struct MenuSheetView: View {
 
             Spacer()
 
-            VStack(alignment: .trailing, spacing: 4) {
-                Text("\(selectedCount)")
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
-                    .foregroundStyle(textPrimary)
-                    .monospacedDigit()
-                Text("selected")
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(textSecondary)
+            if onClose == nil {
+                HStack(spacing: 10) {
+                    if onPhotoPlate != nil && venue != .grabNGo {
+                        compactAIButton
+                    }
+
+                    compactAddSelectedButton
+                }
+            } else {
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("\(selectedCount)")
+                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .foregroundStyle(textPrimary)
+                        .monospacedDigit()
+                    Text("selected")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(textSecondary)
+                }
             }
         }
     }
@@ -469,7 +492,11 @@ struct MenuSheetView: View {
     }
 
     private var bottomCTA: some View {
-        VStack(spacing: 0) {
+        guard onClose != nil else {
+            return AnyView(EmptyView())
+        }
+
+        return AnyView(VStack(spacing: 0) {
             GeometryReader { geo in
                 let spacing: CGFloat = 12
                 let aiButtonWidth: CGFloat = 56
@@ -579,7 +606,86 @@ struct MenuSheetView: View {
                 )
             }
             .ignoresSafeArea(edges: .bottom)
-        )
+        ))
+    }
+
+    private var compactAddSelectedButton: some View {
+        Button {
+            isSearchFocused = false
+            dismissKeyboard()
+            guard selectedCount > 0 else {
+                Haptics.notification(.warning)
+                return
+            }
+            Haptics.impact(.medium)
+            onAddSelected()
+        } label: {
+            HStack(spacing: 8) {
+                Text("Add")
+                    .font(.subheadline.weight(.semibold))
+
+                Text("\(selectedCount)")
+                    .font(.caption.weight(.bold))
+                    .monospacedDigit()
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(.white.opacity(0.14))
+                    )
+            }
+            .foregroundStyle(selectedCount == 0 || isLoading || errorMessage != nil ? textSecondary : .white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(selectedCount == 0 || isLoading || errorMessage != nil ? surfaceSecondary.opacity(0.98) : accent)
+            )
+            .overlay(
+                Capsule(style: .continuous)
+                    .stroke(
+                        selectedCount == 0 || isLoading || errorMessage != nil
+                            ? textSecondary.opacity(0.18)
+                            : Color.clear,
+                        lineWidth: 1
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(selectedCount == 0 || isLoading || errorMessage != nil)
+    }
+
+    private var compactAIButton: some View {
+        Button {
+            isSearchFocused = false
+            dismissKeyboard()
+            guard selectedCount > 0 else {
+                Haptics.notification(.warning)
+                return
+            }
+            Haptics.impact(.light)
+            showImagePickerSource = true
+        } label: {
+            Image(systemName: "sparkles")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(selectedCount == 0 || isLoading || errorMessage != nil ? textSecondary : .white)
+                .frame(width: 40, height: 40)
+                .background(
+                    Circle()
+                        .fill(selectedCount == 0 || isLoading || errorMessage != nil ? surfaceSecondary.opacity(0.98) : accent)
+                )
+                .overlay(
+                    Circle()
+                        .stroke(
+                            selectedCount == 0 || isLoading || errorMessage != nil
+                                ? textSecondary.opacity(0.18)
+                                : Color.clear,
+                            lineWidth: 1
+                        )
+                )
+        }
+        .buttonStyle(.plain)
+        .disabled(selectedCount == 0 || isLoading || errorMessage != nil)
     }
 
     private func quantity(for id: String) -> Int {

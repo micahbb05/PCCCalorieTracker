@@ -90,6 +90,46 @@ struct ContentView: View {
         case pccMenu(NutrisliceMenuService.MenuType)
     }
 
+    private enum AddDestination: String, CaseIterable, Identifiable {
+        case pccMenu
+        case usdaSearch
+        case scanBarcode
+        case quickAdd
+        case manualEntry
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .pccMenu: return "PCC Menu"
+            case .usdaSearch: return "Search USDA"
+            case .scanBarcode: return "Scan Barcode"
+            case .quickAdd: return "Quick Add"
+            case .manualEntry: return "Manual Entry"
+            }
+        }
+
+        var subtitle: String {
+            switch self {
+            case .pccMenu: return "Browse today's PCC dining menu."
+            case .usdaSearch: return "Search FoodData Central."
+            case .scanBarcode: return "Look up packaged foods instantly."
+            case .quickAdd: return "Add one of your saved foods."
+            case .manualEntry: return "Type food and macro details yourself."
+            }
+        }
+
+        var iconName: String {
+            switch self {
+            case .pccMenu: return "fork.knife"
+            case .usdaSearch: return "magnifyingglass"
+            case .scanBarcode: return "barcode.viewfinder"
+            case .quickAdd: return "bolt.fill"
+            case .manualEntry: return "square.and.pencil"
+            }
+        }
+    }
+
     private enum HistoryChartRange: String, CaseIterable, Identifiable {
         case thirtyDays
         case sixMonths
@@ -235,6 +275,8 @@ struct ContentView: View {
     @State private var foodReviewItem: FoodReviewItem?
     @State private var selectedFoodReviewMultiplier = 1.0
     @State private var selectedTab: AppTab = .today
+    @State private var selectedAddDestination: AddDestination = .manualEntry
+    @State private var isAddDestinationPickerPresented = false
     @State private var selectedMenuVenue: DiningVenue = .fourWinds
     @State private var selectedHistoryDayIdentifier = ""
     @State private var displayedHistoryMonth = Date()
@@ -266,6 +308,10 @@ struct ContentView: View {
     @State private var plateEstimateBaseOzByItemId: [String: Double] = [:]
     @State private var isPlateEstimateLoading = false
     @State private var plateEstimateErrorMessage: String?
+    @State private var isAddConfirmationPresented = false
+    @State private var addConfirmationTask: Task<Void, Never>?
+    @State private var barcodeErrorToastMessage: String?
+    @State private var barcodeErrorToastTask: Task<Void, Never>?
 
     @FocusState private var focusedField: Field?
     @StateObject private var stepActivityService = StepActivityService()
@@ -923,9 +969,61 @@ struct ContentView: View {
                     }
                 )
             }
+            .sheet(isPresented: $isAddDestinationPickerPresented) {
+                addDestinationPickerSheet
+            }
             .sheet(isPresented: $isResetConfirmationPresented) {
                 resetTodaySheet
             }
+    }
+
+    private var addDestinationPickerSheet: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Choose how to add food")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(textPrimary)
+            }
+
+            VStack(spacing: 10) {
+                ForEach(AddDestination.allCases) { destination in
+                    Button {
+                        openAddDestination(destination)
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: destination.iconName)
+                                .font(.subheadline.weight(.semibold))
+                                .frame(width: 18)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(destination.title)
+                                    .font(.subheadline.weight(.semibold))
+                                Text(destination.subtitle)
+                                    .font(.caption)
+                                    .foregroundStyle(textSecondary)
+                            }
+
+                            Spacer()
+                        }
+                        .foregroundStyle(textPrimary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(surfaceSecondary.opacity(0.95))
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 24)
+        .padding(.bottom, 20)
+        .presentationDetents([.height(420)])
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(32)
+        .presentationBackground(surfacePrimary)
     }
 
     private var resetTodaySheet: some View {
@@ -999,6 +1097,8 @@ struct ContentView: View {
 
             topSafeAreaShield
 
+            feedbackToast
+
             bottomTabBar
         }
     }
@@ -1020,7 +1120,89 @@ struct ContentView: View {
         }
     }
 
+    private var feedbackToast: some View {
+        VStack {
+            Spacer()
+
+            if let barcodeErrorToastMessage {
+                HStack(spacing: 10) {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .foregroundStyle(Color.orange)
+                    Text(barcodeErrorToastMessage)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(textPrimary)
+                        .lineLimit(2)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(surfacePrimary.opacity(0.98))
+                )
+                .overlay(
+                    Capsule(style: .continuous)
+                        .stroke(textSecondary.opacity(0.16), lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.2), radius: 18, y: 8)
+                .padding(.bottom, 124)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            } else if isAddConfirmationPresented {
+                HStack(spacing: 10) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(accent)
+                    Text("Added")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(textPrimary)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(surfacePrimary.opacity(0.98))
+                )
+                .overlay(
+                    Capsule(style: .continuous)
+                        .stroke(textSecondary.opacity(0.16), lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.2), radius: 18, y: 8)
+                .padding(.bottom, 124)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, 24)
+        .allowsHitTesting(false)
+        .animation(.spring(response: 0.32, dampingFraction: 0.86), value: isAddConfirmationPresented)
+        .animation(.spring(response: 0.32, dampingFraction: 0.86), value: barcodeErrorToastMessage)
+    }
+
     private var menuSheet: some View {
+        menuPage(onClose: nil)
+            .fullScreenCover(isPresented: $isPlateEstimateLoading) {
+                ZStack {
+                    Color.black.opacity(0.7)
+                        .ignoresSafeArea()
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.2)
+                            .tint(.white)
+                        Text("Estimating portions…")
+                            .font(.headline.weight(.medium))
+                            .foregroundStyle(.white)
+                    }
+                }
+                .interactiveDismissDisabled()
+            }
+            .alert("Portion estimate failed", isPresented: Binding(get: { plateEstimateErrorMessage != nil }, set: { if !$0 { plateEstimateErrorMessage = nil } })) {
+                Button("OK", role: .cancel) {
+                    plateEstimateErrorMessage = nil
+                }
+            } message: {
+                Text(plateEstimateErrorMessage ?? "Unknown error")
+            }
+    }
+
+    private func menuPage(onClose: (() -> Void)?) -> some View {
         MenuSheetView(
             menu: currentMenu,
             venue: selectedMenuVenue,
@@ -1072,8 +1254,13 @@ struct ContentView: View {
             },
             onVenueChange: { newVenue in
                 switchMenuToVenue(newVenue)
-            }
+            },
+            onClose: onClose
         )
+    }
+
+    private var pccMenuPage: some View {
+        menuPage(onClose: nil)
         .fullScreenCover(isPresented: $isPlateEstimateLoading) {
             ZStack {
                 Color.black.opacity(0.7)
@@ -1120,7 +1307,9 @@ struct ContentView: View {
             accent: accent,
             onSelect: { item in
                 addQuickAddFood(item)
-            }
+            },
+            onClose: nil,
+            showsStandaloneChrome: true
         )
     }
 
@@ -1262,8 +1451,13 @@ struct ContentView: View {
         let isSelected = selectedTab == tab
 
         return Button {
-            withAnimation(.none) {
-                selectedTab = tab
+            if tab == .add {
+                dismissKeyboard()
+                isAddDestinationPickerPresented = true
+            } else {
+                withAnimation(.none) {
+                    selectedTab = tab
+                }
             }
             Haptics.selection()
         } label: {
@@ -1349,78 +1543,32 @@ struct ContentView: View {
         }
     }
 
+    @ViewBuilder
     private var addTabView: some View {
+        switch selectedAddDestination {
+        case .manualEntry:
+            manualEntryTabView
+        case .pccMenu:
+            pccMenuTabView
+        case .usdaSearch:
+            usdaSearchTabView
+        case .scanBarcode:
+            barcodeTabView
+        case .quickAdd:
+            quickAddTabView
+        }
+    }
+
+    private var manualEntryTabView: some View {
         ScrollViewReader { proxy in
             VStack(alignment: .leading, spacing: 0) {
-                tabHeader(title: "Add Food")
-                    .padding(.horizontal, 16)
-                    .padding(.top, 18)
-                    .padding(.bottom, 6)
+                addWorkspaceHeader(
+                    title: AddDestination.manualEntry.title,
+                    subtitle: AddDestination.manualEntry.subtitle
+                )
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
-                        Button {
-                            presentMenu(for: .fourWinds)
-                        } label: {
-                            Label("PCC Menu", systemImage: "fork.knife")
-                                .font(.subheadline.weight(.semibold))
-                                .imageScale(.medium)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(accent)
-
-                        HStack(spacing: 10) {
-                            Button {
-                                usdaSearchError = nil
-                                usdaSearchResults = []
-                                usdaSearchText = ""
-                                isUSDASearchPresented = true
-                                Haptics.impact(.light)
-                            } label: {
-                                Label("Search", systemImage: "magnifyingglass")
-                                    .font(.subheadline.weight(.semibold))
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.8)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 10)
-                            }
-                            .buttonStyle(.bordered)
-                            .tint(textSecondary)
-
-                            Button {
-                                barcodeLookupError = nil
-                                hasScannedBarcodeInCurrentSheet = false
-                                isBarcodeScannerPresented = true
-                                Haptics.impact(.light)
-                            } label: {
-                                Label(isBarcodeLookupInFlight ? "Looking Up..." : "Barcode", systemImage: "barcode.viewfinder")
-                                    .font(.subheadline.weight(.semibold))
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.8)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 10)
-                            }
-                            .buttonStyle(.bordered)
-                            .tint(textSecondary)
-                            .disabled(isBarcodeLookupInFlight)
-
-                            Button {
-                                isQuickAddPickerPresented = true
-                                Haptics.impact(.light)
-                            } label: {
-                                Label("Quick Add", systemImage: "bolt.fill")
-                                    .font(.subheadline.weight(.semibold))
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.8)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 10)
-                            }
-                            .buttonStyle(.bordered)
-                            .tint(textSecondary)
-                        }
-
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Manual entry")
                                 .font(.headline.weight(.semibold))
@@ -1428,92 +1576,7 @@ struct ContentView: View {
                         }
                         .padding(.top, 4)
 
-                        VStack(alignment: .leading, spacing: 14) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Food name")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(textPrimary)
-
-                                TextField("e.g. Grilled chicken", text: $entryNameText)
-                                    .focused($focusedField, equals: .name)
-                                    .submitLabel(.next)
-                                    .onSubmit { focusedField = .calories }
-                                    .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
-                                    .id(manualEntryScrollID(for: .name))
-                            }
-
-                            if activeNutrients.count == 1 {
-                                Grid(horizontalSpacing: 12, verticalSpacing: 12) {
-                                    GridRow {
-                                        VStack(alignment: .leading, spacing: 8) {
-                                            Text("Calories")
-                                                .font(.caption.weight(.semibold))
-                                                .foregroundStyle(textPrimary)
-                                            TextField("e.g. 250", text: $entryCaloriesText)
-                                                .keyboardType(.numberPad)
-                                                .focused($focusedField, equals: .calories)
-                                                .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
-                                                .id(manualEntryScrollID(for: .calories))
-                                        }
-                                        nutrientFieldCell(activeNutrients[0])
-                                    }
-                                }
-                            } else {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Calories")
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(textPrimary)
-
-                                    TextField("e.g. 250", text: $entryCaloriesText)
-                                        .keyboardType(.numberPad)
-                                        .focused($focusedField, equals: .calories)
-                                        .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
-                                        .id(manualEntryScrollID(for: .calories))
-                                }
-
-                                if activeNutrients.count > 1 {
-                                    DisclosureGroup(isExpanded: $isAddNutrientsExpanded) {
-                                        Grid(horizontalSpacing: 12, verticalSpacing: 12) {
-                                            ForEach(Array(stride(from: 0, to: activeNutrients.count, by: 2)), id: \.self) { startIndex in
-                                                GridRow {
-                                                    if startIndex + 1 < activeNutrients.count {
-                                                        nutrientFieldCell(activeNutrients[startIndex])
-                                                        nutrientFieldCell(activeNutrients[startIndex + 1])
-                                                    } else {
-                                                        nutrientFieldCell(activeNutrients[startIndex])
-                                                            .gridCellColumns(2)
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        .padding(.top, 12)
-                                    } label: {
-                                        Text("Add nutrients")
-                                            .font(.subheadline.weight(.semibold))
-                                            .foregroundStyle(textPrimary)
-                                    }
-                                    .tint(textPrimary)
-                                }
-                            }
-
-                            if let entryError {
-                                Text(entryError)
-                                    .font(.caption)
-                                    .foregroundStyle(Color.red)
-                            }
-
-                            if let barcodeLookupError {
-                                Text(barcodeLookupError)
-                                    .font(.caption)
-                                    .foregroundStyle(Color.orange)
-                            }
-
-                            addEntryButton
-                                .id("addEntryButton")
-                        }
-                        .padding(18)
-                        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.15))
-                        .id("addManualEntryCard")
+                        manualEntryFormCard
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
@@ -1544,6 +1607,187 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    private var pccMenuTabView: some View {
+        pccMenuPage
+    }
+
+    private var usdaSearchTabView: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            addWorkspaceHeader(
+                title: AddDestination.usdaSearch.title,
+                subtitle: AddDestination.usdaSearch.subtitle
+            )
+            usdaSearchPageContent
+        }
+        .onChange(of: usdaSearchText) { _, newValue in
+            usdaSearchDebounceTask?.cancel()
+            let query = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !query.isEmpty else {
+                usdaSearchResults = []
+                usdaSearchError = nil
+                return
+            }
+            usdaSearchDebounceTask = Task {
+                try? await Task.sleep(nanoseconds: 400_000_000)
+                guard !Task.isCancelled else { return }
+                await performUSDASearch()
+            }
+        }
+    }
+
+    private var barcodeTabView: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            addWorkspaceHeader(
+                title: AddDestination.scanBarcode.title,
+                subtitle: AddDestination.scanBarcode.subtitle
+            )
+
+            ZStack {
+                BarcodeScannerView(
+                    onScan: { code in
+                        Task {
+                            await handleScannedBarcode(code)
+                        }
+                    },
+                    didScan: hasScannedBarcodeInCurrentSheet
+                )
+                .ignoresSafeArea()
+
+                if isBarcodeLookupInFlight {
+                    VStack(spacing: 14) {
+                        ProgressView()
+                            .tint(.white)
+                            .scaleEffect(1.15)
+                        Text("Looking up nutrition data...")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white)
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 18)
+                    .background(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(Color.black.opacity(0.70))
+                    )
+                }
+            }
+        }
+    }
+
+    private var quickAddTabView: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            addWorkspaceHeader(
+                title: AddDestination.quickAdd.title,
+                subtitle: AddDestination.quickAdd.subtitle
+            )
+
+            QuickAddPickerView(
+                quickAddFoods: quickAddFoods,
+                surfacePrimary: surfacePrimary,
+                surfaceSecondary: surfaceSecondary,
+                textPrimary: textPrimary,
+                textSecondary: textSecondary,
+                accent: accent,
+                onSelect: { item in
+                    addQuickAddFood(item)
+                },
+                onClose: nil,
+                showsStandaloneChrome: false
+            )
+        }
+    }
+
+    private func addWorkspaceHeader(title: String, subtitle: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            tabHeader(title: title, subtitle: subtitle)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 18)
+        .padding(.bottom, 6)
+    }
+
+    private var manualEntryFormCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Food name")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(textPrimary)
+
+                TextField("e.g. Grilled chicken", text: $entryNameText)
+                    .focused($focusedField, equals: .name)
+                    .submitLabel(.next)
+                    .onSubmit { focusedField = .calories }
+                    .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
+                    .id(manualEntryScrollID(for: .name))
+            }
+
+            if activeNutrients.count == 1 {
+                Grid(horizontalSpacing: 12, verticalSpacing: 12) {
+                    GridRow {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Calories")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(textPrimary)
+                            TextField("e.g. 250", text: $entryCaloriesText)
+                                .keyboardType(.numberPad)
+                                .focused($focusedField, equals: .calories)
+                                .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
+                                .id(manualEntryScrollID(for: .calories))
+                        }
+                        nutrientFieldCell(activeNutrients[0])
+                    }
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Calories")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(textPrimary)
+
+                    TextField("e.g. 250", text: $entryCaloriesText)
+                        .keyboardType(.numberPad)
+                        .focused($focusedField, equals: .calories)
+                        .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
+                        .id(manualEntryScrollID(for: .calories))
+                }
+
+                if activeNutrients.count > 1 {
+                    DisclosureGroup(isExpanded: $isAddNutrientsExpanded) {
+                        Grid(horizontalSpacing: 12, verticalSpacing: 12) {
+                            ForEach(Array(stride(from: 0, to: activeNutrients.count, by: 2)), id: \.self) { startIndex in
+                                GridRow {
+                                    if startIndex + 1 < activeNutrients.count {
+                                        nutrientFieldCell(activeNutrients[startIndex])
+                                        nutrientFieldCell(activeNutrients[startIndex + 1])
+                                    } else {
+                                        nutrientFieldCell(activeNutrients[startIndex])
+                                            .gridCellColumns(2)
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.top, 12)
+                    } label: {
+                        Text("Add nutrients")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(textPrimary)
+                    }
+                    .tint(textPrimary)
+                }
+            }
+
+            if let entryError {
+                Text(entryError)
+                    .font(.caption)
+                    .foregroundStyle(Color.red)
+            }
+
+            addEntryButton
+                .id("addEntryButton")
+        }
+        .padding(18)
+        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.15))
+        .id("addManualEntryCard")
     }
 
     private var profileTabView: some View {
@@ -3074,7 +3318,7 @@ struct ContentView: View {
         withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
             entries.append(newEntry)
         }
-        Haptics.impact(.medium)
+        showAddConfirmation()
 
         entryNameText = ""
         entryCaloriesText = ""
@@ -3137,150 +3381,145 @@ struct ContentView: View {
     }
 
     private var usdaSearchSheet: some View {
-        NavigationStack {
-            ZStack {
-                LinearGradient(
-                    colors: [backgroundTop, backgroundBottom],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+        usdaSearchPage(onClose: {
+            isUSDASearchPresented = false
+            dismissKeyboard()
+            Haptics.selection()
+        })
+    }
 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
-                        HStack(alignment: .top, spacing: 14) {
-                            Button {
-                                isUSDASearchPresented = false
-                                dismissKeyboard()
-                                Haptics.selection()
-                            } label: {
-                                Image(systemName: "chevron.left")
-                                    .font(.system(size: 17, weight: .semibold))
-                                    .foregroundStyle(textPrimary)
-                                    .frame(width: 42, height: 42)
-                                    .background(
-                                        Circle()
-                                            .fill(surfacePrimary.opacity(0.94))
-                                    )
-                                    .overlay(
-                                        Circle()
-                                            .stroke(textSecondary.opacity(0.16), lineWidth: 1)
-                                    )
-                            }
-                            .buttonStyle(.plain)
-
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Search Food")
-                                    .font(.system(size: 30, weight: .bold, design: .rounded))
-                                    .foregroundStyle(textPrimary)
-                                Text("Search USDA FoodData Central")
-                                    .font(.subheadline)
-                                    .foregroundStyle(textSecondary)
-                            }
-
-                            Spacer()
-                        }
-
-                        HStack(spacing: 10) {
-                            Image(systemName: "magnifyingglass")
-                                .foregroundStyle(textSecondary)
-
-                            TextField("Search foods", text: $usdaSearchText)
-                                .textInputAutocapitalization(.never)
-                                .autocorrectionDisabled()
-                                .submitLabel(.search)
-                                .onSubmit {
-                                    Task {
-                                        await performUSDASearch()
-                                    }
-                                }
-                                .foregroundStyle(textPrimary)
-
-                            if !usdaSearchText.isEmpty {
-                                Button {
-                                    usdaSearchText = ""
-                                    usdaSearchResults = []
-                                    usdaSearchError = nil
-                                    usdaSearchDebounceTask?.cancel()
-                                    usdaSearchDebounceTask = nil
-                                    Haptics.selection()
-                                } label: {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .foregroundStyle(textSecondary)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                        .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
-
+    private func usdaSearchPage(onClose: (() -> Void)?) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if let onClose {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(alignment: .top, spacing: 14) {
                         Button {
-                            Task {
-                                await performUSDASearch()
-                            }
+                            onClose()
                         } label: {
-                            if isUSDASearchLoading {
-                                ProgressView()
-                                    .tint(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 12)
-                            } else {
-                                Text("Search")
-                                    .font(.headline)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 12)
-                            }
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(textPrimary)
+                                .frame(width: 42, height: 42)
+                                .background(
+                                    Circle()
+                                        .fill(surfacePrimary.opacity(0.94))
+                                )
+                                .overlay(
+                                    Circle()
+                                        .stroke(textSecondary.opacity(0.16), lineWidth: 1)
+                                )
                         }
-                        .buttonStyle(.borderedProminent)
-                        .tint(accent)
-                        .disabled(isUSDASearchLoading)
+                        .buttonStyle(.plain)
 
-                        if let usdaSearchError {
-                            Text(usdaSearchError)
-                                .font(.caption)
-                                .foregroundStyle(Color.orange)
-                        }
-
-                        if !usdaSearchResults.isEmpty {
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("Results")
-                                    .font(.headline.weight(.semibold))
-                                    .foregroundStyle(textPrimary)
-
-                                LazyVStack(spacing: 12) {
-                                    ForEach(usdaSearchResults) { result in
-                                        usdaSearchResultCard(result)
-                                    }
-                                }
-                            }
-                        } else if !usdaSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isUSDASearchLoading && usdaSearchError == nil {
-                            Text("Search to see matching foods.")
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Search Food")
+                                .font(.system(size: 30, weight: .bold, design: .rounded))
+                                .foregroundStyle(textPrimary)
+                            Text("Search USDA FoodData Central")
                                 .font(.subheadline)
                                 .foregroundStyle(textSecondary)
                         }
+
+                        Spacer()
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 24)
-                    .padding(.bottom, 32)
+                    .padding(.bottom, 6)
                 }
-                .scrollIndicators(.hidden)
             }
+
+            usdaSearchPageContent
         }
-        .onChange(of: usdaSearchText) { _, newValue in
-            usdaSearchDebounceTask?.cancel()
-            let query = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !query.isEmpty else {
-                usdaSearchResults = []
-                usdaSearchError = nil
-                return
+    }
+
+    private var usdaSearchPageContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(spacing: 10) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(textSecondary)
+
+                    TextField("Search foods", text: $usdaSearchText)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .submitLabel(.search)
+                        .onSubmit {
+                            Task {
+                                await performUSDASearch()
+                            }
+                        }
+                        .foregroundStyle(textPrimary)
+
+                    if !usdaSearchText.isEmpty {
+                        Button {
+                            usdaSearchText = ""
+                            usdaSearchResults = []
+                            usdaSearchError = nil
+                            usdaSearchDebounceTask?.cancel()
+                            usdaSearchDebounceTask = nil
+                            Haptics.selection()
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(textSecondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
+
+                Button {
+                    Task {
+                        await performUSDASearch()
+                    }
+                } label: {
+                    if isUSDASearchLoading {
+                        ProgressView()
+                            .tint(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                    } else {
+                        Text("Search")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(accent)
+                .disabled(isUSDASearchLoading)
+
+                if let usdaSearchError {
+                    Text(usdaSearchError)
+                        .font(.caption)
+                        .foregroundStyle(Color.orange)
+                }
+
+                if !usdaSearchResults.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Results")
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(textPrimary)
+
+                        LazyVStack(spacing: 12) {
+                            ForEach(usdaSearchResults) { result in
+                                usdaSearchResultCard(result)
+                            }
+                        }
+                    }
+                } else if !usdaSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isUSDASearchLoading && usdaSearchError == nil {
+                    Text("Search to see matching foods.")
+                        .font(.subheadline)
+                        .foregroundStyle(textSecondary)
+                }
             }
-            usdaSearchDebounceTask = Task {
-                try? await Task.sleep(nanoseconds: 400_000_000)
-                guard !Task.isCancelled else { return }
-                await performUSDASearch()
-            }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 32)
         }
+        .scrollIndicators(.hidden)
+        .scrollDismissesKeyboard(.interactively)
     }
 
     private func foodReviewSheet(item: FoodReviewItem) -> some View {
@@ -3505,6 +3744,18 @@ struct ContentView: View {
     }
 
     private func presentMenu(for venue: DiningVenue) {
+        let shouldLoadMenu = prepareMenuDestination(for: venue)
+        isMenuSheetPresented = true
+
+        if shouldLoadMenu {
+            Task {
+                await loadMenuFromFirebase(for: selectedMenuVenue)
+            }
+        }
+    }
+
+    @discardableResult
+    private func prepareMenuDestination(for venue: DiningVenue) -> Bool {
         let resolvedVenue = preferredMenuVenue(startingFrom: venue)
         selectedMenuVenue = resolvedVenue
         let signature = menuService.currentMenuSignature(for: resolvedVenue)
@@ -3518,13 +3769,7 @@ struct ContentView: View {
         }
 
         isMenuLoading = shouldLoadMenu
-        isMenuSheetPresented = true
-
-        if shouldLoadMenu {
-            Task {
-                await loadMenuFromFirebase(for: resolvedVenue)
-            }
-        }
+        return shouldLoadMenu
     }
 
     private func switchMenuToVenue(_ venue: DiningVenue) {
@@ -3738,7 +3983,7 @@ struct ContentView: View {
         selectedMenuItemQuantitiesByVenue = q
         selectedMenuItemMultipliersByVenue = m
         isMenuSheetPresented = false
-        selectedTab = .today
+        showAddConfirmation()
     }
 
     private func handlePhotoPlate(items: [MenuItem], imageData: Data) {
@@ -3812,8 +4057,7 @@ struct ContentView: View {
         withAnimation(.easeInOut(duration: 0.25)) {
             entries.append(contentsOf: expandedSelections)
         }
-        Haptics.notification(.success)
-        selectedTab = .today
+        showAddConfirmation()
     }
 
     private func preferredMenuVenue(startingFrom venue: DiningVenue, now: Date = Date()) -> DiningVenue {
@@ -3827,6 +4071,32 @@ struct ContentView: View {
         }
 
         return DiningVenue.allCases.first(where: { $0.supportedMenuTypes.contains(menuType) }) ?? venue
+    }
+
+    private func openAddDestination(_ destination: AddDestination) {
+        dismissKeyboard()
+        selectedAddDestination = destination
+        isAddDestinationPickerPresented = false
+        withAnimation(.none) {
+            selectedTab = .add
+        }
+
+        switch destination {
+        case .pccMenu:
+            let shouldLoadMenu = prepareMenuDestination(for: .fourWinds)
+            if shouldLoadMenu {
+                Task {
+                    await loadMenuFromFirebase(for: selectedMenuVenue)
+                }
+            }
+        case .usdaSearch:
+            usdaSearchError = nil
+        case .scanBarcode:
+            barcodeLookupError = nil
+            hasScannedBarcodeInCurrentSheet = false
+        case .quickAdd, .manualEntry:
+            break
+        }
     }
 
     private func clearMenuSelection() {
@@ -3856,6 +4126,7 @@ struct ContentView: View {
             isBarcodeLookupInFlight = false
             hasScannedBarcodeInCurrentSheet = false
             barcodeLookupError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            showBarcodeErrorToast(barcodeLookupError ?? "Barcode lookup failed.")
             Haptics.notification(.warning)
         }
     }
@@ -3901,10 +4172,9 @@ struct ContentView: View {
 
         foodReviewItem = nil
         selectedFoodReviewMultiplier = 1.0
-        selectedTab = .today
         barcodeLookupError = nil
         usdaSearchError = nil
-        Haptics.notification(.success)
+        showAddConfirmation()
     }
 
     private func deleteEntry(_ entry: MealEntry) {
@@ -4523,8 +4793,50 @@ struct ContentView: View {
         }
 
         isQuickAddPickerPresented = false
-        selectedTab = .today
+        showAddConfirmation()
+    }
+
+    @MainActor
+    private func showAddConfirmation() {
+        addConfirmationTask?.cancel()
+        barcodeErrorToastTask?.cancel()
+        barcodeErrorToastMessage = nil
         Haptics.notification(.success)
+
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+            isAddConfirmationPresented = true
+        }
+
+        addConfirmationTask = Task {
+            try? await Task.sleep(for: .seconds(1.35))
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
+                    isAddConfirmationPresented = false
+                }
+            }
+        }
+    }
+
+    @MainActor
+    private func showBarcodeErrorToast(_ message: String) {
+        addConfirmationTask?.cancel()
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
+            isAddConfirmationPresented = false
+        }
+
+        barcodeErrorToastTask?.cancel()
+        barcodeErrorToastMessage = message
+
+        barcodeErrorToastTask = Task {
+            try? await Task.sleep(for: .seconds(1.35))
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
+                    barcodeErrorToastMessage = nil
+                }
+            }
+        }
     }
 
     private func scaledReviewCalories(_ item: FoodReviewItem) -> Int {

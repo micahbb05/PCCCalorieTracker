@@ -1326,193 +1326,203 @@ struct ContentView: View {
     }
 
     private var historyTabView: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                tabHeader(title: "History", subtitle: "Calendar, calorie trends, and stats")
-                historyCalendarCard
-                historyGraphCard
-                historyStatisticsCard
-                netCalorieHistoryCard
-                historyMealDistributionCard
+        VStack(alignment: .leading, spacing: 0) {
+            tabHeader(title: "History", subtitle: "Calendar, calorie trends, and stats")
+                .padding(.horizontal, 16)
+                .padding(.top, 18)
+                .padding(.bottom, 6)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    historyCalendarCard
+                    historyGraphCard
+                    historyStatisticsCard
+                    netCalorieHistoryCard
+                    historyMealDistributionCard
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 140)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 18)
-            .padding(.bottom, 140)
+            .scrollIndicators(.hidden)
+            .scrollDismissesKeyboard(.interactively)
         }
-        .scrollIndicators(.hidden)
-        .scrollDismissesKeyboard(.interactively)
     }
 
     private var addTabView: some View {
         ScrollViewReader { proxy in
+            VStack(alignment: .leading, spacing: 0) {
+                tabHeader(title: "Add Food")
+                    .padding(.horizontal, 16)
+                    .padding(.top, 18)
+                    .padding(.bottom, 6)
+
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
-                        tabHeader(title: "Add Food")
-                            .padding(.bottom, 8)
-
-                    Button {
-                        presentMenu(for: .fourWinds)
-                    } label: {
-                        Label("PCC Menu", systemImage: "fork.knife")
-                            .font(.subheadline.weight(.semibold))
-                            .imageScale(.medium)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(accent)
-
-                    HStack(spacing: 10) {
                         Button {
-                            usdaSearchError = nil
-                            usdaSearchResults = []
-                            usdaSearchText = ""
-                            isUSDASearchPresented = true
-                            Haptics.impact(.light)
+                            presentMenu(for: .fourWinds)
                         } label: {
-                            Label("Search", systemImage: "magnifyingglass")
+                            Label("PCC Menu", systemImage: "fork.knife")
                                 .font(.subheadline.weight(.semibold))
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.8)
+                                .imageScale(.medium)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 10)
                         }
                         .buttonStyle(.bordered)
-                        .tint(textSecondary)
+                        .tint(accent)
 
-                        Button {
-                            barcodeLookupError = nil
-                            hasScannedBarcodeInCurrentSheet = false
-                            isBarcodeScannerPresented = true
-                            Haptics.impact(.light)
-                        } label: {
-                            Label(isBarcodeLookupInFlight ? "Looking Up..." : "Barcode", systemImage: "barcode.viewfinder")
-                                .font(.subheadline.weight(.semibold))
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.8)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(textSecondary)
-                        .disabled(isBarcodeLookupInFlight)
-
-                        Button {
-                            isQuickAddPickerPresented = true
-                            Haptics.impact(.light)
-                        } label: {
-                            Label("Quick Add", systemImage: "bolt.fill")
-                                .font(.subheadline.weight(.semibold))
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.8)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(textSecondary)
-                    }
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Manual entry")
-                            .font(.headline.weight(.semibold))
-                            .foregroundStyle(textSecondary)
-                    }
-                    .padding(.top, 4)
-
-                    VStack(alignment: .leading, spacing: 14) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Food name")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(textPrimary)
-
-                            TextField("e.g. Grilled chicken", text: $entryNameText)
-                                .focused($focusedField, equals: .name)
-                                .submitLabel(.next)
-                                .onSubmit { focusedField = .calories }
-                                .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
-                                .id(manualEntryScrollID(for: .name))
-                        }
-
-                        if activeNutrients.count == 1 {
-                            Grid(horizontalSpacing: 12, verticalSpacing: 12) {
-                                GridRow {
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        Text("Calories")
-                                            .font(.caption.weight(.semibold))
-                                            .foregroundStyle(textPrimary)
-                                        TextField("e.g. 250", text: $entryCaloriesText)
-                                            .keyboardType(.numberPad)
-                                            .focused($focusedField, equals: .calories)
-                                            .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
-                                            .id(manualEntryScrollID(for: .calories))
-                                    }
-                                    nutrientFieldCell(activeNutrients[0])
-                                }
+                        HStack(spacing: 10) {
+                            Button {
+                                usdaSearchError = nil
+                                usdaSearchResults = []
+                                usdaSearchText = ""
+                                isUSDASearchPresented = true
+                                Haptics.impact(.light)
+                            } label: {
+                                Label("Search", systemImage: "magnifyingglass")
+                                    .font(.subheadline.weight(.semibold))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 10)
                             }
-                        } else {
+                            .buttonStyle(.bordered)
+                            .tint(textSecondary)
+
+                            Button {
+                                barcodeLookupError = nil
+                                hasScannedBarcodeInCurrentSheet = false
+                                isBarcodeScannerPresented = true
+                                Haptics.impact(.light)
+                            } label: {
+                                Label(isBarcodeLookupInFlight ? "Looking Up..." : "Barcode", systemImage: "barcode.viewfinder")
+                                    .font(.subheadline.weight(.semibold))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 10)
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(textSecondary)
+                            .disabled(isBarcodeLookupInFlight)
+
+                            Button {
+                                isQuickAddPickerPresented = true
+                                Haptics.impact(.light)
+                            } label: {
+                                Label("Quick Add", systemImage: "bolt.fill")
+                                    .font(.subheadline.weight(.semibold))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 10)
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(textSecondary)
+                        }
+
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Manual entry")
+                                .font(.headline.weight(.semibold))
+                                .foregroundStyle(textSecondary)
+                        }
+                        .padding(.top, 4)
+
+                        VStack(alignment: .leading, spacing: 14) {
                             VStack(alignment: .leading, spacing: 8) {
-                                Text("Calories")
+                                Text("Food name")
                                     .font(.caption.weight(.semibold))
                                     .foregroundStyle(textPrimary)
 
-                                TextField("e.g. 250", text: $entryCaloriesText)
-                                    .keyboardType(.numberPad)
-                                    .focused($focusedField, equals: .calories)
+                                TextField("e.g. Grilled chicken", text: $entryNameText)
+                                    .focused($focusedField, equals: .name)
+                                    .submitLabel(.next)
+                                    .onSubmit { focusedField = .calories }
                                     .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
-                                    .id(manualEntryScrollID(for: .calories))
+                                    .id(manualEntryScrollID(for: .name))
                             }
 
-                            if activeNutrients.count > 1 {
-                                DisclosureGroup(isExpanded: $isAddNutrientsExpanded) {
-                                    Grid(horizontalSpacing: 12, verticalSpacing: 12) {
-                                        ForEach(Array(stride(from: 0, to: activeNutrients.count, by: 2)), id: \.self) { startIndex in
-                                            GridRow {
-                                                if startIndex + 1 < activeNutrients.count {
-                                                    nutrientFieldCell(activeNutrients[startIndex])
-                                                    nutrientFieldCell(activeNutrients[startIndex + 1])
-                                                } else {
-                                                    nutrientFieldCell(activeNutrients[startIndex])
-                                                        .gridCellColumns(2)
+                            if activeNutrients.count == 1 {
+                                Grid(horizontalSpacing: 12, verticalSpacing: 12) {
+                                    GridRow {
+                                        VStack(alignment: .leading, spacing: 8) {
+                                            Text("Calories")
+                                                .font(.caption.weight(.semibold))
+                                                .foregroundStyle(textPrimary)
+                                            TextField("e.g. 250", text: $entryCaloriesText)
+                                                .keyboardType(.numberPad)
+                                                .focused($focusedField, equals: .calories)
+                                                .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
+                                                .id(manualEntryScrollID(for: .calories))
+                                        }
+                                        nutrientFieldCell(activeNutrients[0])
+                                    }
+                                }
+                            } else {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Calories")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(textPrimary)
+
+                                    TextField("e.g. 250", text: $entryCaloriesText)
+                                        .keyboardType(.numberPad)
+                                        .focused($focusedField, equals: .calories)
+                                        .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
+                                        .id(manualEntryScrollID(for: .calories))
+                                }
+
+                                if activeNutrients.count > 1 {
+                                    DisclosureGroup(isExpanded: $isAddNutrientsExpanded) {
+                                        Grid(horizontalSpacing: 12, verticalSpacing: 12) {
+                                            ForEach(Array(stride(from: 0, to: activeNutrients.count, by: 2)), id: \.self) { startIndex in
+                                                GridRow {
+                                                    if startIndex + 1 < activeNutrients.count {
+                                                        nutrientFieldCell(activeNutrients[startIndex])
+                                                        nutrientFieldCell(activeNutrients[startIndex + 1])
+                                                    } else {
+                                                        nutrientFieldCell(activeNutrients[startIndex])
+                                                            .gridCellColumns(2)
+                                                    }
                                                 }
                                             }
                                         }
+                                        .padding(.top, 12)
+                                    } label: {
+                                        Text("Add nutrients")
+                                            .font(.subheadline.weight(.semibold))
+                                            .foregroundStyle(textPrimary)
                                     }
-                                    .padding(.top, 12)
-                                } label: {
-                                    Text("Add nutrients")
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(textPrimary)
+                                    .tint(textPrimary)
                                 }
-                                .tint(textPrimary)
                             }
-                        }
 
-                        if let entryError {
-                            Text(entryError)
-                                .font(.caption)
-                                .foregroundStyle(Color.red)
-                        }
+                            if let entryError {
+                                Text(entryError)
+                                    .font(.caption)
+                                    .foregroundStyle(Color.red)
+                            }
 
-                        if let barcodeLookupError {
-                            Text(barcodeLookupError)
-                                .font(.caption)
-                                .foregroundStyle(Color.orange)
-                        }
+                            if let barcodeLookupError {
+                                Text(barcodeLookupError)
+                                    .font(.caption)
+                                    .foregroundStyle(Color.orange)
+                            }
 
-                        addEntryButton
-                            .id("addEntryButton")
+                            addEntryButton
+                                .id("addEntryButton")
+                        }
+                        .padding(18)
+                        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.15))
+                        .id("addManualEntryCard")
                     }
-                    .padding(18)
-                    .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.15))
-                    .id("addManualEntryCard")
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 18)
-                .padding(.bottom, manualEntryBottomPadding)
-                .offset(y: collapsedManualEntryPageLift)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .padding(.bottom, manualEntryBottomPadding)
+                    .offset(y: collapsedManualEntryPageLift)
                 }
                 .scrollIndicators(.hidden)
                 .scrollDismissesKeyboard(.interactively)
+            }
             .onChange(of: focusedField) { _, newValue in
                 guard newValue != nil else { return }
                 scheduleManualEntryScroll(for: newValue, using: proxy)
@@ -1891,7 +1901,6 @@ struct ContentView: View {
     private func historyCalendarDay(_ date: Date?) -> some View {
         if let date {
             let identifier = centralDayIdentifier(for: date)
-            let isSelected = identifier == selectedHistoryDayIdentifier
             let isToday = identifier == todayDayIdentifier
             let dayEntries = entries(forDayIdentifier: identifier)
             let hasEntries = !dayEntries.isEmpty
@@ -1901,14 +1910,13 @@ struct ContentView: View {
             let dayDotColor = historyBarColor(calories: dayCalories, goal: dayGoal, burned: dayBurned)
 
             Button {
-                selectedHistoryDayIdentifier = identifier
                 presentedHistoryDaySummary = historySummary(for: identifier)
                 Haptics.selection()
             } label: {
                 VStack(spacing: 4) {
                     Text("\(centralCalendar.component(.day, from: date))")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(isSelected ? Color.white : textPrimary)
+                        .foregroundStyle(isToday ? Color.white : textPrimary)
 
                     Circle()
                         .fill(hasEntries ? dayDotColor : Color.clear)
@@ -1918,15 +1926,11 @@ struct ContentView: View {
                 .padding(.vertical, 6)
                 .background(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(
-                            isSelected
-                            ? accent
-                            : (isToday ? surfaceSecondary.opacity(0.98) : Color.clear)
-                        )
+                        .fill(isToday ? accent : Color.clear)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(isToday && !isSelected ? accent.opacity(0.40) : .clear, lineWidth: 1)
+                        .stroke(.clear, lineWidth: 1)
                 )
             }
             .buttonStyle(.plain)
@@ -3501,15 +3505,16 @@ struct ContentView: View {
     }
 
     private func presentMenu(for venue: DiningVenue) {
-        selectedMenuVenue = venue
-        let signature = menuService.currentMenuSignature(for: venue)
-        let shouldLoadMenu = (venueMenus[venue] ?? .empty).lines.isEmpty
-            || lastLoadedMenuSignatureByVenue[venue] != signature
-            || menuLoadErrorsByVenue[venue] != nil
+        let resolvedVenue = preferredMenuVenue(startingFrom: venue)
+        selectedMenuVenue = resolvedVenue
+        let signature = menuService.currentMenuSignature(for: resolvedVenue)
+        let shouldLoadMenu = (venueMenus[resolvedVenue] ?? .empty).lines.isEmpty
+            || lastLoadedMenuSignatureByVenue[resolvedVenue] != signature
+            || menuLoadErrorsByVenue[resolvedVenue] != nil
 
-        if lastLoadedMenuSignatureByVenue[venue] != signature {
-            venueMenus[venue] = .empty
-            menuLoadErrorsByVenue.removeValue(forKey: venue)
+        if lastLoadedMenuSignatureByVenue[resolvedVenue] != signature {
+            venueMenus[resolvedVenue] = .empty
+            menuLoadErrorsByVenue.removeValue(forKey: resolvedVenue)
         }
 
         isMenuLoading = shouldLoadMenu
@@ -3517,7 +3522,7 @@ struct ContentView: View {
 
         if shouldLoadMenu {
             Task {
-                await loadMenuFromFirebase(for: venue)
+                await loadMenuFromFirebase(for: resolvedVenue)
             }
         }
     }
@@ -3561,11 +3566,17 @@ struct ContentView: View {
             selectedMenuItemMultipliersByVenue = m
             saveVenueMenus()
         } catch {
-            if let nutrisliceError = error as? NutrisliceMenuError,
-               case .noMenuAvailable = nutrisliceError {
-                // Treat "no menu" as a neutral state, not an error
-                venueMenus[venue] = .empty
-                menuLoadErrorsByVenue.removeValue(forKey: venue)
+            if let nutrisliceError = error as? NutrisliceMenuError {
+                switch nutrisliceError {
+                case .noMenuAvailable, .unavailableAtThisTime:
+                    // Treat unavailable menus as a neutral empty state so all venues use
+                    // the same "no items available" messaging in the sheet.
+                    venueMenus[venue] = .empty
+                    menuLoadErrorsByVenue.removeValue(forKey: venue)
+                default:
+                    menuLoadErrorsByVenue[venue] = nutrisliceError.errorDescription ?? nutrisliceError.localizedDescription
+                    venueMenus[venue] = .empty
+                }
             } else {
                 menuLoadErrorsByVenue[venue] = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
                 venueMenus[venue] = .empty
@@ -3803,6 +3814,19 @@ struct ContentView: View {
         }
         Haptics.notification(.success)
         selectedTab = .today
+    }
+
+    private func preferredMenuVenue(startingFrom venue: DiningVenue, now: Date = Date()) -> DiningVenue {
+        let menuType = menuService.currentMenuType(now: now)
+        if venue.supportedMenuTypes.contains(menuType) {
+            return venue
+        }
+
+        if menuType == .breakfast {
+            return .varsity
+        }
+
+        return DiningVenue.allCases.first(where: { $0.supportedMenuTypes.contains(menuType) }) ?? venue
     }
 
     private func clearMenuSelection() {

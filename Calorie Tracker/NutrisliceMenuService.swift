@@ -248,7 +248,7 @@ final class NutrisliceMenuService {
         if hour < 10 || (hour == 10 && minute < 45) {
             return .breakfast
         }
-        if hour < 16 || (hour == 16 && minute < 45) {
+        if hour < 16 {
             return .lunch
         }
         return .dinner

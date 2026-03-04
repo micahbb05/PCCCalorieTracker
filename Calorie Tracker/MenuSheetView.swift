@@ -21,6 +21,8 @@ struct MenuSheetView: View {
     let venue: DiningVenue
     let sourceTitle: String
     let mealTitle: String
+    let selectedMenuType: NutrisliceMenuService.MenuType
+    let availableMenuTypes: [NutrisliceMenuService.MenuType]
     @Binding var selectedItemQuantities: [String: Int]
     @Binding var selectedItemMultipliers: [String: Double]
     let isLoading: Bool
@@ -35,6 +37,7 @@ struct MenuSheetView: View {
     let onPlateEstimateConfirm: ([(MenuItem, oz: Double, baseOz: Double)]) -> Void
     let onPlateEstimateDismiss: () -> Void
     let onVenueChange: (DiningVenue) -> Void
+    let onMenuTypeChange: (NutrisliceMenuService.MenuType) -> Void
     let onClose: (() -> Void)?
     let bottomOverlayClearance: CGFloat
     let onRequestExternalAIPopup: (() -> Void)?
@@ -305,13 +308,45 @@ struct MenuSheetView: View {
                 EmptyView()
             }
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text("Menu")
                     .font(.system(size: 36, weight: .bold, design: .rounded))
                     .foregroundStyle(textPrimary)
-                Text(mealTitle)
-                    .font(.subheadline)
-                    .foregroundStyle(textSecondary)
+                    .padding(.top, -4)
+                Menu {
+                    ForEach(availableMenuTypes, id: \.self) { menuType in
+                        Button {
+                            guard menuType != selectedMenuType else { return }
+                            Haptics.selection()
+                            onMenuTypeChange(menuType)
+                        } label: {
+                            if menuType == selectedMenuType {
+                                Label(menuType.title, systemImage: "checkmark")
+                            } else {
+                                Text(menuType.title)
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(mealTitle)
+                            .font(.caption.weight(.semibold))
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 10, weight: .semibold))
+                    }
+                    .foregroundStyle(textPrimary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(.ultraThinMaterial)
+                    )
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .stroke(textSecondary.opacity(0.16), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
             }
 
             Spacer()

@@ -1,5 +1,13 @@
 import SwiftUI
 
+struct AddExerciseDraft {
+    let exerciseType: ExerciseType
+    let customName: String?
+    let durationMinutes: Int
+    let distanceMiles: Double?
+    let calories: Int
+}
+
 struct AddExerciseSheet: View {
     let weightPounds: Int
     let surfacePrimary: Color
@@ -7,7 +15,7 @@ struct AddExerciseSheet: View {
     let textPrimary: Color
     let textSecondary: Color
     let accent: Color
-    let onAdd: (ExerciseEntry) -> Void
+    let onAdd: (AddExerciseDraft) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var selectedType: ExerciseType = .weightLifting
@@ -64,10 +72,10 @@ struct AddExerciseSheet: View {
         }
         guard weightPounds > 0 else { return 0 }
         if usesDistance, let miles = distanceMiles {
-            return ExerciseCalorieService.caloriesFromDistance(type: selectedType, distanceMiles: miles, weightPounds: weightPounds)
+            return ExerciseCalorieService.fullCalories(type: selectedType, durationMinutes: 0, distanceMiles: miles, weightPounds: weightPounds)
         }
         if let dur = durationMinutes {
-            return ExerciseCalorieService.caloriesFromDuration(type: selectedType, durationMinutes: dur, weightPounds: weightPounds)
+            return ExerciseCalorieService.fullCalories(type: selectedType, durationMinutes: dur, distanceMiles: nil, weightPounds: weightPounds)
         }
         return 0
     }
@@ -202,27 +210,25 @@ struct AddExerciseSheet: View {
             dur = 0
             dist = nil
         } else if usesDistance, let miles = distanceMiles {
-            calories = ExerciseCalorieService.caloriesFromDistance(type: selectedType, distanceMiles: miles, weightPounds: weightPounds)
+            calories = ExerciseCalorieService.fullCalories(type: selectedType, durationMinutes: 0, distanceMiles: miles, weightPounds: weightPounds)
             dur = Int(miles * (selectedType == .running ? 10 : 5))
             dist = miles
         } else if let d = durationMinutes {
-            calories = ExerciseCalorieService.caloriesFromDuration(type: selectedType, durationMinutes: d, weightPounds: weightPounds)
+            calories = ExerciseCalorieService.fullCalories(type: selectedType, durationMinutes: d, distanceMiles: nil, weightPounds: weightPounds)
             dur = d
             dist = nil
         } else {
             return
         }
 
-        let entry = ExerciseEntry(
-            id: UUID(),
+        let draft = AddExerciseDraft(
             exerciseType: selectedType,
             customName: usesDirectCalories ? customNameText : nil,
             durationMinutes: dur,
             distanceMiles: dist,
-            calories: calories,
-            createdAt: Date()
+            calories: calories
         )
-        onAdd(entry)
+        onAdd(draft)
         Haptics.notification(.success)
         dismiss()
     }

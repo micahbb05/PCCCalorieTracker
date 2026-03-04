@@ -2,6 +2,272 @@ import SwiftUI
 import Charts
 import UIKit
 import Combine
+import CloudKit
+
+extension Notification.Name {
+    static let cloudKitAppStateDidChange = Notification.Name("cloudKitAppStateDidChange")
+}
+
+private typealias StoredVenueMenuCache = [DiningVenue: [NutrisliceMenuService.MenuType: NutrisliceMenu]]
+private typealias StoredVenueMenuSignatureCache = [DiningVenue: [NutrisliceMenuService.MenuType: String]]
+
+struct CloudSyncPayload: Codable, Equatable, Sendable {
+    let hasCompletedOnboarding: Bool
+    let deficitCalories: Int
+    let useWeekendDeficit: Bool
+    let weekendDeficitCalories: Int
+    let goalTypeRaw: String
+    let surplusCalories: Int
+    let dailyGoalTypeArchiveData: String
+    let proteinGoal: Int
+    let mealEntriesData: String
+    let trackedNutrientsData: String
+    let nutrientGoalsData: String
+    let lastCentralDayIdentifier: String
+    let selectedAppIconChoiceRaw: String
+    let dailyEntryArchiveData: String
+    let dailyCalorieGoalArchiveData: String
+    let dailyBurnedCalorieArchiveData: String
+    let dailyExerciseArchiveData: String
+    let venueMenusData: String
+    let venueMenuSignaturesData: String
+    let quickAddFoodsData: String
+    let useAIBaseServings: Bool
+}
+
+struct CloudSyncEnvelope: Codable, Sendable {
+    let updatedAt: Double
+    let payload: CloudSyncPayload
+}
+
+actor AppCloudSyncService {
+    static let shared = AppCloudSyncService()
+
+    private let container = CKContainer.default()
+    private let recordID = CKRecord.ID(recordName: "user-state")
+    private let recordType = "AppState"
+    private let assetFieldName = "payloadAsset"
+    private let updatedAtFieldName = "updatedAt"
+    private let subscriptionID = "app-state-private-changes"
+
+    func fetchEnvelope() async throws -> CloudSyncEnvelope? {
+        guard try await isCloudAccountAvailable() else { return nil }
+
+        do {
+            let record = try await fetchRecord()
+            guard
+                let asset = record[assetFieldName] as? CKAsset,
+                let fileURL = asset.fileURL
+            else {
+                return nil
+            }
+
+            let data = try Data(contentsOf: fileURL)
+            return try JSONDecoder().decode(CloudSyncEnvelope.self, from: data)
+        } catch let error as CKError where error.code == .unknownItem {
+            return nil
+        }
+    }
+
+    func saveEnvelope(_ envelope: CloudSyncEnvelope) async throws {
+        guard try await isCloudAccountAvailable() else { return }
+
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cloud-sync-\(UUID().uuidString).json")
+        let data = try JSONEncoder().encode(envelope)
+        try data.write(to: tempURL, options: .atomic)
+
+        defer {
+            try? FileManager.default.removeItem(at: tempURL)
+        }
+
+        let record: CKRecord
+        do {
+            record = try await fetchRecord()
+        } catch let error as CKError where error.code == .unknownItem {
+            record = CKRecord(recordType: recordType, recordID: recordID)
+        }
+
+        record[assetFieldName] = CKAsset(fileURL: tempURL)
+        record[updatedAtFieldName] = envelope.updatedAt as NSNumber
+        _ = try await saveRecord(record)
+    }
+
+    func ensureSubscription() async throws {
+        guard try await isCloudAccountAvailable() else { return }
+
+        do {
+            _ = try await fetchSubscription()
+        } catch let error as CKError where error.code == .unknownItem {
+            let subscription = CKDatabaseSubscription(subscriptionID: subscriptionID)
+            let notificationInfo = CKSubscription.NotificationInfo()
+            notificationInfo.shouldSendContentAvailable = true
+            subscription.notificationInfo = notificationInfo
+            _ = try await saveSubscription(subscription)
+        }
+    }
+
+    nonisolated static func isAppStateChangeNotification(userInfo: [AnyHashable: Any]) -> Bool {
+        guard let notification = CKNotification(fromRemoteNotificationDictionary: userInfo) else {
+            return false
+        }
+
+        return notification.subscriptionID == "app-state-private-changes"
+    }
+
+    private func isCloudAccountAvailable() async throws -> Bool {
+        let status: CKAccountStatus = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<CKAccountStatus, Error>) in
+            container.accountStatus { status, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: status)
+                }
+            }
+        }
+
+        return status == .available
+    }
+
+    private func fetchRecord() async throws -> CKRecord {
+        try await withCheckedThrowingContinuation { continuation in
+            container.privateCloudDatabase.fetch(withRecordID: recordID) { record, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else if let record {
+                    continuation.resume(returning: record)
+                } else {
+                    continuation.resume(throwing: CKError(.unknownItem))
+                }
+            }
+        }
+    }
+
+    private func saveRecord(_ record: CKRecord) async throws -> CKRecord {
+        try await withCheckedThrowingContinuation { continuation in
+            container.privateCloudDatabase.save(record) { savedRecord, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else if let savedRecord {
+                    continuation.resume(returning: savedRecord)
+                } else {
+                    continuation.resume(throwing: CKError(.internalError))
+                }
+            }
+        }
+    }
+
+    private func fetchSubscription() async throws -> CKSubscription {
+        try await withCheckedThrowingContinuation { continuation in
+            container.privateCloudDatabase.fetch(withSubscriptionID: subscriptionID) { subscription, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else if let subscription {
+                    continuation.resume(returning: subscription)
+                } else {
+                    continuation.resume(throwing: CKError(.unknownItem))
+                }
+            }
+        }
+    }
+
+    private func saveSubscription(_ subscription: CKSubscription) async throws -> CKSubscription {
+        try await withCheckedThrowingContinuation { continuation in
+            container.privateCloudDatabase.save(subscription) { savedSubscription, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else if let savedSubscription {
+                    continuation.resume(returning: savedSubscription)
+                } else {
+                    continuation.resume(throwing: CKError(.internalError))
+                }
+            }
+        }
+    }
+}
+
+actor AppMenuPreloadService {
+    static let shared = AppMenuPreloadService()
+
+    private let defaults = UserDefaults.standard
+    private let menuService = NutrisliceMenuService()
+    private let venueMenusKey = "venueMenusData"
+    private let venueMenuSignaturesKey = "venueMenuSignaturesData"
+
+    func preloadTodayMenus() async -> Bool {
+        var venueMenus = loadVenueMenus()
+        var venueMenuSignatures = loadVenueMenuSignatures()
+        var didUpdate = false
+
+        for venue in DiningVenue.allCases {
+            for menuType in menuService.allMenuTypes where venue.supportedMenuTypes.contains(menuType) {
+                let currentSignature = menuService.currentMenuSignature(for: venue, menuType: menuType)
+                let existingMenu = venueMenus[venue]?[menuType] ?? .empty
+                let lastSignature = venueMenuSignatures[venue]?[menuType]
+                guard existingMenu.lines.isEmpty || lastSignature != currentSignature else {
+                    continue
+                }
+
+                do {
+                    let menu = try await menuService.fetchTodayMenu(for: venue, menuType: menuType)
+                    var venueCache = venueMenus[venue] ?? [:]
+                    venueCache[menuType] = menu
+                    venueMenus[venue] = venueCache
+
+                    var signatureCache = venueMenuSignatures[venue] ?? [:]
+                    signatureCache[menuType] = currentSignature
+                    venueMenuSignatures[venue] = signatureCache
+                    didUpdate = true
+                } catch {
+                    continue
+                }
+            }
+        }
+
+        if didUpdate {
+            saveVenueMenus(venueMenus)
+            saveVenueMenuSignatures(venueMenuSignatures)
+        }
+
+        return didUpdate
+    }
+
+    private func loadVenueMenus() -> StoredVenueMenuCache {
+        guard
+            let stored = defaults.string(forKey: venueMenusKey),
+            !stored.isEmpty,
+            let data = stored.data(using: .utf8),
+            let decoded = try? JSONDecoder().decode(StoredVenueMenuCache.self, from: data)
+        else {
+            return [:]
+        }
+
+        return decoded
+    }
+
+    private func loadVenueMenuSignatures() -> StoredVenueMenuSignatureCache {
+        guard
+            let stored = defaults.string(forKey: venueMenuSignaturesKey),
+            !stored.isEmpty,
+            let data = stored.data(using: .utf8),
+            let decoded = try? JSONDecoder().decode(StoredVenueMenuSignatureCache.self, from: data)
+        else {
+            return [:]
+        }
+
+        return decoded
+    }
+
+    private func saveVenueMenus(_ venueMenus: StoredVenueMenuCache) {
+        guard let data = try? JSONEncoder().encode(venueMenus) else { return }
+        defaults.set(String(decoding: data, as: UTF8.self), forKey: venueMenusKey)
+    }
+
+    private func saveVenueMenuSignatures(_ signatures: StoredVenueMenuSignatureCache) {
+        guard let data = try? JSONEncoder().encode(signatures) else { return }
+        defaults.set(String(decoding: data, as: UTF8.self), forKey: venueMenuSignaturesKey)
+    }
+}
 
 private enum AppTab: String, CaseIterable, Identifiable {
     case today
@@ -148,6 +414,12 @@ struct ContentView: View {
         }
     }
 
+    private typealias VenueMenuCache = [DiningVenue: [NutrisliceMenuService.MenuType: NutrisliceMenu]]
+    private typealias VenueMenuSignatureCache = [DiningVenue: [NutrisliceMenuService.MenuType: String]]
+    private typealias VenueMenuSelectionCache = [DiningVenue: [NutrisliceMenuService.MenuType: [String: Int]]]
+    private typealias VenueMenuMultiplierCache = [DiningVenue: [NutrisliceMenuService.MenuType: [String: Double]]]
+    private typealias VenueMenuErrorCache = [DiningVenue: [NutrisliceMenuService.MenuType: String]]
+
     private enum HistoryChartRange: String, CaseIterable, Identifiable {
         case thirtyDays
         case sixMonths
@@ -263,6 +535,7 @@ struct ContentView: View {
     @AppStorage("venueMenusData") private var storedVenueMenusData: String = ""
     @AppStorage("venueMenuSignaturesData") private var storedVenueMenuSignaturesData: String = ""
     @AppStorage("quickAddFoodsData") private var storedQuickAddFoodsData: String = ""
+    @AppStorage("cloudSyncLocalModifiedAt") private var cloudSyncLocalModifiedAt: Double = 0
     /// When true, Gemini can override ambiguous base servings (e.g. \"1 each\" entrees) with its inferred base oz.
     /// When false, base servings always come from the menu's serving size.
     @AppStorage("useAIBaseServings") private var useAIBaseServings: Bool = true
@@ -298,6 +571,7 @@ struct ContentView: View {
     @State private var selectedAddDestination: AddDestination = .manualEntry
     @State private var isAddDestinationPickerPresented = false
     @State private var selectedMenuVenue: DiningVenue = .fourWinds
+    @State private var selectedMenuType: NutrisliceMenuService.MenuType = .dinner
     @State private var selectedHistoryDayIdentifier = ""
     @State private var displayedHistoryMonth = Date()
     @State private var presentedHistoryDaySummary: HistoryDaySummary?
@@ -312,16 +586,15 @@ struct ContentView: View {
     @State private var onboardingPage = 0
     @State private var hasRequestedHealthDuringOnboarding = false
 
-    @State private var venueMenus: [DiningVenue: NutrisliceMenu] = [:]
-    @State private var selectedMenuItemQuantitiesByVenue: [DiningVenue: [String: Int]] = [:]
-    @State private var selectedMenuItemMultipliersByVenue: [DiningVenue: [String: Double]] = [:]
+    @State private var venueMenus: VenueMenuCache = [:]
+    @State private var selectedMenuItemQuantitiesByVenue: VenueMenuSelectionCache = [:]
+    @State private var selectedMenuItemMultipliersByVenue: VenueMenuMultiplierCache = [:]
     @State private var isMenuLoading = false
-    @State private var menuLoadErrorsByVenue: [DiningVenue: String] = [:]
-    @State private var lastLoadedMenuSignatureByVenue: [DiningVenue: String] = [:]
+    @State private var menuLoadErrorsByVenue: VenueMenuErrorCache = [:]
+    @State private var lastLoadedMenuSignatureByVenue: VenueMenuSignatureCache = [:]
     @State private var isResetConfirmationPresented = false
     @State private var isKeyboardVisible = false
     @State private var keyboardHeight: CGFloat = 0
-    @State private var isAddNutrientsExpanded = false
     @State private var isExerciseSectionCollapsed = false
     @State private var isAddExerciseSheetPresented = false
     @State private var plateEstimateItems: [MenuItem]?
@@ -331,6 +604,9 @@ struct ContentView: View {
     @State private var plateEstimateErrorMessage: String?
     @State private var isEmbeddedMenuAIPopupPresented = false
     @State private var embeddedMenuRequestedAIPickerSource: PlateImagePickerView.Source?
+    @State private var hasBootstrappedCloudSync = false
+    @State private var isApplyingCloudSync = false
+    @State private var cloudSyncUploadTask: Task<Void, Never>?
     @State private var isAddConfirmationPresented = false
     @State private var addConfirmationTask: Task<Void, Never>?
     @State private var barcodeErrorToastMessage: String?
@@ -343,12 +619,17 @@ struct ContentView: View {
     private let menuService = NutrisliceMenuService()
     private let openFoodFactsService = OpenFoodFactsService()
     private let usdaFoodService = USDAFoodService()
-    private let clockTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
+    private let clockTimer = Timer.publish(every: 120, on: .main, in: .common).autoconnect()
 
     private enum Field: Hashable {
         case name
         case calories
         case nutrient(String)
+    }
+
+    private enum ManualEntryGridField: Hashable {
+        case calories
+        case nutrient(NutrientDefinition)
     }
 
     private enum OnboardingPage: Int, CaseIterable {
@@ -455,6 +736,14 @@ struct ContentView: View {
         stepActivityService.estimatedCaloriesToday(profile: resolvedBMRProfile)
     }
 
+    private var reclassifiedWalkingCaloriesToday: Int {
+        exercises.reduce(0) { $0 + $1.reclassifiedWalkingCalories }
+    }
+
+    private var effectiveActivityCaloriesToday: Int {
+        max(activityCaloriesToday - reclassifiedWalkingCaloriesToday, 0)
+    }
+
     private var exerciseCaloriesToday: Int {
         let manual = exercises.reduce(0) { $0 + $1.calories }
         let health = healthKitService.todayWorkouts.reduce(0) { $0 + $1.calories }
@@ -475,7 +764,7 @@ struct ContentView: View {
         }
 
         let bmr = resolvedBMRProfile.flatMap(calculatedBMR(for:)) ?? ContentView.fallbackAverageBMR
-        let burned = max(bmr + activityCaloriesToday + exerciseCaloriesToday, 1)
+        let burned = max(bmr + effectiveActivityCaloriesToday + exerciseCaloriesToday, 1)
         let dayGoalType = goalTypeForDay(todayDayIdentifier)
         let amount = deficitForDay(todayDayIdentifier)
         let goal: Int
@@ -498,12 +787,42 @@ struct ContentView: View {
         AppIconChoice(rawValue: selectedAppIconChoiceRaw) ?? .standard
     }
 
+    private var cloudSyncPayload: CloudSyncPayload {
+        CloudSyncPayload(
+            hasCompletedOnboarding: hasCompletedOnboarding,
+            deficitCalories: storedDeficitCalories,
+            useWeekendDeficit: useWeekendDeficit,
+            weekendDeficitCalories: storedWeekendDeficitCalories,
+            goalTypeRaw: goalTypeRaw,
+            surplusCalories: storedSurplusCalories,
+            dailyGoalTypeArchiveData: storedDailyGoalTypeArchiveData,
+            proteinGoal: legacyStoredProteinGoal,
+            mealEntriesData: storedEntriesData,
+            trackedNutrientsData: storedTrackedNutrientsData,
+            nutrientGoalsData: storedNutrientGoalsData,
+            lastCentralDayIdentifier: lastCentralDayIdentifier,
+            selectedAppIconChoiceRaw: selectedAppIconChoiceRaw,
+            dailyEntryArchiveData: storedDailyEntryArchiveData,
+            dailyCalorieGoalArchiveData: storedDailyCalorieGoalArchiveData,
+            dailyBurnedCalorieArchiveData: storedDailyBurnedCalorieArchiveData,
+            dailyExerciseArchiveData: storedDailyExerciseArchiveData,
+            venueMenusData: storedVenueMenusData,
+            venueMenuSignaturesData: storedVenueMenuSignaturesData,
+            quickAddFoodsData: storedQuickAddFoodsData,
+            useAIBaseServings: useAIBaseServings
+        )
+    }
+
     private var currentMenu: NutrisliceMenu {
-        venueMenus[selectedMenuVenue] ?? .empty
+        menu(for: selectedMenuVenue, menuType: selectedMenuType)
     }
 
     private var currentMenuError: String? {
-        menuLoadErrorsByVenue[selectedMenuVenue]
+        menuLoadErrorsByVenue[selectedMenuVenue]?[selectedMenuType]
+    }
+
+    private var availableMenuTypesForSelectedVenue: [NutrisliceMenuService.MenuType] {
+        menuService.allMenuTypes.filter { selectedMenuVenue.supportedMenuTypes.contains($0) }
     }
 
     private var excludedNutrientKeys: Set<String> {
@@ -574,6 +893,36 @@ struct ContentView: View {
             .map { NutrientCatalog.definition(for: $0) }
     }
 
+    private var manualEntryGridRows: [[ManualEntryGridField]] {
+        guard !activeNutrients.isEmpty else {
+            return [[.calories]]
+        }
+
+        if activeNutrients.count.isMultiple(of: 2) {
+            var rows: [[ManualEntryGridField]] = [[.calories]]
+            for startIndex in stride(from: 0, to: activeNutrients.count, by: 2) {
+                rows.append([
+                    .nutrient(activeNutrients[startIndex]),
+                    .nutrient(activeNutrients[startIndex + 1])
+                ])
+            }
+            return rows
+        }
+
+        var rows: [[ManualEntryGridField]] = [[.calories, .nutrient(activeNutrients[0])]]
+        for startIndex in stride(from: 1, to: activeNutrients.count, by: 2) {
+            if startIndex + 1 < activeNutrients.count {
+                rows.append([
+                    .nutrient(activeNutrients[startIndex]),
+                    .nutrient(activeNutrients[startIndex + 1])
+                ])
+            } else {
+                rows.append([.nutrient(activeNutrients[startIndex])])
+            }
+        }
+        return rows
+    }
+
     private var primaryNutrient: NutrientDefinition {
         activeNutrients.first ?? NutrientCatalog.definition(for: "g_protein")
     }
@@ -584,24 +933,63 @@ struct ContentView: View {
 
     private var manualEntryBottomPadding: CGFloat {
         guard isManualEntryEditing else { return 140 }
-
-        var padding: CGFloat = max(124, keyboardHeight + 24)
-        if isAddNutrientsExpanded && activeNutrients.count > 1 {
-            let nutrientRows = CGFloat((activeNutrients.count + 1) / 2)
-            padding += nutrientRows * 190
-        }
-        return padding
+        return max(124, keyboardHeight + 24)
     }
 
-    private var collapsedManualEntryPageLift: CGFloat {
-        guard isManualEntryEditing, !isAddNutrientsExpanded else { return 0 }
-        return 0
+    private func menu(for venue: DiningVenue, menuType: NutrisliceMenuService.MenuType) -> NutrisliceMenu {
+        venueMenus[venue]?[menuType] ?? .empty
+    }
+
+    private func setMenu(_ menu: NutrisliceMenu, for venue: DiningVenue, menuType: NutrisliceMenuService.MenuType) {
+        var venueCache = venueMenus[venue] ?? [:]
+        venueCache[menuType] = menu
+        venueMenus[venue] = venueCache
+    }
+
+    private func menuSignature(for venue: DiningVenue, menuType: NutrisliceMenuService.MenuType) -> String? {
+        lastLoadedMenuSignatureByVenue[venue]?[menuType]
+    }
+
+    private func setMenuSignature(_ signature: String?, for venue: DiningVenue, menuType: NutrisliceMenuService.MenuType) {
+        var venueCache = lastLoadedMenuSignatureByVenue[venue] ?? [:]
+        venueCache[menuType] = signature
+        lastLoadedMenuSignatureByVenue[venue] = venueCache
+    }
+
+    private func setMenuError(_ error: String?, for venue: DiningVenue, menuType: NutrisliceMenuService.MenuType) {
+        var venueCache = menuLoadErrorsByVenue[venue] ?? [:]
+        if let error {
+            venueCache[menuType] = error
+        } else {
+            venueCache.removeValue(forKey: menuType)
+        }
+        menuLoadErrorsByVenue[venue] = venueCache
+    }
+
+    private func menuQuantities(for venue: DiningVenue, menuType: NutrisliceMenuService.MenuType) -> [String: Int] {
+        selectedMenuItemQuantitiesByVenue[venue]?[menuType] ?? [:]
+    }
+
+    private func setMenuQuantities(_ quantities: [String: Int], for venue: DiningVenue, menuType: NutrisliceMenuService.MenuType) {
+        var venueCache = selectedMenuItemQuantitiesByVenue[venue] ?? [:]
+        venueCache[menuType] = quantities
+        selectedMenuItemQuantitiesByVenue[venue] = venueCache
+    }
+
+    private func menuMultipliers(for venue: DiningVenue, menuType: NutrisliceMenuService.MenuType) -> [String: Double] {
+        selectedMenuItemMultipliersByVenue[venue]?[menuType] ?? [:]
+    }
+
+    private func setMenuMultipliers(_ multipliers: [String: Double], for venue: DiningVenue, menuType: NutrisliceMenuService.MenuType) {
+        var venueCache = selectedMenuItemMultipliersByVenue[venue] ?? [:]
+        venueCache[menuType] = multipliers
+        selectedMenuItemMultipliersByVenue[venue] = venueCache
     }
 
     private func loadVenueMenus() {
         if !storedVenueMenusData.isEmpty,
            let data = storedVenueMenusData.data(using: .utf8),
-           let decoded = try? JSONDecoder().decode([DiningVenue: NutrisliceMenu].self, from: data) {
+           let decoded = try? JSONDecoder().decode(VenueMenuCache.self, from: data) {
             venueMenus = decoded
         } else {
             venueMenus = [:]
@@ -609,7 +997,7 @@ struct ContentView: View {
 
         if !storedVenueMenuSignaturesData.isEmpty,
            let data = storedVenueMenuSignaturesData.data(using: .utf8),
-           let decoded = try? JSONDecoder().decode([DiningVenue: String].self, from: data) {
+           let decoded = try? JSONDecoder().decode(VenueMenuSignatureCache.self, from: data) {
             lastLoadedMenuSignatureByVenue = decoded
         } else {
             lastLoadedMenuSignatureByVenue = [:]
@@ -945,6 +1333,14 @@ struct ContentView: View {
                 saveTrackingPreferences()
                 syncInputFieldsToTrackedNutrients()
             }
+            .onChange(of: cloudSyncPayload) { oldPayload, newPayload in
+                handleCloudSyncPayloadChange(oldPayload: oldPayload, newPayload: newPayload)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .cloudKitAppStateDidChange)) { _ in
+                Task(priority: .utility) {
+                    await bootstrapCloudSync()
+                }
+            }
     }
 
     private var rootShellBase: some View {
@@ -1033,7 +1429,31 @@ struct ContentView: View {
                     textPrimary: textPrimary,
                     textSecondary: textSecondary,
                     accent: accent,
-                    onAdd: { entry in
+                    onAdd: { draft in
+                        let reclassifiedWalkingCalories: Int
+                        if draft.exerciseType == .running {
+                            let walkingEquivalent = ExerciseCalorieService.walkingEquivalentCalories(
+                                type: draft.exerciseType,
+                                durationMinutes: draft.durationMinutes,
+                                distanceMiles: draft.distanceMiles,
+                                weightPounds: resolvedBMRProfile?.weightPounds ?? 170
+                            )
+                            let availableWalkingCalories = max(activityCaloriesToday - reclassifiedWalkingCaloriesToday, 0)
+                            reclassifiedWalkingCalories = min(walkingEquivalent, availableWalkingCalories)
+                        } else {
+                            reclassifiedWalkingCalories = 0
+                        }
+
+                        let entry = ExerciseEntry(
+                            id: UUID(),
+                            exerciseType: draft.exerciseType,
+                            customName: draft.customName,
+                            durationMinutes: draft.durationMinutes,
+                            distanceMiles: draft.distanceMiles,
+                            calories: draft.calories,
+                            reclassifiedWalkingCalories: reclassifiedWalkingCalories,
+                            createdAt: Date()
+                        )
                         withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
                             exercises.append(entry)
                         }
@@ -1372,21 +1792,19 @@ struct ContentView: View {
             menu: currentMenu,
             venue: selectedMenuVenue,
             sourceTitle: selectedMenuVenue.title,
-            mealTitle: menuService.currentMenuType().title,
+            mealTitle: selectedMenuType.title,
+            selectedMenuType: selectedMenuType,
+            availableMenuTypes: availableMenuTypesForSelectedVenue,
             selectedItemQuantities: Binding(
-                get: { selectedMenuItemQuantitiesByVenue[selectedMenuVenue] ?? [:] },
+                get: { menuQuantities(for: selectedMenuVenue, menuType: selectedMenuType) },
                 set: { newValue in
-                    var updated = selectedMenuItemQuantitiesByVenue
-                    updated[selectedMenuVenue] = newValue
-                    selectedMenuItemQuantitiesByVenue = updated
+                    setMenuQuantities(newValue, for: selectedMenuVenue, menuType: selectedMenuType)
                 }
             ),
             selectedItemMultipliers: Binding(
-                get: { selectedMenuItemMultipliersByVenue[selectedMenuVenue] ?? [:] },
+                get: { menuMultipliers(for: selectedMenuVenue, menuType: selectedMenuType) },
                 set: { newValue in
-                    var updated = selectedMenuItemMultipliersByVenue
-                    updated[selectedMenuVenue] = newValue
-                    selectedMenuItemMultipliersByVenue = updated
+                    setMenuMultipliers(newValue, for: selectedMenuVenue, menuType: selectedMenuType)
                 }
             ),
             isLoading: isMenuLoading,
@@ -1403,7 +1821,7 @@ struct ContentView: View {
             plateEstimateItems: $plateEstimateItems,
             plateEstimateOzByItemId: $plateEstimateOzByItemId,
             plateEstimateBaseOzByItemId: plateEstimateBaseOzByItemId,
-            mealGroup: mealGroup(for: menuService.currentMenuType(now: Date())),
+            mealGroup: mealGroup(for: selectedMenuType),
             onPlateEstimateConfirm: { pairs in
                 addMenuItemsWithPortions(pairs)
                 plateEstimateItems = nil
@@ -1419,6 +1837,9 @@ struct ContentView: View {
             },
             onVenueChange: { newVenue in
                 switchMenuToVenue(newVenue)
+            },
+            onMenuTypeChange: { newMenuType in
+                switchMenuToMealType(newMenuType)
             },
             onClose: onClose,
             bottomOverlayClearance: bottomOverlayClearance,
@@ -1575,6 +1996,103 @@ struct ContentView: View {
         .presentationDragIndicator(.visible)
     }
 
+    private func handleCloudSyncPayloadChange(oldPayload: CloudSyncPayload, newPayload: CloudSyncPayload) {
+        guard hasBootstrappedCloudSync, !isApplyingCloudSync, oldPayload != newPayload else { return }
+        scheduleCloudSyncUpload(for: newPayload)
+    }
+
+    private func scheduleCloudSyncUpload(for payload: CloudSyncPayload) {
+        let timestamp = Date().timeIntervalSince1970
+        cloudSyncLocalModifiedAt = timestamp
+        cloudSyncUploadTask?.cancel()
+        cloudSyncUploadTask = Task {
+            try? await Task.sleep(for: .seconds(1.0))
+            guard !Task.isCancelled else { return }
+            try? await AppCloudSyncService.shared.saveEnvelope(
+                CloudSyncEnvelope(updatedAt: timestamp, payload: payload)
+            )
+        }
+    }
+
+    private func bootstrapCloudSync() async {
+        defer {
+            hasBootstrappedCloudSync = true
+        }
+
+        do {
+            try await AppCloudSyncService.shared.ensureSubscription()
+        } catch {
+            // Keep subscription setup silent; launch should not fail on notification issues.
+        }
+
+        let localPayload = cloudSyncPayload
+        let localUpdatedAt = cloudSyncLocalModifiedAt
+
+        do {
+            if let cloudEnvelope = try await AppCloudSyncService.shared.fetchEnvelope() {
+                if cloudEnvelope.updatedAt > localUpdatedAt {
+                    await MainActor.run {
+                        applyCloudSyncPayload(cloudEnvelope.payload, updatedAt: cloudEnvelope.updatedAt)
+                    }
+                } else if localPayload != cloudEnvelope.payload || localUpdatedAt > cloudEnvelope.updatedAt {
+                    let timestamp = max(localUpdatedAt, Date().timeIntervalSince1970)
+                    cloudSyncLocalModifiedAt = timestamp
+                    try await AppCloudSyncService.shared.saveEnvelope(
+                        CloudSyncEnvelope(updatedAt: timestamp, payload: localPayload)
+                    )
+                }
+            } else {
+                let timestamp = max(localUpdatedAt, Date().timeIntervalSince1970)
+                cloudSyncLocalModifiedAt = timestamp
+                try await AppCloudSyncService.shared.saveEnvelope(
+                    CloudSyncEnvelope(updatedAt: timestamp, payload: localPayload)
+                )
+            }
+        } catch {
+            // Keep cloud sync silent; the app still works fully offline/local-only.
+        }
+    }
+
+    @MainActor
+    private func applyCloudSyncPayload(_ payload: CloudSyncPayload, updatedAt: Double) {
+        isApplyingCloudSync = true
+
+        hasCompletedOnboarding = payload.hasCompletedOnboarding
+        storedDeficitCalories = payload.deficitCalories
+        useWeekendDeficit = payload.useWeekendDeficit
+        storedWeekendDeficitCalories = payload.weekendDeficitCalories
+        goalTypeRaw = payload.goalTypeRaw
+        storedSurplusCalories = payload.surplusCalories
+        storedDailyGoalTypeArchiveData = payload.dailyGoalTypeArchiveData
+        legacyStoredProteinGoal = payload.proteinGoal
+        storedEntriesData = payload.mealEntriesData
+        storedTrackedNutrientsData = payload.trackedNutrientsData
+        storedNutrientGoalsData = payload.nutrientGoalsData
+        lastCentralDayIdentifier = payload.lastCentralDayIdentifier
+        selectedAppIconChoiceRaw = payload.selectedAppIconChoiceRaw
+        storedDailyEntryArchiveData = payload.dailyEntryArchiveData
+        storedDailyCalorieGoalArchiveData = payload.dailyCalorieGoalArchiveData
+        storedDailyBurnedCalorieArchiveData = payload.dailyBurnedCalorieArchiveData
+        storedDailyExerciseArchiveData = payload.dailyExerciseArchiveData
+        storedVenueMenusData = payload.venueMenusData
+        storedVenueMenuSignaturesData = payload.venueMenuSignaturesData
+        storedQuickAddFoodsData = payload.quickAddFoodsData
+        useAIBaseServings = payload.useAIBaseServings
+        cloudSyncLocalModifiedAt = updatedAt
+
+        loadTrackingPreferences()
+        loadDailyEntryArchive()
+        loadQuickAddFoods()
+        loadVenueMenus()
+        selectedMenuType = menuService.currentMenuType()
+        applyCentralTimeTransitions(forceMenuReload: false)
+        syncInputFieldsToTrackedNutrients()
+        AppIconManager.apply(selectedAppIconChoice)
+        syncCurrentDayGoalArchive()
+
+        isApplyingCloudSync = false
+    }
+
     private func handleOnAppear() {
         if isPCCMenuUITestMode {
             return
@@ -1585,6 +2103,13 @@ struct ContentView: View {
         loadDailyEntryArchive()
         loadQuickAddFoods()
         loadVenueMenus()
+        selectedMenuType = menuService.currentMenuType()
+        Task(priority: .userInitiated) {
+            await preloadMenuForNutrientDiscovery()
+        }
+        Task(priority: .utility) {
+            await bootstrapCloudSync()
+        }
         applyCentralTimeTransitions(forceMenuReload: false)
         syncInputFieldsToTrackedNutrients()
         AppIconManager.apply(selectedAppIconChoice)
@@ -1593,9 +2118,6 @@ struct ContentView: View {
             await healthKitService.refreshIfPossible()
         }
         syncCurrentDayGoalArchive()
-        Task {
-            await preloadMenuForNutrientDiscovery()
-        }
     }
 
     private var isPCCMenuUITestMode: Bool {
@@ -1619,26 +2141,28 @@ struct ContentView: View {
                 venue: .fourWinds,
                 sourceTitle: DiningVenue.fourWinds.title,
                 mealTitle: "Dinner",
+                selectedMenuType: .dinner,
+                availableMenuTypes: [.lunch, .dinner],
                 selectedItemQuantities: Binding(
                     get: {
-                        selectedMenuItemQuantitiesByVenue[.fourWinds]
+                        selectedMenuItemQuantitiesByVenue[.fourWinds]?[.dinner]
                             ?? ["entree-1": 1]
                     },
                     set: { newValue in
-                        var updated = selectedMenuItemQuantitiesByVenue
-                        updated[.fourWinds] = newValue
-                        selectedMenuItemQuantitiesByVenue = updated
+                        var venueCache = selectedMenuItemQuantitiesByVenue[.fourWinds] ?? [:]
+                        venueCache[.dinner] = newValue
+                        selectedMenuItemQuantitiesByVenue[.fourWinds] = venueCache
                     }
                 ),
                 selectedItemMultipliers: Binding(
                     get: {
-                        selectedMenuItemMultipliersByVenue[.fourWinds]
+                        selectedMenuItemMultipliersByVenue[.fourWinds]?[.dinner]
                             ?? ["entree-1": 1.0]
                     },
                     set: { newValue in
-                        var updated = selectedMenuItemMultipliersByVenue
-                        updated[.fourWinds] = newValue
-                        selectedMenuItemMultipliersByVenue = updated
+                        var venueCache = selectedMenuItemMultipliersByVenue[.fourWinds] ?? [:]
+                        venueCache[.dinner] = newValue
+                        selectedMenuItemMultipliersByVenue[.fourWinds] = venueCache
                     }
                 ),
                 isLoading: false,
@@ -1653,6 +2177,7 @@ struct ContentView: View {
                 onPlateEstimateConfirm: { _ in },
                 onPlateEstimateDismiss: {},
                 onVenueChange: { _ in },
+                onMenuTypeChange: { _ in },
                 onClose: nil,
                 bottomOverlayClearance: 0,
                 onRequestExternalAIPopup: {
@@ -1775,6 +2300,9 @@ struct ContentView: View {
         Task {
             await healthKitService.refreshIfPossible()
         }
+        Task(priority: .utility) {
+            await bootstrapCloudSync()
+        }
         syncCurrentDayGoalArchive()
         syncHistorySelection(preferToday: true)
         Task {
@@ -1787,6 +2315,9 @@ struct ContentView: View {
         stepActivityService.refreshIfAuthorized()
         Task {
             await healthKitService.refreshIfPossible()
+        }
+        Task(priority: .utility) {
+            await bootstrapCloudSync()
         }
         syncCurrentDayGoalArchive()
     }
@@ -1969,19 +2500,11 @@ struct ContentView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Manual entry")
-                                .font(.headline.weight(.semibold))
-                                .foregroundStyle(textSecondary)
-                        }
-                        .padding(.top, 4)
-
                         manualEntryFormCard
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
                     .padding(.bottom, manualEntryBottomPadding)
-                    .offset(y: collapsedManualEntryPageLift)
                 }
                 .scrollIndicators(.hidden)
                 .scrollDismissesKeyboard(.interactively)
@@ -1993,18 +2516,6 @@ struct ContentView: View {
             .onChange(of: keyboardHeight) { _, newHeight in
                 guard newHeight > 0, focusedField != nil else { return }
                 scheduleManualEntryScroll(for: focusedField, using: proxy)
-            }
-            .onChange(of: isAddNutrientsExpanded) { _, isExpanded in
-                guard isExpanded, isKeyboardVisible, activeNutrients.count > 1 else { return }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    let targetField: Field
-                    if case .nutrient = focusedField {
-                        targetField = focusedField ?? .nutrient(activeNutrients[0].key)
-                    } else {
-                        targetField = .nutrient(activeNutrients[0].key)
-                    }
-                    scrollManualEntryField(targetField, using: proxy)
-                }
             }
         }
     }
@@ -2092,57 +2603,17 @@ struct ContentView: View {
                     .id(manualEntryScrollID(for: .name))
             }
 
-            if activeNutrients.count == 1 {
-                Grid(horizontalSpacing: 12, verticalSpacing: 12) {
+            Grid(horizontalSpacing: 12, verticalSpacing: 12) {
+                ForEach(Array(manualEntryGridRows.enumerated()), id: \.offset) { _, row in
                     GridRow {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Calories")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(textPrimary)
-                            TextField("e.g. 250", text: $entryCaloriesText)
-                                .keyboardType(.numberPad)
-                                .focused($focusedField, equals: .calories)
-                                .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
-                                .id(manualEntryScrollID(for: .calories))
+                        manualEntryGridCell(row[0])
+                            .gridCellColumns(row.count == 1 ? 2 : 1)
+                        if row.count > 1 {
+                            manualEntryGridCell(row[1])
+                        } else {
+                            EmptyView()
                         }
-                        nutrientFieldCell(activeNutrients[0])
                     }
-                }
-            } else {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Calories")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(textPrimary)
-
-                    TextField("e.g. 250", text: $entryCaloriesText)
-                        .keyboardType(.numberPad)
-                        .focused($focusedField, equals: .calories)
-                        .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
-                        .id(manualEntryScrollID(for: .calories))
-                }
-
-                if activeNutrients.count > 1 {
-                    DisclosureGroup(isExpanded: $isAddNutrientsExpanded) {
-                        Grid(horizontalSpacing: 12, verticalSpacing: 12) {
-                            ForEach(Array(stride(from: 0, to: activeNutrients.count, by: 2)), id: \.self) { startIndex in
-                                GridRow {
-                                    if startIndex + 1 < activeNutrients.count {
-                                        nutrientFieldCell(activeNutrients[startIndex])
-                                        nutrientFieldCell(activeNutrients[startIndex + 1])
-                                    } else {
-                                        nutrientFieldCell(activeNutrients[startIndex])
-                                            .gridCellColumns(2)
-                                    }
-                                }
-                            }
-                        }
-                        .padding(.top, 12)
-                    } label: {
-                        Text("Add nutrients")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(textPrimary)
-                    }
-                    .tint(textPrimary)
                 }
             }
 
@@ -2181,7 +2652,7 @@ struct ContentView: View {
                         healthProfile: healthKitService.profile,
                         bmrCalories: currentDailyCalorieModel.bmr,
                         burnedCaloriesToday: burnedCaloriesToday,
-                        activeBurnedCaloriesToday: activityCaloriesToday + exerciseCaloriesToday,
+                        activeBurnedCaloriesToday: effectiveActivityCaloriesToday + exerciseCaloriesToday,
                         isUsingAutomatedCalories: currentDailyCalorieModel.usesBMR,
                         onRequestHealthAccess: {
                             Task {
@@ -3383,7 +3854,7 @@ struct ContentView: View {
         let allExercises = exercises + healthKitService.todayWorkouts
         let exerciseCalTotal = allExercises.reduce(0) { $0 + $1.calories }
         Section {
-            if allExercises.isEmpty && activityCaloriesToday == 0 {
+            if allExercises.isEmpty && effectiveActivityCaloriesToday == 0 {
                 Text("No exercise logged.")
                     .foregroundStyle(textSecondary)
                     .listRowBackground(surfacePrimary)
@@ -3391,7 +3862,7 @@ struct ContentView: View {
                 ForEach(allExercises.sorted(by: { $0.createdAt > $1.createdAt })) { entry in
                     exerciseLogRow(entry, isDeletable: exercises.contains(where: { $0.id == entry.id }))
                 }
-                if activityCaloriesToday > 0 {
+                if effectiveActivityCaloriesToday > 0 {
                     HStack(spacing: 12) {
                         Image(systemName: "figure.walk")
                             .font(.body)
@@ -3406,7 +3877,7 @@ struct ContentView: View {
                                 .foregroundStyle(textSecondary)
                         }
                         Spacer()
-                        Text("\(activityCaloriesToday) cal")
+                        Text("\(effectiveActivityCaloriesToday) cal")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(accent)
                             .monospacedDigit()
@@ -3431,7 +3902,7 @@ struct ContentView: View {
                         .font(.caption.weight(.bold))
                         .foregroundStyle(textSecondary.opacity(0.92))
                     Spacer()
-                    Text("\(exerciseCalTotal + activityCaloriesToday) cal")
+                    Text("\(exerciseCalTotal + effectiveActivityCaloriesToday) cal")
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(textSecondary.opacity(0.82))
                         .monospacedDigit()
@@ -3653,21 +4124,18 @@ struct ContentView: View {
 
     private func scrollManualEntryField(_ field: Field?, using proxy: ScrollViewProxy) {
         guard let field else { return }
-        if case .nutrient = field, activeNutrients.count > 1, !isAddNutrientsExpanded {
-            isAddNutrientsExpanded = true
-        }
         withAnimation(.easeOut(duration: 0.25)) {
-            if isKeyboardVisible, !isAddNutrientsExpanded {
-                let collapsedAnchorY = keyboardHeight > 340 ? 0.125 : 0.14
-                proxy.scrollTo("addManualEntryCard", anchor: UnitPoint(x: 0.5, y: collapsedAnchorY))
-                return
-            }
-
             if case .nutrient(let key) = field,
                isKeyboardVisible,
-               let nutrientIndex = activeNutrients.firstIndex(where: { $0.key == key }) {
-                let lastRowIndex = (activeNutrients.count - 1) / 2
-                let rowIndex = nutrientIndex / 2
+               let rowIndex = manualEntryGridRows.firstIndex(where: { row in
+                   row.contains {
+                       if case .nutrient(let nutrient) = $0 {
+                           return nutrient.key == key
+                       }
+                       return false
+                   }
+               }) {
+                let lastRowIndex = manualEntryGridRows.count - 1
                 if rowIndex == lastRowIndex {
                     proxy.scrollTo("addEntryButton", anchor: UnitPoint(x: 0.5, y: 0.5))
                     return
@@ -3688,6 +4156,26 @@ struct ContentView: View {
                 guard field == focusedField || field == nil else { return }
                 scrollManualEntryField(focusedField ?? field, using: proxy)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func manualEntryGridCell(_ field: ManualEntryGridField) -> some View {
+        switch field {
+        case .calories:
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Calories")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(textPrimary)
+
+                TextField("e.g. 250", text: $entryCaloriesText)
+                    .keyboardType(.numberPad)
+                    .focused($focusedField, equals: .calories)
+                    .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
+                    .id(manualEntryScrollID(for: .calories))
+            }
+        case .nutrient(let nutrient):
+            nutrientFieldCell(nutrient)
         }
     }
 
@@ -4189,16 +4677,19 @@ struct ContentView: View {
 
     @discardableResult
     private func prepareMenuDestination(for venue: DiningVenue) -> Bool {
-        let resolvedVenue = preferredMenuVenue(startingFrom: venue)
+        let initialMenuType = menuService.currentMenuType()
+        let resolvedVenue = preferredMenuVenue(startingFrom: venue, menuType: initialMenuType)
+        let resolvedMenuType = preferredMenuType(startingFrom: initialMenuType, for: resolvedVenue)
         selectedMenuVenue = resolvedVenue
-        let signature = menuService.currentMenuSignature(for: resolvedVenue)
-        let shouldLoadMenu = (venueMenus[resolvedVenue] ?? .empty).lines.isEmpty
-            || lastLoadedMenuSignatureByVenue[resolvedVenue] != signature
-            || menuLoadErrorsByVenue[resolvedVenue] != nil
+        selectedMenuType = resolvedMenuType
+        let signature = menuService.currentMenuSignature(for: resolvedVenue, menuType: resolvedMenuType)
+        let shouldLoadMenu = menu(for: resolvedVenue, menuType: resolvedMenuType).lines.isEmpty
+            || menuSignature(for: resolvedVenue, menuType: resolvedMenuType) != signature
+            || menuLoadErrorsByVenue[resolvedVenue]?[resolvedMenuType] != nil
 
-        if lastLoadedMenuSignatureByVenue[resolvedVenue] != signature {
-            venueMenus[resolvedVenue] = .empty
-            menuLoadErrorsByVenue.removeValue(forKey: resolvedVenue)
+        if menuSignature(for: resolvedVenue, menuType: resolvedMenuType) != signature {
+            setMenu(.empty, for: resolvedVenue, menuType: resolvedMenuType)
+            setMenuError(nil, for: resolvedVenue, menuType: resolvedMenuType)
         }
 
         isMenuLoading = shouldLoadMenu
@@ -4208,83 +4699,114 @@ struct ContentView: View {
     private func switchMenuToVenue(_ venue: DiningVenue) {
         guard venue != selectedMenuVenue else { return }
         selectedMenuVenue = venue
-        let signature = menuService.currentMenuSignature(for: venue)
-        let shouldLoadMenu = (venueMenus[venue] ?? .empty).lines.isEmpty
-            || lastLoadedMenuSignatureByVenue[venue] != signature
-            || menuLoadErrorsByVenue[venue] != nil
+        let currentMenuType = menuService.currentMenuType()
+        let resolvedMenuType = preferredMenuType(startingFrom: currentMenuType, for: venue)
+        selectedMenuType = resolvedMenuType
+        let signature = menuService.currentMenuSignature(for: venue, menuType: resolvedMenuType)
+        let shouldLoadMenu = menu(for: venue, menuType: resolvedMenuType).lines.isEmpty
+            || menuSignature(for: venue, menuType: resolvedMenuType) != signature
+            || menuLoadErrorsByVenue[venue]?[resolvedMenuType] != nil
 
-        if lastLoadedMenuSignatureByVenue[venue] != signature {
-            venueMenus[venue] = .empty
-            menuLoadErrorsByVenue.removeValue(forKey: venue)
+        if menuSignature(for: venue, menuType: resolvedMenuType) != signature {
+            setMenu(.empty, for: venue, menuType: resolvedMenuType)
+            setMenuError(nil, for: venue, menuType: resolvedMenuType)
         }
 
         isMenuLoading = shouldLoadMenu
 
         if shouldLoadMenu {
             Task {
-                await loadMenuFromFirebase(for: venue)
+                await loadMenuFromFirebase(for: venue, menuType: resolvedMenuType)
+            }
+        }
+    }
+
+    private func switchMenuToMealType(_ menuType: NutrisliceMenuService.MenuType) {
+        let resolvedVenue = preferredMenuVenue(startingFrom: selectedMenuVenue, menuType: menuType)
+        let resolvedMenuType = preferredMenuType(startingFrom: menuType, for: resolvedVenue)
+        selectedMenuVenue = resolvedVenue
+        selectedMenuType = resolvedMenuType
+
+        let signature = menuService.currentMenuSignature(for: resolvedVenue, menuType: resolvedMenuType)
+        let shouldLoadMenu = menu(for: resolvedVenue, menuType: resolvedMenuType).lines.isEmpty
+            || menuSignature(for: resolvedVenue, menuType: resolvedMenuType) != signature
+            || menuLoadErrorsByVenue[resolvedVenue]?[resolvedMenuType] != nil
+
+        if menuSignature(for: resolvedVenue, menuType: resolvedMenuType) != signature {
+            setMenu(.empty, for: resolvedVenue, menuType: resolvedMenuType)
+            setMenuError(nil, for: resolvedVenue, menuType: resolvedMenuType)
+        }
+
+        isMenuLoading = shouldLoadMenu
+
+        if shouldLoadMenu {
+            Task {
+                await loadMenuFromFirebase(for: resolvedVenue, menuType: resolvedMenuType)
             }
         }
     }
 
     @MainActor
-    private func loadMenuFromFirebase(for venue: DiningVenue? = nil) async {
+    private func loadMenuFromFirebase(
+        for venue: DiningVenue? = nil,
+        menuType: NutrisliceMenuService.MenuType? = nil,
+        showLoadingIndicator: Bool = true
+    ) async {
         let venue = venue ?? selectedMenuVenue
-        isMenuLoading = true
-        menuLoadErrorsByVenue.removeValue(forKey: venue)
+        let menuType = menuType ?? selectedMenuType
+        let shouldDriveLoadingIndicator = showLoadingIndicator && venue == selectedMenuVenue && menuType == selectedMenuType
+        if shouldDriveLoadingIndicator {
+            isMenuLoading = true
+        }
+        setMenuError(nil, for: venue, menuType: menuType)
         do {
-            let menu = try await menuService.fetchTodayMenu(for: venue)
-            venueMenus[venue] = menu
-            lastLoadedMenuSignatureByVenue[venue] = menuService.currentMenuSignature(for: venue)
-            var q = selectedMenuItemQuantitiesByVenue
-            var m = selectedMenuItemMultipliersByVenue
-            q[venue] = [:]
-            m[venue] = [:]
-            selectedMenuItemQuantitiesByVenue = q
-            selectedMenuItemMultipliersByVenue = m
+            let menu = try await menuService.fetchTodayMenu(for: venue, menuType: menuType)
+            setMenu(menu, for: venue, menuType: menuType)
+            setMenuSignature(menuService.currentMenuSignature(for: venue, menuType: menuType), for: venue, menuType: menuType)
+            setMenuQuantities([:], for: venue, menuType: menuType)
+            setMenuMultipliers([:], for: venue, menuType: menuType)
             saveVenueMenus()
         } catch {
             if let nutrisliceError = error as? NutrisliceMenuError {
                 switch nutrisliceError {
                 case .noMenuAvailable, .unavailableAtThisTime:
-                    // Treat unavailable menus as a neutral empty state so all venues use
-                    // the same "no items available" messaging in the sheet.
-                    venueMenus[venue] = .empty
-                    menuLoadErrorsByVenue.removeValue(forKey: venue)
+                    setMenu(.empty, for: venue, menuType: menuType)
+                    setMenuError(nil, for: venue, menuType: menuType)
                 default:
-                    menuLoadErrorsByVenue[venue] = nutrisliceError.errorDescription ?? nutrisliceError.localizedDescription
-                    venueMenus[venue] = .empty
+                    setMenuError(nutrisliceError.errorDescription ?? nutrisliceError.localizedDescription, for: venue, menuType: menuType)
+                    setMenu(.empty, for: venue, menuType: menuType)
                 }
             } else {
-                menuLoadErrorsByVenue[venue] = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-                venueMenus[venue] = .empty
+                setMenuError((error as? LocalizedError)?.errorDescription ?? error.localizedDescription, for: venue, menuType: menuType)
+                setMenu(.empty, for: venue, menuType: menuType)
             }
-            venueMenus[venue] = .empty
-            var q = selectedMenuItemQuantitiesByVenue
-            var m = selectedMenuItemMultipliersByVenue
-            q[venue] = [:]
-            m[venue] = [:]
-            selectedMenuItemQuantitiesByVenue = q
-            selectedMenuItemMultipliersByVenue = m
+            setMenu(.empty, for: venue, menuType: menuType)
+            setMenuQuantities([:], for: venue, menuType: menuType)
+            setMenuMultipliers([:], for: venue, menuType: menuType)
         }
-        isMenuLoading = false
+        saveVenueMenus()
+        if shouldDriveLoadingIndicator {
+            isMenuLoading = false
+        }
     }
 
     @MainActor
     private func preloadMenuForNutrientDiscovery() async {
-        let currentSignature = menuService.currentMenuSignature(for: selectedMenuVenue)
-        let existingMenu = currentMenu
-        let lastSignature = lastLoadedMenuSignatureByVenue[selectedMenuVenue]
-        guard existingMenu.lines.isEmpty || lastSignature != currentSignature else {
-            return
+        let combos = DiningVenue.allCases.flatMap { venue in
+            menuService.allMenuTypes
+                .filter { venue.supportedMenuTypes.contains($0) }
+                .map { (venue, $0) }
         }
-        do {
-            let menu = try await menuService.fetchTodayMenu(for: selectedMenuVenue)
-            venueMenus[selectedMenuVenue] = menu
-            lastLoadedMenuSignatureByVenue[selectedMenuVenue] = currentSignature
-            saveVenueMenus()
-        } catch {
-            // Keep this silent so startup does not show menu errors.
+
+        for (venue, menuType) in combos {
+            let currentSignature = menuService.currentMenuSignature(for: venue, menuType: menuType)
+            let existingMenu = menu(for: venue, menuType: menuType)
+            let lastSignature = menuSignature(for: venue, menuType: menuType)
+            guard existingMenu.lines.isEmpty || lastSignature != currentSignature else {
+                continue
+            }
+
+            await loadMenuFromFirebase(for: venue, menuType: menuType, showLoadingIndicator: false)
         }
     }
 
@@ -4349,6 +4871,7 @@ struct ContentView: View {
             venueMenus = [:]
             lastLoadedMenuSignatureByVenue = [:]
             menuLoadErrorsByVenue = [:]
+            selectedMenuType = menuService.currentMenuType()
             saveVenueMenus()
             syncHistorySelection(preferToday: true)
         }
@@ -4356,6 +4879,7 @@ struct ContentView: View {
         if forceMenuReload {
             venueMenus = [:]
             lastLoadedMenuSignatureByVenue = [:]
+            menuLoadErrorsByVenue = [:]
             saveVenueMenus()
             Task {
                 await preloadMenuForNutrientDiscovery()
@@ -4374,8 +4898,8 @@ struct ContentView: View {
         var expandedSelections: [MealEntry] = []
         let now = Date()
 
-        let quantities = selectedMenuItemQuantitiesByVenue[selectedMenuVenue] ?? [:]
-        let multipliers = selectedMenuItemMultipliersByVenue[selectedMenuVenue] ?? [:]
+        let quantities = menuQuantities(for: selectedMenuVenue, menuType: selectedMenuType)
+        let multipliers = menuMultipliers(for: selectedMenuVenue, menuType: selectedMenuType)
         for (id, quantity) in quantities {
             guard let item = itemByID[id], quantity > 0 else { continue }
             let multiplier = multipliers[id] ?? 1.0
@@ -4393,7 +4917,7 @@ struct ContentView: View {
                         calories: scaledCalories,
                         nutrientValues: scaledNutrients,
                         createdAt: now,
-                        mealGroup: mealGroup(for: menuService.currentMenuType(now: now))
+                        mealGroup: mealGroup(for: selectedMenuType)
                     )
                 )
             }
@@ -4409,12 +4933,8 @@ struct ContentView: View {
         }
         Haptics.notification(.success)
 
-        var q = selectedMenuItemQuantitiesByVenue
-        var m = selectedMenuItemMultipliersByVenue
-        q[selectedMenuVenue] = [:]
-        m[selectedMenuVenue] = [:]
-        selectedMenuItemQuantitiesByVenue = q
-        selectedMenuItemMultipliersByVenue = m
+        setMenuQuantities([:], for: selectedMenuVenue, menuType: selectedMenuType)
+        setMenuMultipliers([:], for: selectedMenuVenue, menuType: selectedMenuType)
         isMenuSheetPresented = false
         showAddConfirmation()
     }
@@ -4466,7 +4986,7 @@ struct ContentView: View {
 
     private func addMenuItemsWithPortions(_ pairs: [(item: MenuItem, oz: Double, baseOz: Double)]) {
         let now = Date()
-        let mealGrp = mealGroup(for: menuService.currentMenuType(now: now))
+        let mealGrp = mealGroup(for: selectedMenuType)
         var expandedSelections: [MealEntry] = []
         for (item, oz, baseOz) in pairs {
             let multiplier: Double = item.isCountBased ? oz : (baseOz > 0 ? (oz / baseOz) : 1.0)
@@ -4493,8 +5013,21 @@ struct ContentView: View {
         showAddConfirmation()
     }
 
-    private func preferredMenuVenue(startingFrom venue: DiningVenue, now: Date = Date()) -> DiningVenue {
-        let menuType = menuService.currentMenuType(now: now)
+    private func preferredMenuType(
+        startingFrom menuType: NutrisliceMenuService.MenuType,
+        for venue: DiningVenue
+    ) -> NutrisliceMenuService.MenuType {
+        if venue.supportedMenuTypes.contains(menuType) {
+            return menuType
+        }
+
+        return menuService.allMenuTypes.first(where: { venue.supportedMenuTypes.contains($0) }) ?? .lunch
+    }
+
+    private func preferredMenuVenue(
+        startingFrom venue: DiningVenue,
+        menuType: NutrisliceMenuService.MenuType
+    ) -> DiningVenue {
         if venue.supportedMenuTypes.contains(menuType) {
             return venue
         }
@@ -4535,6 +5068,7 @@ struct ContentView: View {
     private func clearMenuSelection() {
         selectedMenuItemQuantitiesByVenue = [:]
         selectedMenuItemMultipliersByVenue = [:]
+        selectedMenuType = menuService.currentMenuType()
     }
 
     @MainActor

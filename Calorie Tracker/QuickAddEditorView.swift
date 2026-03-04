@@ -225,12 +225,6 @@ struct QuickAddEditorView: View {
                                     .foregroundStyle(.red)
                             }
 
-                            if let barcodeLookupError {
-                                Text(barcodeLookupError)
-                                    .font(.caption)
-                                    .foregroundStyle(.orange)
-                            }
-
                             if let usdaSearchError {
                                 Text(usdaSearchError)
                                     .font(.caption)
@@ -597,6 +591,17 @@ struct QuickAddEditorView: View {
                             .fill(Color.black.opacity(0.70))
                     )
                 }
+
+                VStack {
+                    Spacer()
+
+                    if let barcodeLookupError {
+                        quickAddBarcodeErrorToast(message: barcodeLookupError)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.horizontal, 24)
+                .allowsHitTesting(false)
             }
             .navigationTitle("Scan Barcode")
             .navigationBarTitleDisplayMode(.inline)
@@ -609,6 +614,30 @@ struct QuickAddEditorView: View {
                 }
             }
         }
+    }
+
+    private func quickAddBarcodeErrorToast(message: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.circle.fill")
+                .foregroundStyle(Color.orange)
+            Text(message)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(textPrimary)
+                .lineLimit(2)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            Capsule(style: .continuous)
+                .fill(surfacePrimary.opacity(0.98))
+        )
+        .overlay(
+            Capsule(style: .continuous)
+                .stroke(textSecondary.opacity(0.16), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.2), radius: 18, y: 8)
+        .padding(.bottom, 124)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 
     private var quickAddUSDASearchSheet: some View {

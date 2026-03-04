@@ -203,15 +203,26 @@ struct ExerciseEntry: Identifiable, Codable, Equatable {
     let durationMinutes: Int
     let distanceMiles: Double?
     let calories: Int
+    let reclassifiedWalkingCalories: Int
     let createdAt: Date
 
     private enum CodingKeys: String, CodingKey {
         case id, exerciseType, customName, durationMinutes, calories, createdAt
         case distanceMiles
+        case reclassifiedWalkingCalories
         case intensity
     }
 
-    init(id: UUID, exerciseType: ExerciseType, customName: String? = nil, durationMinutes: Int, distanceMiles: Double? = nil, calories: Int, createdAt: Date) {
+    init(
+        id: UUID,
+        exerciseType: ExerciseType,
+        customName: String? = nil,
+        durationMinutes: Int,
+        distanceMiles: Double? = nil,
+        calories: Int,
+        reclassifiedWalkingCalories: Int = 0,
+        createdAt: Date
+    ) {
         self.id = id
         self.exerciseType = exerciseType
         let trimmedName = customName?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -219,6 +230,7 @@ struct ExerciseEntry: Identifiable, Codable, Equatable {
         self.durationMinutes = durationMinutes
         self.distanceMiles = distanceMiles
         self.calories = calories
+        self.reclassifiedWalkingCalories = max(reclassifiedWalkingCalories, 0)
         self.createdAt = createdAt
     }
 
@@ -232,6 +244,7 @@ struct ExerciseEntry: Identifiable, Codable, Equatable {
         durationMinutes = try c.decode(Int.self, forKey: .durationMinutes)
         distanceMiles = try c.decodeIfPresent(Double.self, forKey: .distanceMiles)
         calories = try c.decode(Int.self, forKey: .calories)
+        reclassifiedWalkingCalories = try c.decodeIfPresent(Int.self, forKey: .reclassifiedWalkingCalories) ?? 0
         createdAt = try c.decode(Date.self, forKey: .createdAt)
         _ = try c.decodeIfPresent(String.self, forKey: .intensity)
     }
@@ -244,6 +257,7 @@ struct ExerciseEntry: Identifiable, Codable, Equatable {
         try c.encode(durationMinutes, forKey: .durationMinutes)
         try c.encodeIfPresent(distanceMiles, forKey: .distanceMiles)
         try c.encode(calories, forKey: .calories)
+        try c.encode(reclassifiedWalkingCalories, forKey: .reclassifiedWalkingCalories)
         try c.encode(createdAt, forKey: .createdAt)
     }
 

@@ -136,7 +136,7 @@ enum NutrisliceMenuError: LocalizedError {
 }
 
 final class NutrisliceMenuService {
-    enum MenuType: String {
+    enum MenuType: String, Codable, Hashable {
         case breakfast
         case lunch
         case dinner
@@ -152,6 +152,8 @@ final class NutrisliceMenuService {
             }
         }
     }
+
+    let allMenuTypes: [MenuType] = [.breakfast, .lunch, .dinner]
 
     private struct NutrisliceWeekResponse: Decodable {
         struct Day: Decodable {
@@ -230,8 +232,12 @@ final class NutrisliceMenuService {
 
     private let centralTimeZone = TimeZone.autoupdatingCurrent
 
+    func currentMenuSignature(for venue: DiningVenue, menuType: MenuType, now: Date = Date()) -> String {
+        "\(venue.rawValue)-\(menuType.rawValue)-\(currentISODate(now: now))"
+    }
+
     func currentMenuSignature(for venue: DiningVenue, now: Date = Date()) -> String {
-        "\(venue.rawValue)-\(currentMenuType(now: now).rawValue)-\(currentISODate(now: now))"
+        currentMenuSignature(for: venue, menuType: currentMenuType(now: now), now: now)
     }
 
     func currentCentralDayIdentifier(now: Date = Date()) -> String {
@@ -254,8 +260,7 @@ final class NutrisliceMenuService {
         return .dinner
     }
 
-    func fetchTodayMenu(for venue: DiningVenue) async throws -> NutrisliceMenu {
-        let menuType = currentMenuType()
+    func fetchTodayMenu(for venue: DiningVenue, menuType: MenuType) async throws -> NutrisliceMenu {
         guard venue.supportedMenuTypes.contains(menuType) else {
             throw NutrisliceMenuError.unavailableAtThisTime(venue: venue, menuType: menuType)
         }
@@ -306,6 +311,10 @@ final class NutrisliceMenuService {
         }
 
         return NutrisliceMenu(lines: parsedLines, nutrientNullRateByKey: nullRates)
+    }
+
+    func fetchTodayMenu(for venue: DiningVenue) async throws -> NutrisliceMenu {
+        try await fetchTodayMenu(for: venue, menuType: currentMenuType())
     }
 
     private func menuTypePathComponent(for venue: DiningVenue, menuType: MenuType) -> String {

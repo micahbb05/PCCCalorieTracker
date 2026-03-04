@@ -23,6 +23,7 @@ struct MenuSheetView: View {
     let mealTitle: String
     let selectedMenuType: NutrisliceMenuService.MenuType
     let availableMenuTypes: [NutrisliceMenuService.MenuType]
+    let trackedNutrientKeys: [String]
     @Binding var selectedItemQuantities: [String: Int]
     @Binding var selectedItemMultipliers: [String: Double]
     let isLoading: Bool
@@ -46,8 +47,7 @@ struct MenuSheetView: View {
 
     @State private var isRetrying = false
     @State private var showImagePickerSource = false
-    @State private var imagePickerSource: PlateImagePickerView.Source = .camera
-    @State private var showImagePicker = false
+    @State private var requestedImagePickerSource: PlateImagePickerView.Source?
     @State private var expandedLineIDs: Set<String> = []
     @State private var searchText = ""
     @State private var multiplierSheetContext: MultiplierSheetContext?
@@ -185,8 +185,7 @@ struct MenuSheetView: View {
         }
         .onChange(of: requestedExternalAIPickerSource) { _, newValue in
             guard let newValue else { return }
-            imagePickerSource = newValue
-            showImagePicker = true
+            requestedImagePickerSource = newValue
             clearRequestedExternalAIPickerSource()
         }
         .sheet(item: $multiplierSheetContext, onDismiss: {
@@ -194,15 +193,15 @@ struct MenuSheetView: View {
         }) { context in
             multiplierSheet(item: context.item)
         }
-        .fullScreenCover(isPresented: $showImagePicker) {
-            PlateImagePickerView(source: imagePickerSource, onPicked: { data in
-                showImagePicker = false
+        .fullScreenCover(item: $requestedImagePickerSource) { source in
+            PlateImagePickerView(source: source, onPicked: { data in
+                requestedImagePickerSource = nil
                 let items = selectedMenuItems
                 if !items.isEmpty {
                     onPhotoPlate?(items, data)
                 }
             }, onCancel: {
-                showImagePicker = false
+                requestedImagePickerSource = nil
             })
         }
         .fullScreenCover(isPresented: Binding(
@@ -854,15 +853,13 @@ struct MenuSheetView: View {
 
                 VStack(spacing: 12) {
                     aiPortionDialogButton(title: "Use camera") {
-                        imagePickerSource = .camera
                         showImagePickerSource = false
-                        showImagePicker = true
+                        requestedImagePickerSource = .camera
                     }
 
                     aiPortionDialogButton(title: "Choose from library") {
-                        imagePickerSource = .photoLibrary
                         showImagePickerSource = false
-                        showImagePicker = true
+                        requestedImagePickerSource = .photoLibrary
                     }
                 }
             }
@@ -1065,54 +1062,82 @@ struct MenuSheetView: View {
 
     private func multiplierSheet(item: MenuItem) -> some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 16) {
-                Text(item.name)
-                    .font(.title3.weight(.bold))
-                Text("Base serving size: \(formattedDisplayServingAmount(item.servingAmount, unit: item.servingUnit)) \(displayServingUnit(for: item.servingUnit))")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+            ZStack {
+                LinearGradient(
+                    colors: [backgroundTop, backgroundBottom],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
 
-                HStack(spacing: 20) {
-                    VerticalServeSlider(
-                        value: $selectedMultiplierValue,
-                        range: minMultiplier...maxMultiplier,
-                        step: multiplierStep
-                    ) {
-                        Haptics.selection()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Adjust Serving")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(accent)
+
+                            Text(item.name)
+                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                                .foregroundStyle(textPrimary)
+                                .lineLimit(3)
+                                .fixedSize(horizontal: false, vertical: true)
+
+                            Text("Base serve: \(formattedDisplayServingAmount(item.servingAmount, unit: item.servingUnit)) \(displayServingUnit(for: item.servingUnit))")
+                                .font(.subheadline)
+                                .foregroundStyle(textSecondary)
+                        }
+
+                        HStack(alignment: .center, spacing: 22) {
+                            VerticalServeSlider(
+                                value: $selectedMultiplierValue,
+                                range: minMultiplier...maxMultiplier,
+                                step: multiplierStep
+                            ) {
+                                Haptics.selection()
+                            }
+                            .frame(width: 104, height: 336)
+
+                            VStack(alignment: .leading, spacing: 14) {
+                                multiplierStatCard(
+                                    title: "Serve",
+                                    value: "\(formattedDisplayServingAmount(item.servingAmount * selectedMultiplierValue, unit: item.servingUnit)) \(displayServingUnit(for: item.servingUnit))"
+                                )
+
+                                multiplierStatCard(
+                                    title: "Multiplier",
+                                    value: String(format: "%.2fx", selectedMultiplierValue)
+                                )
+
+                                Text("Move up for more, down for less")
+                                    .font(.caption)
+                                    .foregroundStyle(textSecondary)
+                                    .padding(.top, 2)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+
+                        ServingNutrientGridCard(
+                            title: "Nutrients Per Selected Serving",
+                            calories: item.calories,
+                            nutrientValues: item.nutrientValues,
+                            multiplier: selectedMultiplierValue,
+                            trackedNutrientKeys: trackedNutrientKeys,
+                            displayedNutrientKeys: nil,
+                            surface: surfacePrimary.opacity(0.95),
+                            stroke: textSecondary.opacity(0.15),
+                            titleColor: textPrimary,
+                            labelColor: textSecondary,
+                            valueColor: textPrimary
+                        )
                     }
-                    .frame(width: 96, height: 320)
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Serving size")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                        Text("\(formattedDisplayServingAmount(item.servingAmount * selectedMultiplierValue, unit: item.servingUnit)) \(displayServingUnit(for: item.servingUnit))")
-                            .font(.title3.weight(.bold))
-                            .monospacedDigit()
-
-                        Text("Multiplier")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                        Text("\(selectedMultiplierValue, specifier: "%.2f")x")
-                            .font(.title3.weight(.bold))
-                            .monospacedDigit()
-
-                        Text("Move up for more, down for less")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .padding(.top, 6)
-                    }
-                    Spacer(minLength: 0)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 120)
                 }
-
-                let scaledCalories = Int((Double(item.calories) * selectedMultiplierValue).rounded())
-                let scaledProtein = Int((Double(item.protein) * selectedMultiplierValue).rounded())
-                Text("Final per serving: \(scaledCalories) cal • \(scaledProtein)g protein")
-                    .font(.callout.weight(.semibold))
-                    .foregroundStyle(.primary)
-
-                Spacer()
-
+                .scrollIndicators(.hidden)
+            }
+            .safeAreaInset(edge: .bottom) {
                 Button {
                     applySelectedMultiplier()
                 } label: {
@@ -1123,18 +1148,22 @@ struct MenuSheetView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(accent)
-            }
-            .padding(20)
-            .background(
-                LinearGradient(
-                    colors: [backgroundTop, backgroundBottom],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
+                .padding(.horizontal, 20)
+                .padding(.top, 10)
+                .padding(.bottom, 12)
+                .background(
+                    ZStack {
+                        Rectangle()
+                            .fill(.ultraThinMaterial)
+                        LinearGradient(
+                            colors: [surfacePrimary.opacity(0.24), surfacePrimary.opacity(0.96)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    }
+                    .ignoresSafeArea(edges: .bottom)
                 )
-                .ignoresSafeArea()
-            )
-            .navigationTitle("Serving Size")
-            .navigationBarTitleDisplayMode(.inline)
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
@@ -1142,9 +1171,32 @@ struct MenuSheetView: View {
                     } label: {
                         Image(systemName: "chevron.left")
                     }
+                    .foregroundStyle(textPrimary)
                 }
             }
         }
+    }
+
+    private func multiplierStatCard(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(textSecondary)
+            Text(value)
+                .font(.title3.weight(.bold))
+                .monospacedDigit()
+                .foregroundStyle(textPrimary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(surfacePrimary.opacity(0.94))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(textSecondary.opacity(0.12), lineWidth: 1)
+        )
     }
 
     private func dismissKeyboard() {

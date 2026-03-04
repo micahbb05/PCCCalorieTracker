@@ -319,6 +319,7 @@ struct ContentView: View {
         let servingAmount: Double
         let servingUnit: String
         let entrySource: EntrySource
+        let displayedNutrientKeys: [String]?
     }
 
     private struct FoodLogDisplayEntry: Identifiable {
@@ -375,6 +376,8 @@ struct ContentView: View {
         case quickAdd
         case barcode
         case usda
+        case aiFoodPhoto
+        case aiNutritionLabel
         case pccMenu(NutrisliceMenuService.MenuType)
     }
 
@@ -382,6 +385,7 @@ struct ContentView: View {
         case pccMenu
         case usdaSearch
         case quickAdd
+        case aiPhoto
         case manualEntry
 
         var id: String { rawValue }
@@ -391,6 +395,7 @@ struct ContentView: View {
             case .pccMenu: return "PCC Menu"
             case .usdaSearch: return "Find Foods"
             case .quickAdd: return "Quick Add"
+            case .aiPhoto: return "AI Photo"
             case .manualEntry: return "Manual Entry"
             }
         }
@@ -400,6 +405,7 @@ struct ContentView: View {
             case .pccMenu: return "Browse today's PCC dining menu."
             case .usdaSearch: return "Search FoodData Central or scan a barcode."
             case .quickAdd: return "Add one of your saved foods."
+            case .aiPhoto: return "Snap food or nutrition labels with AI."
             case .manualEntry: return "Type food and macro details yourself."
             }
         }
@@ -409,6 +415,7 @@ struct ContentView: View {
             case .pccMenu: return "fork.knife"
             case .usdaSearch: return "magnifyingglass"
             case .quickAdd: return "bolt.fill"
+            case .aiPhoto: return "camera.viewfinder"
             case .manualEntry: return "square.and.pencil"
             }
         }
@@ -566,7 +573,14 @@ struct ContentView: View {
     @State private var usdaSearchError: String?
     @State private var usdaSearchDebounceTask: Task<Void, Never>?
     @State private var foodReviewItem: FoodReviewItem?
+    @State private var foodReviewNameText = ""
     @State private var selectedFoodReviewMultiplier = 1.0
+    @State private var aiFoodPhotoRequestedPickerSource: PlateImagePickerView.Source?
+    @State private var isAIFoodPhotoLoading = false
+    @State private var aiFoodPhotoErrorMessage: String?
+    @State private var aiPhotoItems: [MenuItem]?
+    @State private var aiPhotoOzByItemId: [String: Double] = [:]
+    @State private var aiPhotoBaseOzByItemId: [String: Double] = [:]
     @State private var selectedTab: AppTab = .today
     @State private var selectedAddDestination: AddDestination = .manualEntry
     @State private var isAddDestinationPickerPresented = false
@@ -1392,6 +1406,7 @@ struct ContentView: View {
                 usdaSearchSheet
             }
             .sheet(item: $foodReviewItem, onDismiss: {
+                foodReviewNameText = ""
                 foodReviewItem = nil
             }) { context in
                 foodReviewSheet(item: context)
@@ -1410,6 +1425,34 @@ struct ContentView: View {
                     initialContext: context,
                     context: $foodLogEntryPickerContext
                 )
+            }
+            .fullScreenCover(item: $aiFoodPhotoRequestedPickerSource) { source in
+                PlateImagePickerView(source: source, onPicked: { data in
+                    aiFoodPhotoRequestedPickerSource = nil
+                    analyzeAIFoodPhoto(data)
+                }, onCancel: {
+                    aiFoodPhotoRequestedPickerSource = nil
+                })
+            }
+            .fullScreenCover(isPresented: Binding(
+                get: { aiPhotoItems != nil },
+                set: { if !$0 { clearAIPhotoMultiItemState() } }
+            )) {
+                if let items = aiPhotoItems {
+                    PlateEstimateResultView(
+                        items: items,
+                        ozByItemId: $aiPhotoOzByItemId,
+                        baseOzByItemId: aiPhotoBaseOzByItemId,
+                        mealGroup: genericMealGroup(for: Date()),
+                        onConfirm: { pairs in
+                            addAIPhotoItemsWithPortions(pairs)
+                            clearAIPhotoMultiItemState()
+                        },
+                        onDismiss: {
+                            clearAIPhotoMultiItemState()
+                        }
+                    )
+                }
             }
     }
 
@@ -1511,7 +1554,7 @@ struct ContentView: View {
         .padding(.horizontal, 20)
         .padding(.top, 28)
         .padding(.bottom, 16)
-        .presentationDetents([.height(344)])
+        .presentationDetents([.height(404)])
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(32)
         .presentationBackground(surfacePrimary)
@@ -1795,6 +1838,7 @@ struct ContentView: View {
             mealTitle: selectedMenuType.title,
             selectedMenuType: selectedMenuType,
             availableMenuTypes: availableMenuTypesForSelectedVenue,
+            trackedNutrientKeys: trackedNutrientKeys,
             selectedItemQuantities: Binding(
                 get: { menuQuantities(for: selectedMenuVenue, menuType: selectedMenuType) },
                 set: { newValue in
@@ -2143,6 +2187,7 @@ struct ContentView: View {
                 mealTitle: "Dinner",
                 selectedMenuType: .dinner,
                 availableMenuTypes: [.lunch, .dinner],
+                trackedNutrientKeys: trackedNutrientKeys,
                 selectedItemQuantities: Binding(
                     get: {
                         selectedMenuItemQuantitiesByVenue[.fourWinds]?[.dinner]
@@ -2479,6 +2524,8 @@ struct ContentView: View {
     @ViewBuilder
     private var addTabView: some View {
         switch selectedAddDestination {
+        case .aiPhoto:
+            aiPhotoTabView
         case .manualEntry:
             manualEntryTabView
         case .pccMenu:
@@ -2487,6 +2534,58 @@ struct ContentView: View {
             usdaSearchTabView
         case .quickAdd:
             quickAddTabView
+        }
+    }
+
+    private var aiPhotoTabView: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            addWorkspaceHeader(
+                title: AddDestination.aiPhoto.title,
+                subtitle: AddDestination.aiPhoto.subtitle
+            )
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    aiPhotoCaptureCard
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 120)
+            }
+            .scrollIndicators(.hidden)
+        }
+        .overlay {
+            if isAIFoodPhotoLoading {
+                ZStack {
+                    Color.black.opacity(0.28)
+                        .ignoresSafeArea()
+
+                    VStack(spacing: 14) {
+                        ProgressView()
+                            .scaleEffect(1.15)
+                            .tint(.white)
+                        Text("Analyzing photo…")
+                            .font(.headline.weight(.medium))
+                            .foregroundStyle(.white)
+                    }
+                    .padding(.horizontal, 28)
+                    .padding(.vertical, 24)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(Color.black.opacity(0.72))
+                    )
+                }
+            }
+        }
+        .alert("AI analysis failed", isPresented: Binding(
+            get: { aiFoodPhotoErrorMessage != nil },
+            set: { if !$0 { aiFoodPhotoErrorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {
+                aiFoodPhotoErrorMessage = nil
+            }
+        } message: {
+            Text(aiFoodPhotoErrorMessage ?? "Unknown error")
         }
     }
 
@@ -2774,6 +2873,74 @@ struct ContentView: View {
                     .foregroundStyle(textSecondary)
             }
         }
+    }
+
+    private var aiPhotoCaptureCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Analyze Food Or Nutrition Facts")
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(textPrimary)
+
+                Text("Take a picture or choose one from your library. Food photos estimate calories and protein. Nutrition labels read the visible nutrition facts.")
+                    .font(.subheadline)
+                    .foregroundStyle(textSecondary)
+            }
+
+            VStack(spacing: 12) {
+                aiPhotoActionButton(
+                    title: "Take Photo",
+                    subtitle: "Use the camera for food or labels",
+                    systemImage: "camera.fill"
+                ) {
+                    aiFoodPhotoRequestedPickerSource = .camera
+                }
+
+                aiPhotoActionButton(
+                    title: "Choose From Library",
+                    subtitle: "Pick an existing photo",
+                    systemImage: "photo.on.rectangle.angled"
+                ) {
+                    aiFoodPhotoRequestedPickerSource = .photoLibrary
+                }
+            }
+        }
+        .padding(18)
+        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.15))
+    }
+
+    private func aiPhotoActionButton(title: String, subtitle: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                Image(systemName: systemImage)
+                    .font(.title3.weight(.semibold))
+                    .frame(width: 22)
+                    .foregroundStyle(accent)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(textPrimary)
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(textSecondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(textSecondary.opacity(0.85))
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 14)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(surfaceSecondary.opacity(0.95))
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(isAIFoodPhotoLoading)
     }
 
     private var todayHistorySummary: some View {
@@ -4460,11 +4627,17 @@ struct ContentView: View {
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(accent)
 
-                            Text(item.name)
-                                .font(.system(size: 28, weight: .bold, design: .rounded))
-                                .foregroundStyle(textPrimary)
-                                .lineLimit(3)
-                                .fixedSize(horizontal: false, vertical: true)
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Item name")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(textSecondary)
+
+                                TextField("Food name", text: $foodReviewNameText)
+                                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                                    .foregroundStyle(textPrimary)
+                                    .submitLabel(.done)
+                                    .inputStyle(surface: surfacePrimary.opacity(0.94), text: textPrimary, secondary: textSecondary)
+                            }
 
                             if let subtitle = item.subtitle {
                                 Text(subtitle)
@@ -4587,58 +4760,18 @@ struct ContentView: View {
     }
 
     private func foodReviewNutrientCard(for item: FoodReviewItem) -> some View {
-        let nutrients = reviewNutrients(for: item)
-
-        return VStack(alignment: .leading, spacing: 14) {
-            Text("Nutrient Information")
-                .font(.headline.weight(.semibold))
-                .foregroundStyle(textPrimary)
-
-            if nutrients.isEmpty {
-                reviewNutrientTile(
-                    title: "Calories",
-                    value: "\(scaledReviewCalories(item))"
-                )
-            } else {
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                    reviewNutrientTile(
-                        title: "Calories",
-                        value: "\(scaledReviewCalories(item))"
-                    )
-
-                    ForEach(nutrients, id: \.key) { nutrient in
-                        reviewNutrientTile(
-                            title: nutrient.definition.name,
-                            value: "\(scaledReviewNutrientValue(for: nutrient.key, item: item)) \(nutrient.definition.unit)"
-                        )
-                    }
-                }
-            }
-        }
-        .padding(18)
-        .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
-    }
-
-    private func reviewNutrientTile(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .textCase(.uppercase)
-                .foregroundStyle(textSecondary)
-            Text(value)
-                .font(.system(size: 22, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(textPrimary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(surfaceSecondary.opacity(0.92))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(textSecondary.opacity(0.08), lineWidth: 1)
+        ServingNutrientGridCard(
+            title: "Nutrients Per Selected Serving",
+            calories: item.calories,
+            nutrientValues: item.nutrientValues,
+            multiplier: selectedFoodReviewMultiplier,
+            trackedNutrientKeys: trackedNutrientKeys,
+            displayedNutrientKeys: item.displayedNutrientKeys,
+            surface: surfacePrimary.opacity(0.95),
+            stroke: textSecondary.opacity(0.15),
+            titleColor: textPrimary,
+            labelColor: textSecondary,
+            valueColor: textPrimary
         )
     }
 
@@ -4984,6 +5117,137 @@ struct ContentView: View {
         }
     }
 
+    private func analyzeAIFoodPhoto(_ imageData: Data) {
+        isAIFoodPhotoLoading = true
+        aiFoodPhotoErrorMessage = nil
+
+        Task {
+            do {
+                let service = AIFoodPhotoService()
+                let result = try await service.analyze(imageData: imageData)
+                await MainActor.run {
+                    handleAIFoodPhotoResult(result)
+                    isAIFoodPhotoLoading = false
+                }
+            } catch {
+                await MainActor.run {
+                    aiFoodPhotoErrorMessage = error.localizedDescription
+                    isAIFoodPhotoLoading = false
+                }
+            }
+        }
+    }
+
+    @MainActor
+    private func handleAIFoodPhotoResult(_ result: AIFoodPhotoAnalysisResult) {
+        switch result.mode {
+        case .foodPhoto:
+            guard let firstItem = result.items.first else {
+                aiFoodPhotoErrorMessage = "AI did not find any foods."
+                return
+            }
+
+            if result.items.count == 1 {
+                let nutrientValues = firstItem.protein > 0 ? ["g_protein": firstItem.protein] : [:]
+                presentFoodReview(
+                    FoodReviewItem(
+                        name: firstItem.name,
+                        subtitle: "AI food estimate",
+                        calories: firstItem.calories,
+                        nutrientValues: nutrientValues,
+                        servingAmount: firstItem.servingAmount,
+                        servingUnit: firstItem.servingUnit,
+                        entrySource: .aiFoodPhoto,
+                        displayedNutrientKeys: ["g_protein"]
+                    ),
+                    initialMultiplier: firstItem.estimatedServings
+                )
+                return
+            }
+
+            let menuItems = result.items.enumerated().map { index, item in
+                MenuItem(
+                    id: "ai-photo-\(index)-\(UUID().uuidString)",
+                    name: item.name,
+                    calories: item.calories,
+                    nutrientValues: item.protein > 0 ? ["g_protein": item.protein] : [:],
+                    servingAmount: item.servingAmount,
+                    servingUnit: item.servingUnit
+                )
+            }
+
+            var ozById: [String: Double] = [:]
+            var baseOzById: [String: Double] = [:]
+            for (menuItem, aiItem) in zip(menuItems, result.items) {
+                if menuItem.isCountBased {
+                    ozById[menuItem.id] = max(1, Double(Int(aiItem.estimatedServings.rounded())))
+                } else {
+                    let baseOz = menuItem.servingOzForPortions
+                    baseOzById[menuItem.id] = baseOz
+                    ozById[menuItem.id] = max(baseOz * aiItem.estimatedServings, 0.01)
+                }
+            }
+
+            aiPhotoItems = menuItems
+            aiPhotoOzByItemId = ozById
+            aiPhotoBaseOzByItemId = baseOzById
+
+        case .nutritionLabel:
+            guard let item = result.items.first else {
+                aiFoodPhotoErrorMessage = "AI could not read the nutrition label."
+                return
+            }
+
+            let nutrientValues = NutrientCatalog.acceptedImportedNutrientValues(item.nutrients)
+            let displayedKeys = trackedNutrientKeys
+                .map { $0.lowercased() }
+                .filter { nutrientValues[$0] != nil }
+            presentFoodReview(
+                FoodReviewItem(
+                    name: item.name,
+                    subtitle: "AI nutrition label scan",
+                    calories: item.calories,
+                    nutrientValues: nutrientValues,
+                    servingAmount: item.servingAmount,
+                    servingUnit: item.servingUnit,
+                    entrySource: .aiNutritionLabel,
+                    displayedNutrientKeys: displayedKeys
+                ),
+                initialMultiplier: 1.0
+            )
+        }
+    }
+
+    private func clearAIPhotoMultiItemState() {
+        aiPhotoItems = nil
+        aiPhotoOzByItemId = [:]
+        aiPhotoBaseOzByItemId = [:]
+    }
+
+    private func addAIPhotoItemsWithPortions(_ pairs: [(item: MenuItem, oz: Double, baseOz: Double)]) {
+        let now = Date()
+        let mealGrp = genericMealGroup(for: now)
+        let newEntries = pairs.map { pair -> MealEntry in
+            let multiplier = pair.item.isCountBased ? pair.oz : (pair.baseOz > 0 ? (pair.oz / pair.baseOz) : 1.0)
+            let scaledNutrients = pair.item.nutrientValues.mapValues { Int((Double($0) * multiplier).rounded()) }
+            let scaledCalories = Int((Double(pair.item.calories) * multiplier).rounded())
+            return MealEntry(
+                id: UUID(),
+                name: pair.item.name,
+                calories: scaledCalories,
+                nutrientValues: scaledNutrients,
+                createdAt: now,
+                mealGroup: mealGrp
+            )
+        }
+
+        guard !newEntries.isEmpty else { return }
+        withAnimation(.easeInOut(duration: 0.25)) {
+            entries.append(contentsOf: newEntries)
+        }
+        showAddConfirmation()
+    }
+
     private func addMenuItemsWithPortions(_ pairs: [(item: MenuItem, oz: Double, baseOz: Double)]) {
         let now = Date()
         let mealGrp = mealGroup(for: selectedMenuType)
@@ -5051,6 +5315,8 @@ struct ContentView: View {
         }
 
         switch destination {
+        case .aiPhoto:
+            aiFoodPhotoErrorMessage = nil
         case .pccMenu:
             let shouldLoadMenu = prepareMenuDestination(for: .fourWinds)
             if shouldLoadMenu {
@@ -5119,6 +5385,7 @@ struct ContentView: View {
 
     private func addReviewedFood(_ item: FoodReviewItem) {
         let multiplier = selectedFoodReviewMultiplier
+        let editedName = MealEntry.normalizedName(foodReviewNameText)
         var scaledNutrients: [String: Int] = [:]
         for (key, value) in item.nutrientValues {
             scaledNutrients[key] = Int((Double(value) * multiplier).rounded())
@@ -5126,8 +5393,8 @@ struct ContentView: View {
 
         let newEntry = MealEntry(
             id: UUID(),
-            name: item.name,
-            calories: scaledReviewCalories(item),
+            name: editedName,
+            calories: Int((Double(item.calories) * multiplier).rounded()),
             nutrientValues: scaledNutrients,
             createdAt: Date(),
             mealGroup: mealGroup(for: Date(), source: item.entrySource)
@@ -5138,6 +5405,7 @@ struct ContentView: View {
         }
 
         foodReviewItem = nil
+        foodReviewNameText = ""
         selectedFoodReviewMultiplier = 1.0
         barcodeLookupError = nil
         usdaSearchError = nil
@@ -5667,32 +5935,42 @@ struct ContentView: View {
         )
     }
 
+    private func presentFoodReview(_ item: FoodReviewItem, initialMultiplier: Double = 1.0) {
+        selectedFoodReviewMultiplier = min(max(initialMultiplier, 0.25), 2.0)
+        foodReviewNameText = item.name
+        foodReviewItem = item
+    }
+
     private func openFoodReview(for product: OpenFoodFactsProduct) {
-        selectedFoodReviewMultiplier = 1.0
-        foodReviewItem = FoodReviewItem(
+        presentFoodReview(
+            FoodReviewItem(
             name: product.name,
             subtitle: nil,
             calories: product.calories,
             nutrientValues: product.nutrientValues,
             servingAmount: product.servingAmount,
             servingUnit: product.servingUnit,
-            entrySource: .barcode
+            entrySource: .barcode,
+            displayedNutrientKeys: nil
+        )
         )
     }
 
     private func openFoodReview(for result: USDAFoodSearchResult) {
-        selectedFoodReviewMultiplier = 1.0
         isUSDASearchPresented = false
         dismissKeyboard()
         DispatchQueue.main.async {
-            foodReviewItem = FoodReviewItem(
+            presentFoodReview(
+                FoodReviewItem(
                 name: result.name,
                 subtitle: result.brand,
                 calories: result.calories,
                 nutrientValues: result.nutrientValues,
                 servingAmount: result.servingAmount,
                 servingUnit: result.servingUnit,
-                entrySource: .usda
+                entrySource: .usda,
+                displayedNutrientKeys: nil
+            )
             )
         }
     }
@@ -5701,7 +5979,7 @@ struct ContentView: View {
         switch source {
         case let .pccMenu(menuType):
             return mealGroup(for: menuType)
-        case .manual, .quickAdd, .barcode, .usda:
+        case .manual, .quickAdd, .barcode, .usda, .aiFoodPhoto, .aiNutritionLabel:
             return genericMealGroup(for: date)
         }
     }
@@ -5818,34 +6096,6 @@ struct ContentView: View {
                 }
             }
         }
-    }
-
-    private func scaledReviewCalories(_ item: FoodReviewItem) -> Int {
-        Int((Double(item.calories) * selectedFoodReviewMultiplier).rounded())
-    }
-
-    private func scaledReviewNutrientValue(for key: String, item: FoodReviewItem) -> Int {
-        Int((Double(item.nutrientValues[key] ?? 0) * selectedFoodReviewMultiplier).rounded())
-    }
-
-    private func reviewNutrients(for item: FoodReviewItem) -> [(key: String, definition: NutrientDefinition)] {
-        item.nutrientValues.keys
-            .sorted { lhs, rhs in
-                let lhsRank = NutrientCatalog.preferredOrder.firstIndex(of: lhs) ?? Int.max
-                let rhsRank = NutrientCatalog.preferredOrder.firstIndex(of: rhs) ?? Int.max
-                if lhsRank != rhsRank {
-                    return lhsRank < rhsRank
-                }
-                let lhsName = NutrientCatalog.definition(for: lhs).name
-                let rhsName = NutrientCatalog.definition(for: rhs).name
-                if lhsName != rhsName {
-                    return lhsName < rhsName
-                }
-                return lhs < rhs
-            }
-            .filter { (item.nutrientValues[$0] ?? 0) > 0 }
-            .prefix(5)
-            .map { ($0, NutrientCatalog.definition(for: $0)) }
     }
 
     private func formattedServingAmount(_ amount: Double) -> String {

@@ -42,6 +42,18 @@ enum NutrientCatalog {
         Array(known.keys)
     }
 
+    static var importableKeySet: Set<String> {
+        Set(known.keys)
+    }
+
+    static func acceptedImportedNutrientValues(_ nutrientValues: [String: Int]) -> [String: Int] {
+        nutrientValues.reduce(into: [:]) { result, pair in
+            let normalized = pair.key.lowercased()
+            guard importableKeySet.contains(normalized) else { return }
+            result[normalized] = max(0, pair.value)
+        }
+    }
+
     static func definition(for key: String) -> NutrientDefinition {
         let normalizedKey = key.lowercased()
         if let knownDefinition = known[normalizedKey] {

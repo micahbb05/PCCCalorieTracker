@@ -606,6 +606,21 @@ function parsePlateResponse(
 
 type FoodItemContext = { name: string; calories: number; servingAmount: number; servingUnit: string };
 
+type AIVisionFoodItem = {
+  name?: unknown;
+  servingAmount?: unknown;
+  servingUnit?: unknown;
+  estimatedServings?: unknown;
+  calories?: unknown;
+  protein?: unknown;
+  nutrients?: unknown;
+};
+
+type AIVisionResponse = {
+  mode?: unknown;
+  items?: unknown;
+};
+
 async function performPlatePortionEstimate(
   apiKey: string,
   imageBase64: string,
@@ -769,6 +784,236 @@ ${foodList}`;
   }
 }
 
+const AI_VISION_SYSTEM_PROMPT = `You analyze one photo for a calorie tracking app.
+
+First classify the image into exactly one mode:
+- "nutrition_label": the image is primarily a nutrition facts label, supplement facts label, package nutrition panel, or similar readable nutrition panel.
+- "food_photo": the image is primarily food, a meal, a plate, or one or more foods.
+
+You MUST respond ONLY with valid JSON. No markdown. No explanation. No prose.
+
+Use exactly this JSON shape:
+{
+  "mode": "food_photo" | "nutrition_label",
+  "items": [
+    {
+      "name": "string",
+      "servingAmount": 1,
+      "servingUnit": "serving",
+      "estimatedServings": 1,
+      "calories": 0,
+      "protein": 0,
+      "nutrients": {
+        "g_protein": 0
+      }
+    }
+  ]
+}
+
+Rules for food_photo mode:
+- Detect one or more foods in the image.
+- Return one item per distinct food.
+- Estimate ONLY calories and protein per base serving.
+- In "nutrients", include ONLY "g_protein".
+- Use "estimatedServings" for how much food is shown in the photo relative to the base serving.
+- Choose a practical base serving that a user can adjust later, such as 1 sandwich, 1 slice, 1 cup, 4 oz, 1 bowl, 1 taco, etc.
+- Keep servingAmount numeric and servingUnit short.
+- If there are multiple foods, include all clearly visible foods.
+- If confidence is poor, make the best reasonable estimate anyway.
+
+Rules for nutrition_label mode:
+- Read the visible nutrition facts from the label as accurately as possible.
+- Return exactly one item.
+- Use the product name if visible, otherwise use "Nutrition Facts Scan".
+- Set estimatedServings to 1.
+- Put calories in the top-level "calories" field.
+- Put protein in the top-level "protein" field if visible, otherwise 0.
+- Put all readable nutrients into "nutrients" using these normalized keys when possible:
+  calories, g_protein, g_carbs, g_fat, g_saturated_fat, g_trans_fat, g_fiber, g_sugar, g_added_sugar, mg_sodium, mg_cholesterol, mg_potassium, mg_calcium, mg_iron, mg_vitamin_c, iu_vitamin_a, mcg_vitamin_a, mcg_vitamin_d
+- Do not invent nutrients that are not visible.
+- If a value is unreadable, omit that nutrient.
+- Parse servingAmount and servingUnit from the label when possible.
+
+General rules:
+- JSON only.
+- All numeric fields must be numbers, not strings.
+- Do not include nulls.
+- Do not include keys outside the required shape.`;
+
+function parseAIVisionJsonResponse(text: string): { mode: "food_photo" | "nutrition_label"; items: Array<{
+  name: string;
+  servingAmount: number;
+  servingUnit: string;
+  estimatedServings: number;
+  calories: number;
+  protein: number;
+  nutrients: Record<string, number>;
+}> } | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return null;
+  }
+
+  if (!parsed || typeof parsed !== "object") return null;
+  const response = parsed as AIVisionResponse;
+  const mode = response.mode === "food_photo" || response.mode === "nutrition_label" ? response.mode : null;
+  if (!mode || !Array.isArray(response.items)) return null;
+
+  const items = response.items
+    .map((raw): {
+      name: string;
+      servingAmount: number;
+      servingUnit: string;
+      estimatedServings: number;
+      calories: number;
+      protein: number;
+      nutrients: Record<string, number>;
+    } | null => {
+      if (!raw || typeof raw !== "object") return null;
+      const item = raw as AIVisionFoodItem;
+      const name = typeof item.name === "string" ? item.name.trim() : "";
+      if (!name) return null;
+
+      const servingAmount = typeof item.servingAmount === "number" && Number.isFinite(item.servingAmount) && item.servingAmount > 0
+        ? item.servingAmount
+        : 1;
+      const servingUnit = typeof item.servingUnit === "string" && item.servingUnit.trim().length > 0
+        ? item.servingUnit.trim()
+        : "serving";
+      const estimatedServings = typeof item.estimatedServings === "number" && Number.isFinite(item.estimatedServings) && item.estimatedServings > 0
+        ? item.estimatedServings
+        : 1;
+      const calories = typeof item.calories === "number" && Number.isFinite(item.calories) && item.calories >= 0
+        ? Math.round(item.calories)
+        : 0;
+      const protein = typeof item.protein === "number" && Number.isFinite(item.protein) && item.protein >= 0
+        ? Math.round(item.protein)
+        : 0;
+
+      const nutrientsSource = item.nutrients && typeof item.nutrients === "object" ? item.nutrients as Record<string, unknown> : {};
+      const nutrients: Record<string, number> = {};
+      for (const [key, value] of Object.entries(nutrientsSource)) {
+        if (typeof value !== "number" || !Number.isFinite(value) || value < 0) continue;
+        nutrients[key.toLowerCase()] = Math.round(value);
+      }
+      if (protein > 0 && nutrients.g_protein === undefined) {
+        nutrients.g_protein = protein;
+      }
+
+      return {
+        name,
+        servingAmount,
+        servingUnit,
+        estimatedServings,
+        calories,
+        protein,
+        nutrients
+      };
+    })
+    .filter((item): item is {
+      name: string;
+      servingAmount: number;
+      servingUnit: string;
+      estimatedServings: number;
+      calories: number;
+      protein: number;
+      nutrients: Record<string, number>;
+    } => item !== null);
+
+  if (items.length === 0) return null;
+  return { mode, items };
+}
+
+async function performAIVisionAnalysis(
+  apiKey: string,
+  imageBase64: string,
+  mimeType: string
+): Promise<{
+  status: number;
+  body: {
+    mode?: "food_photo" | "nutrition_label";
+    items?: Array<{
+      name: string;
+      servingAmount: number;
+      servingUnit: string;
+      estimatedServings: number;
+      calories: number;
+      protein: number;
+      nutrients: Record<string, number>;
+    }>;
+    rawJson?: string;
+    error?: string;
+  };
+}> {
+  const trimmedKey = apiKey.trim();
+  if (!trimmedKey) {
+    logger.error("AI vision requested without GEMINI_API_KEY configured.");
+    return { status: 500, body: { error: "AI food analysis is not configured on the server." } };
+  }
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(trimmedKey)}`;
+  const sanitizedBase64 = imageBase64.replace(/\s/g, "");
+  const body = {
+    contents: [{
+      parts: [
+        { inlineData: { mimeType, data: sanitizedBase64 } },
+        { text: AI_VISION_SYSTEM_PROMPT }
+      ]
+    }],
+    generationConfig: {
+      temperature: 0.2,
+      maxOutputTokens: 4096,
+      responseMimeType: "application/json"
+    }
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      logger.error("Gemini AI vision upstream failed", { status: response.status, body: errText });
+      let message = `Upstream error (HTTP ${response.status}).`;
+      try {
+        const errJson = JSON.parse(errText) as { error?: { message?: string } };
+        if (errJson?.error?.message) message = errJson.error.message;
+      } catch {
+        // ignore
+      }
+      return { status: 502, body: { error: message } };
+    }
+
+    const data = (await response.json()) as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    };
+    const text = (data?.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? "").join("").trim();
+    const parsed = parseAIVisionJsonResponse(text);
+    if (!parsed) {
+      logger.error("AI vision returned invalid JSON", { rawText: text });
+      return { status: 502, body: { error: "AI returned an invalid response.", rawJson: text } };
+    }
+
+    return {
+      status: 200,
+      body: {
+        mode: parsed.mode,
+        items: parsed.items,
+        rawJson: text
+      }
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    logger.error("AI vision analysis failed", error);
+    return { status: 502, body: { error: message } };
+  }
+}
+
 export const estimatePlatePortions = onRequest(
   { region: "us-central1", secrets: [geminiApiKeySecret] },
   async (req, res) => {
@@ -824,6 +1069,49 @@ export const estimatePlatePortions = onRequest(
       res.status(result.status).json(result.body);
     } catch (error) {
       logger.error("Plate portion estimate failed", error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  }
+);
+
+export const analyzeFoodPhoto = onRequest(
+  { region: "us-central1", secrets: [geminiApiKeySecret] },
+  async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type");
+
+    if (req.method === "OPTIONS") {
+      res.status(204).send("");
+      return;
+    }
+
+    if (req.method !== "POST") {
+      res.status(405).json({ error: "Method not allowed." });
+      return;
+    }
+
+    try {
+      const body = req.body as {
+        imageBase64?: string;
+        mimeType?: string;
+      };
+
+      const imageBase64 = typeof body.imageBase64 === "string" ? body.imageBase64 : "";
+      const mimeType = typeof body.mimeType === "string" ? body.mimeType : "image/jpeg";
+
+      if (!imageBase64) {
+        res.status(400).json({ error: "Missing imageBase64." });
+        return;
+      }
+
+      const apiKey = geminiApiKeySecret.value();
+      const result = await performAIVisionAnalysis(apiKey, imageBase64, mimeType);
+      res.status(result.status).json(result.body);
+    } catch (error) {
+      logger.error("AI food photo analysis failed", error);
       res.status(500).json({
         error: error instanceof Error ? error.message : "Unknown error"
       });

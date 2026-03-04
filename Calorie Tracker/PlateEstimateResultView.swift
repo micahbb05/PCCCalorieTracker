@@ -153,6 +153,7 @@ struct PlateEstimateResultView: View {
         let currentOz = ozBinding.wrappedValue
         let multiplier = baseOz > 0 ? (currentOz / baseOz) : 1.0
         let caloriesAtOz = Int((Double(item.calories) * multiplier).rounded())
+        let proteinAtOz = Int((Double(item.nutrientValues["g_protein"] ?? 0) * multiplier).rounded())
 
         let minOz = geminiOz * 0.8
         let maxOz = geminiOz * 1.2
@@ -177,8 +178,8 @@ struct PlateEstimateResultView: View {
                     }
                 }
                 Text(item.isCountBased
-                     ? String(format: "1 serving • %d cal each", item.calories)
-                     : String(format: "Base serving: %.1f oz • %d cal", baseOz, item.calories))
+                     ? String(format: "1 serving • %d cal • %dg protein", item.calories, item.nutrientValues["g_protein"] ?? 0)
+                     : String(format: "Base serving: %.1f oz • %d cal • %dg protein", baseOz, item.calories, item.nutrientValues["g_protein"] ?? 0))
                     .font(.caption)
                     .foregroundStyle(textSecondary)
             }
@@ -280,14 +281,19 @@ struct PlateEstimateResultView: View {
 
             if !isNotOnPlate {
                 HStack {
-                    Text("Calories at this portion")
+                    Text("Nutrition at this portion")
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(textSecondary)
                     Spacer()
-                    Text("\(caloriesAtOz) cal")
-                        .font(.title3.weight(.bold))
-                        .monospacedDigit()
-                        .foregroundStyle(accent)
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("\(caloriesAtOz) cal")
+                            .font(.title3.weight(.bold))
+                            .monospacedDigit()
+                            .foregroundStyle(accent)
+                        Text("\(proteinAtOz)g protein")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(textSecondary)
+                    }
                 }
                 .padding(.vertical, 8)
                 .padding(.horizontal, 12)

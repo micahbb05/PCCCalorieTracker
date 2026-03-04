@@ -1,5 +1,13 @@
 import SwiftUI
 
+struct AddExerciseDraft {
+    let exerciseType: ExerciseType
+    let customName: String?
+    let durationMinutes: Int
+    let distanceMiles: Double?
+    let calories: Int
+}
+
 struct AddExerciseSheet: View {
     let weightPounds: Int
     let surfacePrimary: Color
@@ -7,27 +15,38 @@ struct AddExerciseSheet: View {
     let textPrimary: Color
     let textSecondary: Color
     let accent: Color
-    let onAdd: (ExerciseEntry) -> Void
+    let onAdd: (AddExerciseDraft) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var selectedType: ExerciseType = .weightLifting
+    @State private var customNameText: String = ""
     @State private var inputText: String = ""
     @FocusState private var isInputFocused: Bool
+
+    private var usesDirectCalories: Bool {
+        selectedType == .directCalories
+    }
 
     private var usesDistance: Bool {
         selectedType == .running || selectedType == .cycling
     }
 
     private var inputLabel: String {
-        usesDistance ? "Distance (miles)" : "Duration (minutes)"
+        if usesDirectCalories {
+            return "Calories burned"
+        }
+        return usesDistance ? "Distance (miles)" : "Duration (minutes)"
     }
 
     private var inputPlaceholder: String {
-        usesDistance ? "e.g. 2.5" : "e.g. 30"
+        if usesDirectCalories {
+            return "e.g. 220"
+        }
+        return usesDistance ? "e.g. 2.5" : "e.g. 30"
     }
 
     private var durationMinutes: Int? {
-        guard !usesDistance, !inputText.isEmpty, let n = Int(inputText), n > 0 else { return nil }
+        guard !usesDistance, !usesDirectCalories, !inputText.isEmpty, let n = Int(inputText), n > 0 else { return nil }
         return n
     }
 
@@ -36,18 +55,27 @@ struct AddExerciseSheet: View {
         return n
     }
 
+    private var directCalories: Int? {
+        guard usesDirectCalories, !inputText.isEmpty, let n = Int(inputText), n > 0 else { return nil }
+        return n
+    }
+
     private var canAdd: Bool {
+        if usesDirectCalories { return directCalories != nil }
         if usesDistance { return distanceMiles != nil }
         return durationMinutes != nil
     }
 
     private var estimatedCalories: Int {
+        if let calories = directCalories {
+            return calories
+        }
         guard weightPounds > 0 else { return 0 }
         if usesDistance, let miles = distanceMiles {
-            return ExerciseCalorieService.caloriesFromDistance(type: selectedType, distanceMiles: miles, weightPounds: weightPounds)
+            return ExerciseCalorieService.fullCalories(type: selectedType, durationMinutes: 0, distanceMiles: miles, weightPounds: weightPounds)
         }
         if let dur = durationMinutes {
-            return ExerciseCalorieService.caloriesFromDuration(type: selectedType, durationMinutes: dur, weightPounds: weightPounds)
+            return ExerciseCalorieService.fullCalories(type: selectedType, durationMinutes: dur, distanceMiles: nil, weightPounds: weightPounds)
         }
         return 0
     }
@@ -78,6 +106,7 @@ struct AddExerciseSheet: View {
                                 ForEach(ExerciseType.allCases) { type in
                                     Button {
                                         selectedType = type
+                                        customNameText = ""
                                         inputText = ""
                                     } label: {
                                         HStack(spacing: 8) {
@@ -103,6 +132,17 @@ struct AddExerciseSheet: View {
                             }
                         }
 
+                        if usesDirectCalories {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Exercise name (optional)")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(textPrimary)
+
+                                TextField("e.g. Basketball, Yard work", text: $customNameText)
+                                    .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
+                            }
+                        }
+
                         VStack(alignment: .leading, spacing: 10) {
                             Text(inputLabel)
                                 .font(.caption.weight(.semibold))
@@ -114,7 +154,7 @@ struct AddExerciseSheet: View {
                                 .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
                         }
 
-                        if canAdd {
+                        if canAdd && !usesDirectCalories {
                             HStack {
                                 Text("Est. calories burned")
                                     .font(.caption.weight(.semibold))
@@ -165,27 +205,30 @@ struct AddExerciseSheet: View {
         let dur: Int
         let dist: Double?
 
-        if usesDistance, let miles = distanceMiles {
-            calories = ExerciseCalorieService.caloriesFromDistance(type: selectedType, distanceMiles: miles, weightPounds: weightPounds)
+        if let manualCalories = directCalories {
+            calories = manualCalories
+            dur = 0
+            dist = nil
+        } else if usesDistance, let miles = distanceMiles {
+            calories = ExerciseCalorieService.fullCalories(type: selectedType, durationMinutes: 0, distanceMiles: miles, weightPounds: weightPounds)
             dur = Int(miles * (selectedType == .running ? 10 : 5))
             dist = miles
         } else if let d = durationMinutes {
-            calories = ExerciseCalorieService.caloriesFromDuration(type: selectedType, durationMinutes: d, weightPounds: weightPounds)
+            calories = ExerciseCalorieService.fullCalories(type: selectedType, durationMinutes: d, distanceMiles: nil, weightPounds: weightPounds)
             dur = d
             dist = nil
         } else {
             return
         }
 
-        let entry = ExerciseEntry(
-            id: UUID(),
+        let draft = AddExerciseDraft(
             exerciseType: selectedType,
+            customName: usesDirectCalories ? customNameText : nil,
             durationMinutes: dur,
             distanceMiles: dist,
-            calories: calories,
-            createdAt: Date()
+            calories: calories
         )
-        onAdd(entry)
+        onAdd(draft)
         Haptics.notification(.success)
         dismiss()
     }

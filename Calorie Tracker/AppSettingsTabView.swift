@@ -15,6 +15,7 @@ struct AppSettingsTabView: View {
                 Text("Choose which nutrients appear throughout the app.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 NutrientSelectionList(
                     trackedNutrientKeys: $trackedNutrientKeys,

@@ -1,5 +1,12 @@
 import SwiftUI
-import UIKit
+
+private struct BottomCTAHeightPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
 
 struct MenuSheetView: View {
     private struct MultiplierSheetContext: Identifiable {
@@ -14,6 +21,8 @@ struct MenuSheetView: View {
     let venue: DiningVenue
     let sourceTitle: String
     let mealTitle: String
+    let selectedMenuType: NutrisliceMenuService.MenuType
+    let availableMenuTypes: [NutrisliceMenuService.MenuType]
     @Binding var selectedItemQuantities: [String: Int]
     @Binding var selectedItemMultipliers: [String: Double]
     let isLoading: Bool
@@ -27,6 +36,13 @@ struct MenuSheetView: View {
     let mealGroup: MealGroup
     let onPlateEstimateConfirm: ([(MenuItem, oz: Double, baseOz: Double)]) -> Void
     let onPlateEstimateDismiss: () -> Void
+    let onVenueChange: (DiningVenue) -> Void
+    let onMenuTypeChange: (NutrisliceMenuService.MenuType) -> Void
+    let onClose: (() -> Void)?
+    let bottomOverlayClearance: CGFloat
+    let onRequestExternalAIPopup: (() -> Void)?
+    let requestedExternalAIPickerSource: PlateImagePickerView.Source?
+    let clearRequestedExternalAIPickerSource: () -> Void
 
     @State private var isRetrying = false
     @State private var showImagePickerSource = false
@@ -36,10 +52,12 @@ struct MenuSheetView: View {
     @State private var searchText = ""
     @State private var multiplierSheetContext: MultiplierSheetContext?
     @State private var selectedMultiplierValue = 1.0
-    @FocusState private var isSearchFocused: Bool
+    @State private var bottomCTAHeight: CGFloat = 0
+    @FocusState private var isSearchFieldFocused: Bool
     private let minMultiplier = 0.25
     private let maxMultiplier = 2.0
     private let multiplierStep = 0.25
+    private let minimumBottomLineClearance: CGFloat = 96
 
     private var surfacePrimary: Color {
         colorScheme == .dark ? Color(red: 0.13, green: 0.15, blue: 0.20) : Color.white
@@ -67,8 +85,19 @@ struct MenuSheetView: View {
         colorScheme == .dark ? Color(red: 0.10, green: 0.11, blue: 0.17) : Color(red: 0.91, green: 0.94, blue: 0.98)
     }
 
+    private var scrollContentBottomPadding: CGFloat {
+        if onClose == nil {
+            return bottomOverlayClearance + 24
+        }
+        return bottomCTAHeight + minimumBottomLineClearance
+    }
+
     private var selectedCount: Int {
         selectedItemQuantities.values.reduce(0, +)
+    }
+
+    private var isSelectionActionEnabled: Bool {
+        selectedCount > 0 && !isLoading && errorMessage == nil
     }
 
     private var selectedMenuItems: [MenuItem] {
@@ -104,45 +133,66 @@ struct MenuSheetView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [backgroundTop, backgroundBottom],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            ZStack {
+                LinearGradient(
+                    colors: [backgroundTop, backgroundBottom],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
 
-            ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    header
-                    searchCard
-                    content
+                    VStack(alignment: .leading, spacing: 18) {
+                        header
+                        venuePicker
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 28)
+
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 18) {
+                                searchCard
+                                content
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, scrollContentBottomPadding)
+                        }
+                        .accessibilityIdentifier("pccMenu.scrollView")
+                        .scrollBounceBehavior(.basedOnSize)
+                        .scrollIndicators(.hidden)
+                        .scrollDismissesKeyboard(.immediately)
+                        .ignoresSafeArea(.keyboard, edges: .bottom)
+                    }
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 28)
-                .padding(.bottom, 132)
             }
-            .scrollIndicators(.hidden)
+            .ignoresSafeArea(.keyboard, edges: .bottom)
+            .overlay(alignment: .bottom) {
+                bottomCTA
+            }
+            .overlay {
+                if showImagePickerSource && onRequestExternalAIPopup == nil {
+                    Color.black.opacity(0.28)
+                        .ignoresSafeArea()
+                }
+            }
+            .allowsHitTesting(!showImagePickerSource)
         }
-        .safeAreaInset(edge: .bottom) {
-            bottomCTA
+        .overlay {
+            if showImagePickerSource && onRequestExternalAIPopup == nil {
+                aiPortionDialog
+            }
+        }
+        .onChange(of: requestedExternalAIPickerSource) { _, newValue in
+            guard let newValue else { return }
+            imagePickerSource = newValue
+            showImagePicker = true
+            clearRequestedExternalAIPickerSource()
         }
         .sheet(item: $multiplierSheetContext, onDismiss: {
             multiplierSheetContext = nil
         }) { context in
             multiplierSheet(item: context.item)
-        }
-        .confirmationDialog("AI portion estimation", isPresented: $showImagePickerSource, titleVisibility: .visible) {
-            Button("Use camera") {
-                imagePickerSource = .camera
-                showImagePicker = true
-            }
-            Button("Choose from library") {
-                imagePickerSource = .photoLibrary
-                showImagePicker = true
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Add a plate photo from camera or library.")
         }
         .fullScreenCover(isPresented: $showImagePicker) {
             PlateImagePickerView(source: imagePickerSource, onPicked: { data in
@@ -222,8 +272,10 @@ struct MenuSheetView: View {
                 title: searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No menu items available" : "No matches found",
                 message: searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Today's menu has not been published yet." : "Try a broader search term."
             )
+        } else if !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            searchResultsContent
         } else {
-            LazyVStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 14) {
                 ForEach(filteredLines) { line in
                     lineCard(for: line)
                 }
@@ -233,44 +285,121 @@ struct MenuSheetView: View {
 
     private var header: some View {
         HStack(alignment: .top, spacing: 14) {
-            Button {
-                Haptics.selection()
-                dismiss()
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(textPrimary)
-                    .frame(width: 42, height: 42)
-                    .background(
-                        Circle()
-                            .fill(surfacePrimary.opacity(0.94))
-                    )
-                    .overlay(
-                        Circle()
-                            .stroke(textSecondary.opacity(0.16), lineWidth: 1)
-                    )
+            if let onClose {
+                Button {
+                    Haptics.selection()
+                    onClose()
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(textPrimary)
+                        .frame(width: 42, height: 42)
+                        .background(
+                            Circle()
+                                .fill(surfacePrimary.opacity(0.94))
+                        )
+                        .overlay(
+                            Circle()
+                                .stroke(textSecondary.opacity(0.16), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+            } else {
+                EmptyView()
             }
-            .buttonStyle(.plain)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text("Menu")
                     .font(.system(size: 36, weight: .bold, design: .rounded))
                     .foregroundStyle(textPrimary)
-                Text("\(sourceTitle) • \(mealTitle)")
-                    .font(.subheadline)
-                    .foregroundStyle(textSecondary)
+                    .padding(.top, -4)
+                Menu {
+                    ForEach(availableMenuTypes, id: \.self) { menuType in
+                        Button {
+                            guard menuType != selectedMenuType else { return }
+                            Haptics.selection()
+                            onMenuTypeChange(menuType)
+                        } label: {
+                            if menuType == selectedMenuType {
+                                Label(menuType.title, systemImage: "checkmark")
+                            } else {
+                                Text(menuType.title)
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(mealTitle)
+                            .font(.caption.weight(.semibold))
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 10, weight: .semibold))
+                    }
+                    .foregroundStyle(textPrimary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(.ultraThinMaterial)
+                    )
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .stroke(textSecondary.opacity(0.16), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
             }
 
             Spacer()
 
-            VStack(alignment: .trailing, spacing: 4) {
-                Text("\(selectedCount)")
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
-                    .foregroundStyle(textPrimary)
-                    .monospacedDigit()
-                Text("selected")
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(textSecondary)
+            if onClose == nil {
+                HStack(spacing: 10) {
+                    if onPhotoPlate != nil && venue != .grabNGo {
+                        compactAIButton
+                    }
+
+                    compactAddSelectedButton
+                }
+            } else {
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("\(selectedCount)")
+                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .foregroundStyle(textPrimary)
+                        .monospacedDigit()
+                    Text("selected")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(textSecondary)
+                }
+            }
+        }
+    }
+
+    private var venuePicker: some View {
+        HStack(spacing: 8) {
+            ForEach(DiningVenue.allCases) { v in
+                let isSelected = v == venue
+                Button {
+                    if !isSelected {
+                        Haptics.selection()
+                        onVenueChange(v)
+                    }
+                } label: {
+                    Text(v.title)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(isSelected ? .white : textSecondary)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(isSelected ? accent : surfacePrimary.opacity(0.6))
+                )
+                .overlay(
+                    Capsule(style: .continuous)
+                        .stroke(isSelected ? Color.clear : textSecondary.opacity(0.2), lineWidth: 1)
+                )
             }
         }
     }
@@ -280,11 +409,23 @@ struct MenuSheetView: View {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(textSecondary)
 
-            TextField("Search menu", text: $searchText)
-                .focused($isSearchFocused)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .foregroundStyle(textPrimary)
+            TextField(
+                "",
+                text: $searchText,
+                prompt: Text("Search menu")
+                    .foregroundStyle(textSecondary)
+            )
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled()
+            .submitLabel(.done)
+            .focused($isSearchFieldFocused)
+            .onSubmit {
+                isSearchFieldFocused = false
+            }
+            .foregroundStyle(textPrimary)
+            .frame(maxWidth: .infinity)
+            .frame(height: 22)
+            .accessibilityIdentifier("pccMenu.searchField")
 
             if !searchText.isEmpty {
                 Button {
@@ -295,49 +436,87 @@ struct MenuSheetView: View {
                         .foregroundStyle(textSecondary)
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("pccMenu.clearSearchButton")
             }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
+        .accessibilityIdentifier("pccMenu.searchCard")
+    }
+
+    private var searchResultsContent: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ForEach(filteredLines) { line in
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(line.name)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(textPrimary)
+                            Text("\(line.items.count) result\(line.items.count == 1 ? "" : "s")")
+                                .font(.caption)
+                                .foregroundStyle(textSecondary)
+                        }
+
+                        Spacer()
+                    }
+
+                    VStack(spacing: 10) {
+                        if venue == .grabNGo {
+                            grabNGoSelectAllRow(for: line)
+                        }
+                        ForEach(line.items) { item in
+                            menuItemRow(item)
+                        }
+                    }
+                }
+                .padding(16)
+                .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
+            }
+        }
+        .accessibilityIdentifier("pccMenu.searchResults")
     }
 
     private func lineCard(for line: MenuLine) -> some View {
         let expanded = isLineExpandedBinding(for: line.id)
 
         return VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(line.name)
-                        .font(.headline.weight(.semibold))
-                        .foregroundStyle(textPrimary)
-                    Text("\(line.items.count) options")
-                        .font(.caption)
-                        .foregroundStyle(textSecondary)
-                }
-
-                Spacer()
-
-                Text("\(line.items.count)")
-                    .font(.caption.monospacedDigit().weight(.bold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(
-                        Capsule(style: .continuous)
-                            .fill(accent.opacity(0.95))
-                    )
-
-                Image(systemName: expanded.wrappedValue ? "chevron.up" : "chevron.down")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(textSecondary)
-            }
-            .padding(18)
-            .contentShape(Rectangle())
-            .onTapGesture {
+            Button {
                 expanded.wrappedValue.toggle()
                 Haptics.selection()
+            } label: {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(line.name)
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(textPrimary)
+                        Text("\(line.items.count) options")
+                            .font(.caption)
+                            .foregroundStyle(textSecondary)
+                    }
+
+                    Spacer()
+
+                    Text("\(line.items.count)")
+                        .font(.caption.monospacedDigit().weight(.bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(accent.opacity(0.95))
+                        )
+
+                    Image(systemName: expanded.wrappedValue ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(textSecondary)
+                }
+                .padding(18)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("pccMenu.line.\(line.id)")
 
             if expanded.wrappedValue {
                 Divider()
@@ -355,6 +534,8 @@ struct MenuSheetView: View {
                 .padding(.horizontal, 14)
                 .padding(.top, 14)
                 .padding(.bottom, 14)
+                .id("pccMenu.lineContent.\(line.id)")
+                .accessibilityIdentifier("pccMenu.lineContent.\(line.id)")
             }
         }
         .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
@@ -436,44 +617,16 @@ struct MenuSheetView: View {
     }
 
     private var bottomCTA: some View {
-        VStack(spacing: 0) {
+        guard onClose != nil else {
+            return AnyView(EmptyView())
+        }
+
+        return AnyView(VStack(spacing: 0) {
             GeometryReader { geo in
                 let spacing: CGFloat = 12
-                let quarterWidth = (geo.size.width - spacing) / 4
+                let aiButtonWidth: CGFloat = 56
                 HStack(spacing: spacing) {
-                    // Show AI plate photo capture only for Four Winds and Varsity, not Grab N Go.
-                    if onPhotoPlate != nil && venue != .grabNGo {
-                        Button {
-                            isSearchFocused = false
-                            dismissKeyboard()
-                            guard selectedCount > 0 else {
-                                Haptics.notification(.warning)
-                                return
-                            }
-                            Haptics.impact(.light)
-                            showImagePickerSource = true
-                        } label: {
-                            Image(systemName: "sparkles")
-                                .font(.system(size: 22, weight: .semibold))
-                                .foregroundStyle(selectedCount == 0 || isLoading || errorMessage != nil ? textSecondary : .white)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 52)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                        .fill(selectedCount == 0 || isLoading || errorMessage != nil ? surfaceSecondary.opacity(0.98) : accent.opacity(0.9))
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                        .stroke(textSecondary.opacity(selectedCount == 0 ? 0.18 : 0), lineWidth: 1)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(selectedCount == 0 || isLoading || errorMessage != nil)
-                        .frame(width: quarterWidth)
-                    }
-
                     Button {
-                    isSearchFocused = false
                     dismissKeyboard()
                     guard selectedCount > 0 else {
                         Haptics.notification(.warning)
@@ -508,21 +661,63 @@ struct MenuSheetView: View {
                     .padding(.horizontal, 18)
                     .background(
                         RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .fill(selectedCount == 0 || isLoading || errorMessage != nil ? surfaceSecondary.opacity(0.98) : accent)
+                            .fill(isSelectionActionEnabled ? accent : surfaceSecondary.opacity(0.98))
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 20, style: .continuous)
                             .stroke(
-                                selectedCount == 0 || isLoading || errorMessage != nil
-                                    ? textSecondary.opacity(0.18)
-                                    : accent.opacity(0.0),
+                                isSelectionActionEnabled ? accent.opacity(0.0) : textSecondary.opacity(0.18),
                                 lineWidth: 1
                             )
                     )
                 }
                 .buttonStyle(.plain)
-                .disabled(selectedCount == 0 || isLoading || errorMessage != nil)
+                .disabled(!isSelectionActionEnabled)
                 .frame(maxWidth: .infinity)
+                .accessibilityIdentifier("pccMenu.addSelectedButton")
+                .transaction { txn in
+                    txn.animation = nil
+                }
+
+                    // Show AI plate photo capture only for Four Winds and Varsity, not Grab N Go. Placed to the right of Add Selected.
+                    if onPhotoPlate != nil && venue != .grabNGo {
+                        Button {
+                            dismissKeyboard()
+                            guard selectedCount > 0 else {
+                                Haptics.notification(.warning)
+                                return
+                            }
+                            Haptics.impact(.light)
+                            if let onRequestExternalAIPopup {
+                                onRequestExternalAIPopup()
+                            } else {
+                                showImagePickerSource = true
+                            }
+                        } label: {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 22, weight: .semibold))
+                                .foregroundStyle(isSelectionActionEnabled ? .white : textSecondary)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 52)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                        .fill(isSelectionActionEnabled ? accent : surfaceSecondary.opacity(0.98))
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                        .stroke(
+                                            isSelectionActionEnabled ? Color.clear : textSecondary.opacity(0.18),
+                                            lineWidth: 1
+                                        )
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(!isSelectionActionEnabled)
+                        .frame(width: aiButtonWidth)
+                        .transaction { txn in
+                            txn.animation = nil
+                        }
+                    }
                 }
             }
             .frame(height: 60)
@@ -530,6 +725,12 @@ struct MenuSheetView: View {
         .padding(.horizontal, 16)
         .padding(.top, 10)
         .padding(.bottom, 12)
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .preference(key: BottomCTAHeightPreferenceKey.self, value: geo.size.height)
+            }
+        )
         .background(
             ZStack {
                 Rectangle()
@@ -542,6 +743,157 @@ struct MenuSheetView: View {
             }
             .ignoresSafeArea(edges: .bottom)
         )
+        .ignoresSafeArea(.keyboard, edges: .bottom)
+        .onPreferenceChange(BottomCTAHeightPreferenceKey.self) { height in
+            bottomCTAHeight = height
+        }
+        .accessibilityIdentifier("pccMenu.bottomCTA"))
+    }
+
+    private var compactAddSelectedButton: some View {
+        Button {
+            dismissKeyboard()
+            guard selectedCount > 0 else {
+                Haptics.notification(.warning)
+                return
+            }
+            Haptics.impact(.medium)
+            onAddSelected()
+        } label: {
+            HStack(spacing: 8) {
+                Text("Add")
+                    .font(.subheadline.weight(.semibold))
+
+                Text("\(selectedCount)")
+                    .font(.caption.weight(.bold))
+                    .monospacedDigit()
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(.white.opacity(0.14))
+                    )
+            }
+            .foregroundStyle(isSelectionActionEnabled ? .white : textSecondary)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(isSelectionActionEnabled ? accent : surfaceSecondary.opacity(0.98))
+            )
+            .overlay(
+                Capsule(style: .continuous)
+                    .stroke(
+                        isSelectionActionEnabled ? Color.clear : textSecondary.opacity(0.18),
+                        lineWidth: 1
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(!isSelectionActionEnabled)
+        .transaction { txn in
+            txn.animation = nil
+        }
+    }
+
+    private var compactAIButton: some View {
+        Button {
+            dismissKeyboard()
+            guard selectedCount > 0 else {
+                Haptics.notification(.warning)
+                return
+            }
+            Haptics.impact(.light)
+            if let onRequestExternalAIPopup {
+                onRequestExternalAIPopup()
+            } else {
+                showImagePickerSource = true
+            }
+        } label: {
+            Image(systemName: "sparkles")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(isSelectionActionEnabled ? .white : textSecondary)
+                .frame(width: 40, height: 40)
+                .background(
+                    Circle()
+                        .fill(isSelectionActionEnabled ? accent : surfaceSecondary.opacity(0.98))
+                )
+                .overlay(
+                    Circle()
+                        .stroke(
+                            isSelectionActionEnabled ? Color.clear : textSecondary.opacity(0.18),
+                            lineWidth: 1
+                        )
+                )
+        }
+        .buttonStyle(.plain)
+        .disabled(!isSelectionActionEnabled)
+        .transaction { txn in
+            txn.animation = nil
+        }
+    }
+
+    private var aiPortionDialog: some View {
+        ZStack {
+            Color.clear
+                .contentShape(Rectangle())
+                .ignoresSafeArea()
+                .onTapGesture {
+                    showImagePickerSource = false
+                }
+
+            VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("AI portion estimation")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(textPrimary)
+                    Text("Add a plate photo from camera or library.")
+                        .font(.body)
+                        .foregroundStyle(textSecondary)
+                }
+
+                VStack(spacing: 12) {
+                    aiPortionDialogButton(title: "Use camera") {
+                        imagePickerSource = .camera
+                        showImagePickerSource = false
+                        showImagePicker = true
+                    }
+
+                    aiPortionDialogButton(title: "Choose from library") {
+                        imagePickerSource = .photoLibrary
+                        showImagePickerSource = false
+                        showImagePicker = true
+                    }
+                }
+            }
+            .padding(22)
+            .frame(maxWidth: 340)
+            .background(
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(surfacePrimary.opacity(0.98))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .stroke(textSecondary.opacity(0.14), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.22), radius: 24, y: 10)
+            .padding(.horizontal, 24)
+        }
+    }
+
+    private func aiPortionDialogButton(title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(textPrimary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(surfaceSecondary.opacity(0.96))
+                )
+        }
+        .buttonStyle(.plain)
     }
 
     private func quantity(for id: String) -> Int {
@@ -574,7 +926,6 @@ struct MenuSheetView: View {
 
     private func openMultiplierSheet(for item: MenuItem) {
         selectedMultiplierValue = snappedMultiplier(multiplier(for: item.id))
-        isSearchFocused = false
         dismissKeyboard()
         multiplierSheetContext = nil
         Haptics.impact(.light)
@@ -618,9 +969,6 @@ struct MenuSheetView: View {
     private func isLineExpandedBinding(for id: String) -> Binding<Bool> {
         Binding(
             get: {
-                if !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    return true
-                }
                 return expandedLineIDs.contains(id)
             },
             set: { expanded in
@@ -712,6 +1060,7 @@ struct MenuSheetView: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(textSecondary.opacity(0.10), lineWidth: 1)
         )
+        .accessibilityIdentifier("pccMenu.item.\(item.id)")
     }
 
     private func multiplierSheet(item: MenuItem) -> some View {

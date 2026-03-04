@@ -35,6 +35,7 @@ struct BarcodeScannerView: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: ScannerViewController, context: Context) {
+        context.coordinator.parent = self
         uiViewController.setScanningEnabled(!didScan)
     }
 }

@@ -191,6 +191,7 @@ final class HealthKitService: ObservableObject {
             durationMinutes: durationMinutes,
             distanceMiles: distanceMiles,
             calories: calories,
+            reclassifiedWalkingCalories: 0,
             createdAt: workout.startDate
         )
     }

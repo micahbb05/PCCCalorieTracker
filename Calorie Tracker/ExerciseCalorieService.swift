@@ -12,6 +12,7 @@ struct ExerciseCalorieService {
         case .running: return 6.0
         case .cycling: return 4.0
         case .swimming: return 5.0
+        case .directCalories: return 0
         }
     }
 

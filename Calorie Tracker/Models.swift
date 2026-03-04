@@ -162,13 +162,18 @@ struct QuickAddFood: Identifiable, Codable, Equatable {
     }
 }
 
-enum ExerciseType: String, Codable, CaseIterable, Identifiable {
+enum ExerciseType: String, Codable, Identifiable {
     case weightLifting
     case running
     case cycling
     case swimming
+    case directCalories
 
     var id: String { rawValue }
+
+    static var allCases: [ExerciseType] {
+        [.weightLifting, .running, .cycling, .directCalories]
+    }
 
     var title: String {
         switch self {
@@ -176,6 +181,7 @@ enum ExerciseType: String, Codable, CaseIterable, Identifiable {
         case .running: return "Running"
         case .cycling: return "Cycling"
         case .swimming: return "Swimming"
+        case .directCalories: return "Custom"
         }
     }
 
@@ -185,6 +191,7 @@ enum ExerciseType: String, Codable, CaseIterable, Identifiable {
         case .running: return "figure.run"
         case .cycling: return "bicycle"
         case .swimming: return "figure.pool.swim"
+        case .directCalories: return "flame.fill"
         }
     }
 }
@@ -192,20 +199,23 @@ enum ExerciseType: String, Codable, CaseIterable, Identifiable {
 struct ExerciseEntry: Identifiable, Codable, Equatable {
     let id: UUID
     let exerciseType: ExerciseType
+    let customName: String?
     let durationMinutes: Int
     let distanceMiles: Double?
     let calories: Int
     let createdAt: Date
 
     private enum CodingKeys: String, CodingKey {
-        case id, exerciseType, durationMinutes, calories, createdAt
+        case id, exerciseType, customName, durationMinutes, calories, createdAt
         case distanceMiles
         case intensity
     }
 
-    init(id: UUID, exerciseType: ExerciseType, durationMinutes: Int, distanceMiles: Double? = nil, calories: Int, createdAt: Date) {
+    init(id: UUID, exerciseType: ExerciseType, customName: String? = nil, durationMinutes: Int, distanceMiles: Double? = nil, calories: Int, createdAt: Date) {
         self.id = id
         self.exerciseType = exerciseType
+        let trimmedName = customName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.customName = (trimmedName?.isEmpty == false) ? trimmedName : nil
         self.durationMinutes = durationMinutes
         self.distanceMiles = distanceMiles
         self.calories = calories
@@ -216,6 +226,9 @@ struct ExerciseEntry: Identifiable, Codable, Equatable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(UUID.self, forKey: .id)
         exerciseType = try c.decode(ExerciseType.self, forKey: .exerciseType)
+        let decodedCustomName = try c.decodeIfPresent(String.self, forKey: .customName)
+        let trimmedName = decodedCustomName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        customName = (trimmedName?.isEmpty == false) ? trimmedName : nil
         durationMinutes = try c.decode(Int.self, forKey: .durationMinutes)
         distanceMiles = try c.decodeIfPresent(Double.self, forKey: .distanceMiles)
         calories = try c.decode(Int.self, forKey: .calories)
@@ -227,14 +240,25 @@ struct ExerciseEntry: Identifiable, Codable, Equatable {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(id, forKey: .id)
         try c.encode(exerciseType, forKey: .exerciseType)
+        try c.encodeIfPresent(customName, forKey: .customName)
         try c.encode(durationMinutes, forKey: .durationMinutes)
         try c.encodeIfPresent(distanceMiles, forKey: .distanceMiles)
         try c.encode(calories, forKey: .calories)
         try c.encode(createdAt, forKey: .createdAt)
     }
 
+    var displayTitle: String {
+        if exerciseType == .directCalories, let customName {
+            return customName
+        }
+        return exerciseType.title
+    }
+
     /// For running/cycling with distance; for weight lifting/walking or legacy entries, nil.
     var displayValue: String {
+        if exerciseType == .directCalories {
+            return "Custom entry"
+        }
         if let miles = distanceMiles, miles > 0 {
             return String(format: "%.1f mi", miles)
         }

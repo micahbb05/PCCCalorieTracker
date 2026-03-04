@@ -55,6 +55,28 @@ struct ContentView: View {
         let entrySource: EntrySource
     }
 
+    private struct FoodLogDisplayEntry: Identifiable {
+        let entries: [MealEntry]
+        let name: String
+        let calories: Int
+        let nutrientValues: [String: Int]
+        let createdAt: Date
+        let servingCount: Int
+
+        var id: String {
+            let primaryID = entries.first?.id.uuidString ?? UUID().uuidString
+            return "\(primaryID)-\(servingCount)"
+        }
+
+        var primaryEntry: MealEntry? { entries.first }
+    }
+
+    private struct FoodLogEntryPickerContext: Identifiable {
+        let id = UUID()
+        let title: String
+        var entries: [MealEntry]
+    }
+
     private struct HistoryDaySummary: Identifiable {
         let dayIdentifier: String
         let date: Date
@@ -93,7 +115,6 @@ struct ContentView: View {
     private enum AddDestination: String, CaseIterable, Identifiable {
         case pccMenu
         case usdaSearch
-        case scanBarcode
         case quickAdd
         case manualEntry
 
@@ -102,8 +123,7 @@ struct ContentView: View {
         var title: String {
             switch self {
             case .pccMenu: return "PCC Menu"
-            case .usdaSearch: return "Search USDA"
-            case .scanBarcode: return "Scan Barcode"
+            case .usdaSearch: return "Find Foods"
             case .quickAdd: return "Quick Add"
             case .manualEntry: return "Manual Entry"
             }
@@ -112,8 +132,7 @@ struct ContentView: View {
         var subtitle: String {
             switch self {
             case .pccMenu: return "Browse today's PCC dining menu."
-            case .usdaSearch: return "Search FoodData Central."
-            case .scanBarcode: return "Look up packaged foods instantly."
+            case .usdaSearch: return "Search FoodData Central or scan a barcode."
             case .quickAdd: return "Add one of your saved foods."
             case .manualEntry: return "Type food and macro details yourself."
             }
@@ -123,7 +142,6 @@ struct ContentView: View {
             switch self {
             case .pccMenu: return "fork.knife"
             case .usdaSearch: return "magnifyingglass"
-            case .scanBarcode: return "barcode.viewfinder"
             case .quickAdd: return "bolt.fill"
             case .manualEntry: return "square.and.pencil"
             }
@@ -196,6 +214,8 @@ struct ContentView: View {
     }
 
     private static let fallbackAverageBMR = 1800
+    private static let pccMenuUITestLaunchArgument = "UITEST_PCC_MENU"
+    private static let embeddedMenuBottomClearance: CGFloat = 130
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) private var scenePhase
@@ -286,6 +306,7 @@ struct ContentView: View {
     @State private var netHistoryRange: NetHistoryRange = .sevenDays
     @State private var historyDistributionRange: NetHistoryRange = .sevenDays
     @State private var editingEntry: MealEntry?
+    @State private var foodLogEntryPickerContext: FoodLogEntryPickerContext?
     @State private var isQuickAddManagerPresented = false
     @State private var isQuickAddPickerPresented = false
     @State private var onboardingPage = 0
@@ -308,6 +329,8 @@ struct ContentView: View {
     @State private var plateEstimateBaseOzByItemId: [String: Double] = [:]
     @State private var isPlateEstimateLoading = false
     @State private var plateEstimateErrorMessage: String?
+    @State private var isEmbeddedMenuAIPopupPresented = false
+    @State private var embeddedMenuRequestedAIPickerSource: PlateImagePickerView.Source?
     @State private var isAddConfirmationPresented = false
     @State private var addConfirmationTask: Task<Void, Never>?
     @State private var barcodeErrorToastMessage: String?
@@ -611,14 +634,54 @@ struct ContentView: View {
         entries.sorted { $0.createdAt > $1.createdAt }
     }
 
-    private var groupedTodayEntries: [(group: MealGroup, entries: [MealEntry])] {
+    private var groupedTodayEntries: [(group: MealGroup, entries: [FoodLogDisplayEntry])] {
         MealGroup.logDisplayOrder.compactMap { group in
-            let groupEntries = entries
-                .filter { $0.mealGroup == group }
-                .sorted { $0.createdAt > $1.createdAt }
+            let groupEntries = aggregatedFoodLogEntries(
+                from: sortedEntries.filter { $0.mealGroup == group }
+            )
             guard !groupEntries.isEmpty else { return nil }
             return (group, groupEntries)
         }
+    }
+
+    private func aggregatedFoodLogEntries(from entries: [MealEntry]) -> [FoodLogDisplayEntry] {
+        struct GroupedEntry {
+            let key: String
+            var entries: [MealEntry]
+        }
+
+        let grouped = entries.reduce(into: [GroupedEntry]()) { partialResult, entry in
+            let key = foodLogAggregationKey(for: entry)
+            if let index = partialResult.firstIndex(where: { $0.key == key }) {
+                partialResult[index].entries.append(entry)
+            } else {
+                partialResult.append(GroupedEntry(key: key, entries: [entry]))
+            }
+        }
+
+        return grouped.map { groupedEntry in
+            let sortedGroupEntries = groupedEntry.entries.sorted { $0.createdAt > $1.createdAt }
+            let totalCalories = sortedGroupEntries.reduce(0) { $0 + $1.calories }
+            let totalNutrients = sortedGroupEntries.reduce(into: [String: Int]()) { partialResult, entry in
+                for (key, value) in entry.nutrientValues {
+                    partialResult[key, default: 0] += value
+                }
+            }
+
+            return FoodLogDisplayEntry(
+                entries: sortedGroupEntries,
+                name: sortedGroupEntries.first?.name ?? "Unnamed food",
+                calories: totalCalories,
+                nutrientValues: totalNutrients,
+                createdAt: sortedGroupEntries.first?.createdAt ?? .distantPast,
+                servingCount: sortedGroupEntries.count
+            )
+        }
+        .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    private func foodLogAggregationKey(for entry: MealEntry) -> String {
+        "\(entry.mealGroup.rawValue)|\(entry.name.lowercased())"
     }
 
     private var mealDistributionData: [(group: MealGroup, calories: Int)] {
@@ -797,7 +860,9 @@ struct ContentView: View {
 
     @ViewBuilder
     private var rootConditionalContent: some View {
-        if hasCompletedOnboarding {
+        if isPCCMenuUITestMode {
+            uiTestPCCMenuRoot
+        } else if hasCompletedOnboarding {
             rootShellModalHost
         } else {
             onboardingView
@@ -944,6 +1009,12 @@ struct ContentView: View {
             .sheet(item: $editingEntry) { entry in
                 editEntrySheet(entry: entry)
             }
+            .sheet(item: $foodLogEntryPickerContext) { context in
+                foodLogEntryPickerSheet(
+                    initialContext: context,
+                    context: $foodLogEntryPickerContext
+                )
+            }
     }
 
     private var rootShellModalHost: some View {
@@ -1018,9 +1089,9 @@ struct ContentView: View {
             }
         }
         .padding(.horizontal, 20)
-        .padding(.top, 24)
-        .padding(.bottom, 20)
-        .presentationDetents([.height(420)])
+        .padding(.top, 28)
+        .padding(.bottom, 16)
+        .presentationDetents([.height(344)])
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(32)
         .presentationBackground(surfacePrimary)
@@ -1100,7 +1171,10 @@ struct ContentView: View {
             feedbackToast
 
             bottomTabBar
+
+            embeddedMenuAIPopupOverlay
         }
+        .animation(.easeInOut(duration: 0.18), value: isEmbeddedMenuAIPopupPresented)
     }
 
     private var topSafeAreaShield: some View {
@@ -1124,28 +1198,8 @@ struct ContentView: View {
         VStack {
             Spacer()
 
-            if let barcodeErrorToastMessage {
-                HStack(spacing: 10) {
-                    Image(systemName: "exclamationmark.circle.fill")
-                        .foregroundStyle(Color.orange)
-                    Text(barcodeErrorToastMessage)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(textPrimary)
-                        .lineLimit(2)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(
-                    Capsule(style: .continuous)
-                        .fill(surfacePrimary.opacity(0.98))
-                )
-                .overlay(
-                    Capsule(style: .continuous)
-                        .stroke(textSecondary.opacity(0.16), lineWidth: 1)
-                )
-                .shadow(color: Color.black.opacity(0.2), radius: 18, y: 8)
-                .padding(.bottom, 124)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+            if let barcodeErrorToastMessage, !isBarcodeScannerPresented {
+                barcodeErrorToastView
             } else if isAddConfirmationPresented {
                 HStack(spacing: 10) {
                     Image(systemName: "checkmark.circle.fill")
@@ -1176,8 +1230,113 @@ struct ContentView: View {
         .animation(.spring(response: 0.32, dampingFraction: 0.86), value: barcodeErrorToastMessage)
     }
 
+    private var barcodeErrorToastView: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.circle.fill")
+                .foregroundStyle(Color.orange)
+            Text(barcodeErrorToastMessage ?? "Barcode lookup failed.")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(textPrimary)
+                .lineLimit(2)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            Capsule(style: .continuous)
+                .fill(surfacePrimary.opacity(0.98))
+        )
+        .overlay(
+            Capsule(style: .continuous)
+                .stroke(textSecondary.opacity(0.16), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.2), radius: 18, y: 8)
+        .padding(.bottom, 124)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+
+    private var embeddedMenuAIPopupOverlay: some View {
+        ZStack {
+            Color.black
+                .opacity(isEmbeddedMenuAIPopupPresented ? 0.28 : 0)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    guard isEmbeddedMenuAIPopupPresented else { return }
+                    withAnimation(.easeInOut(duration: 0.18)) {
+                        isEmbeddedMenuAIPopupPresented = false
+                    }
+                }
+
+            embeddedMenuAIPopupCard
+                .opacity(isEmbeddedMenuAIPopupPresented ? 1 : 0)
+        }
+        .allowsHitTesting(isEmbeddedMenuAIPopupPresented)
+    }
+
+    private var embeddedMenuAIPopupCard: some View {
+        VStack {
+            Spacer()
+
+            VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("AI portion estimation")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(textPrimary)
+                    Text("Add a plate photo from camera or library.")
+                        .font(.body)
+                        .foregroundStyle(textSecondary)
+                }
+
+                VStack(spacing: 12) {
+                    embeddedMenuAIPopupButton(title: "Use camera") {
+                        embeddedMenuRequestedAIPickerSource = .camera
+                        withAnimation(.easeInOut(duration: 0.18)) {
+                            isEmbeddedMenuAIPopupPresented = false
+                        }
+                    }
+
+                    embeddedMenuAIPopupButton(title: "Choose from library") {
+                        embeddedMenuRequestedAIPickerSource = .photoLibrary
+                        withAnimation(.easeInOut(duration: 0.18)) {
+                            isEmbeddedMenuAIPopupPresented = false
+                        }
+                    }
+                }
+            }
+            .padding(22)
+            .frame(maxWidth: 340)
+            .background(
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(surfacePrimary.opacity(0.98))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .stroke(textSecondary.opacity(0.14), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.22), radius: 24, y: 10)
+            .padding(.horizontal, 24)
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func embeddedMenuAIPopupButton(title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(textPrimary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(surfaceSecondary.opacity(0.96))
+                )
+        }
+        .buttonStyle(.plain)
+    }
+
     private var menuSheet: some View {
-        menuPage(onClose: nil)
+        menuPage(onClose: nil, bottomOverlayClearance: 0)
             .fullScreenCover(isPresented: $isPlateEstimateLoading) {
                 ZStack {
                     Color.black.opacity(0.7)
@@ -1202,7 +1361,13 @@ struct ContentView: View {
             }
     }
 
-    private func menuPage(onClose: (() -> Void)?) -> some View {
+    private func menuPage(
+        onClose: (() -> Void)?,
+        bottomOverlayClearance: CGFloat,
+        onRequestExternalAIPopup: (() -> Void)? = nil,
+        requestedExternalAIPickerSource: PlateImagePickerView.Source? = nil,
+        clearRequestedExternalAIPickerSource: @escaping () -> Void = {}
+    ) -> some View {
         MenuSheetView(
             menu: currentMenu,
             venue: selectedMenuVenue,
@@ -1255,12 +1420,30 @@ struct ContentView: View {
             onVenueChange: { newVenue in
                 switchMenuToVenue(newVenue)
             },
-            onClose: onClose
+            onClose: onClose,
+            bottomOverlayClearance: bottomOverlayClearance,
+            onRequestExternalAIPopup: onRequestExternalAIPopup,
+            requestedExternalAIPickerSource: requestedExternalAIPickerSource,
+            clearRequestedExternalAIPickerSource: clearRequestedExternalAIPickerSource
         )
     }
 
     private var pccMenuPage: some View {
-        menuPage(onClose: nil)
+        menuPage(
+            onClose: nil,
+            bottomOverlayClearance: 0,
+            onRequestExternalAIPopup: {
+                isEmbeddedMenuAIPopupPresented = true
+            },
+            requestedExternalAIPickerSource: embeddedMenuRequestedAIPickerSource,
+            clearRequestedExternalAIPickerSource: {
+                embeddedMenuRequestedAIPickerSource = nil
+            }
+        )
+        .safeAreaInset(edge: .bottom) {
+            Color.clear
+                .frame(height: Self.embeddedMenuBottomClearance)
+        }
         .fullScreenCover(isPresented: $isPlateEstimateLoading) {
             ZStack {
                 Color.black.opacity(0.7)
@@ -1329,7 +1512,74 @@ struct ContentView: View {
         )
     }
 
+    private func foodLogEntryPickerSheet(initialContext: FoodLogEntryPickerContext, context: Binding<FoodLogEntryPickerContext?>) -> some View {
+        let resolvedContext = context.wrappedValue ?? initialContext
+        let pickerTitle = resolvedContext.title
+        let pickerEntries = resolvedContext.entries
+
+        return NavigationStack {
+            List {
+                Section {
+                    ForEach(pickerEntries.sorted { $0.createdAt > $1.createdAt }) { entry in
+                        Button {
+                            foodLogEntryPickerContext = nil
+                            DispatchQueue.main.async {
+                                editingEntry = entry
+                            }
+                        } label: {
+                            HStack(alignment: .center, spacing: 12) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(entry.name)
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(textPrimary)
+                                    Text(entry.createdAt.formatted(date: .omitted, time: .shortened))
+                                        .font(.caption)
+                                        .foregroundStyle(textSecondary)
+                                }
+
+                                Spacer()
+
+                                Text("\(entry.calories) cal")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(textSecondary)
+                                    .monospacedDigit()
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .listRowBackground(surfacePrimary)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                deleteEntry(entry)
+                                let remainingEntries = pickerEntries.filter { $0.id != entry.id }
+                                if remainingEntries.isEmpty {
+                                    foodLogEntryPickerContext = nil
+                                } else {
+                                    context.wrappedValue?.entries = remainingEntries
+                                }
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                    }
+                } header: {
+                    Text("Choose an entry to edit")
+                        .foregroundStyle(textSecondary)
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background(surfaceSecondary.ignoresSafeArea())
+            .navigationTitle(pickerTitle)
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .presentationDetents([.height(280), .large])
+        .presentationDragIndicator(.visible)
+    }
+
     private func handleOnAppear() {
+        if isPCCMenuUITestMode {
+            return
+        }
+
         sanitizeStoredGoals()
         loadTrackingPreferences()
         loadDailyEntryArchive()
@@ -1346,6 +1596,150 @@ struct ContentView: View {
         Task {
             await preloadMenuForNutrientDiscovery()
         }
+    }
+
+    private var isPCCMenuUITestMode: Bool {
+        UserDefaults.standard.bool(forKey: Self.pccMenuUITestLaunchArgument)
+            || ProcessInfo.processInfo.arguments.contains("-\(Self.pccMenuUITestLaunchArgument)")
+            || ProcessInfo.processInfo.arguments.contains(Self.pccMenuUITestLaunchArgument)
+            || ProcessInfo.processInfo.environment[Self.pccMenuUITestLaunchArgument] == "1"
+    }
+
+    private var uiTestPCCMenuRoot: some View {
+        ZStack(alignment: .bottom) {
+            LinearGradient(
+                colors: [backgroundTop, backgroundBottom],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+
+            MenuSheetView(
+                menu: Self.pccMenuUITestFixture,
+                venue: .fourWinds,
+                sourceTitle: DiningVenue.fourWinds.title,
+                mealTitle: "Dinner",
+                selectedItemQuantities: Binding(
+                    get: {
+                        selectedMenuItemQuantitiesByVenue[.fourWinds]
+                            ?? ["entree-1": 1]
+                    },
+                    set: { newValue in
+                        var updated = selectedMenuItemQuantitiesByVenue
+                        updated[.fourWinds] = newValue
+                        selectedMenuItemQuantitiesByVenue = updated
+                    }
+                ),
+                selectedItemMultipliers: Binding(
+                    get: {
+                        selectedMenuItemMultipliersByVenue[.fourWinds]
+                            ?? ["entree-1": 1.0]
+                    },
+                    set: { newValue in
+                        var updated = selectedMenuItemMultipliersByVenue
+                        updated[.fourWinds] = newValue
+                        selectedMenuItemMultipliersByVenue = updated
+                    }
+                ),
+                isLoading: false,
+                errorMessage: nil,
+                onRetry: {},
+                onAddSelected: {},
+                onPhotoPlate: nil,
+                plateEstimateItems: $plateEstimateItems,
+                plateEstimateOzByItemId: $plateEstimateOzByItemId,
+                plateEstimateBaseOzByItemId: [:],
+                mealGroup: .dinner,
+                onPlateEstimateConfirm: { _ in },
+                onPlateEstimateDismiss: {},
+                onVenueChange: { _ in },
+                onClose: nil,
+                bottomOverlayClearance: 0,
+                onRequestExternalAIPopup: {
+                    isEmbeddedMenuAIPopupPresented = true
+                },
+                requestedExternalAIPickerSource: embeddedMenuRequestedAIPickerSource,
+                clearRequestedExternalAIPickerSource: {
+                    embeddedMenuRequestedAIPickerSource = nil
+                }
+            )
+            .safeAreaInset(edge: .bottom) {
+                Color.clear
+                    .frame(height: Self.embeddedMenuBottomClearance)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            topSafeAreaShield
+            bottomTabBar
+        }
+        .onAppear {
+            selectedTab = .add
+        }
+    }
+
+    private static var pccMenuUITestFixture: NutrisliceMenu {
+        let entreeItems = (1...12).map { index in
+            MenuItem(
+                id: "entree-\(index)",
+                name: index == 1 ? "Grilled Chicken Bowl" : "Entree Item \(index)",
+                calories: 300 + index * 15,
+                nutrientValues: [
+                    "calories": 300 + index * 15,
+                    "g_protein": 18 + index,
+                    "g_carbs": 20 + index * 2,
+                    "g_fat": 8 + index
+                ],
+                servingAmount: 6,
+                servingUnit: "oz"
+            )
+        }
+
+        let lineNames = [
+            "Entrees",
+            "Sides",
+            "Vegetables",
+            "Soups",
+            "Salads",
+            "Sandwiches",
+            "Pizza",
+            "Pasta",
+            "Grill",
+            "Rice Bowls",
+            "Bakery",
+            "Desserts"
+        ]
+
+        let lines = lineNames.enumerated().map { offset, lineName in
+            let itemCount = lineName == "Entrees" ? entreeItems.count : 3
+            let items = lineName == "Entrees"
+                ? entreeItems
+                : (1...itemCount).map { index in
+                    MenuItem(
+                        id: "\(lineName.lowercased().replacingOccurrences(of: " ", with: "-"))-\(index)",
+                        name: lineName == "Sides" && index == 2 ? "Garlic Green Beans" : "\(lineName) Item \(index)",
+                        calories: 90 + (offset * 20) + index * 10,
+                        nutrientValues: [
+                            "calories": 90 + (offset * 20) + index * 10,
+                            "g_protein": 3 + offset + index,
+                            "g_carbs": 10 + offset + index * 2,
+                            "g_fat": 2 + offset + index
+                        ],
+                        servingAmount: 4,
+                        servingUnit: "oz"
+                    )
+                }
+
+            return MenuLine(
+                id: lineName.lowercased().replacingOccurrences(of: " ", with: "-"),
+                name: lineName,
+                items: items
+            )
+        }
+
+        return NutrisliceMenu(
+            lines: lines,
+            nutrientNullRateByKey: [:]
+        )
     }
 
     private func completeOnboarding() {
@@ -1433,8 +1827,8 @@ struct ContentView: View {
             tabBarButton(for: .settings)
         }
         .padding(.horizontal, 18)
-        .padding(.top, 12)
-        .padding(.bottom, 22)
+        .padding(.top, 8)
+        .padding(.bottom, 14)
         .background(
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .fill(surfacePrimary.opacity(0.94))
@@ -1445,6 +1839,11 @@ struct ContentView: View {
                 .shadow(color: .black.opacity(0.24), radius: 24, x: 0, y: 10)
                 .ignoresSafeArea(edges: .bottom)
         )
+        .overlay(alignment: .top) {
+            Color.clear
+                .frame(height: 1)
+                .accessibilityIdentifier("app.bottomTabBar.topEdge")
+        }
     }
 
     private func tabBarButton(for tab: AppTab, isCenter: Bool = false) -> some View {
@@ -1455,6 +1854,9 @@ struct ContentView: View {
                 dismissKeyboard()
                 isAddDestinationPickerPresented = true
             } else {
+                if selectedTab == .add, selectedAddDestination == .pccMenu {
+                    clearMenuSelection()
+                }
                 withAnimation(.none) {
                     selectedTab = tab
                 }
@@ -1552,8 +1954,6 @@ struct ContentView: View {
             pccMenuTabView
         case .usdaSearch:
             usdaSearchTabView
-        case .scanBarcode:
-            barcodeTabView
         case .quickAdd:
             quickAddTabView
         }
@@ -1621,6 +2021,10 @@ struct ContentView: View {
             )
             usdaSearchPageContent
         }
+        .safeAreaInset(edge: .bottom) {
+            Color.clear
+                .frame(height: Self.embeddedMenuBottomClearance)
+        }
         .onChange(of: usdaSearchText) { _, newValue in
             usdaSearchDebounceTask?.cancel()
             let query = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1633,44 +2037,6 @@ struct ContentView: View {
                 try? await Task.sleep(nanoseconds: 400_000_000)
                 guard !Task.isCancelled else { return }
                 await performUSDASearch()
-            }
-        }
-    }
-
-    private var barcodeTabView: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            addWorkspaceHeader(
-                title: AddDestination.scanBarcode.title,
-                subtitle: AddDestination.scanBarcode.subtitle
-            )
-
-            ZStack {
-                BarcodeScannerView(
-                    onScan: { code in
-                        Task {
-                            await handleScannedBarcode(code)
-                        }
-                    },
-                    didScan: hasScannedBarcodeInCurrentSheet
-                )
-                .ignoresSafeArea()
-
-                if isBarcodeLookupInFlight {
-                    VStack(spacing: 14) {
-                        ProgressView()
-                            .tint(.white)
-                            .scaleEffect(1.15)
-                        Text("Looking up nutrition data...")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white)
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 18)
-                    .background(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(Color.black.opacity(0.70))
-                    )
-                }
             }
         }
     }
@@ -1695,6 +2061,10 @@ struct ContentView: View {
                 onClose: nil,
                 showsStandaloneChrome: false
             )
+        }
+        .safeAreaInset(edge: .bottom) {
+            Color.clear
+                .frame(height: Self.embeddedMenuBottomClearance)
         }
     }
 
@@ -2918,24 +3288,50 @@ struct ContentView: View {
                         logRow(entry)
                             .listRowBackground(surfacePrimary)
                             .contextMenu {
-                                Button {
-                                    editingEntry = entry
-                                    Haptics.selection()
-                                } label: {
-                                    Label("Edit", systemImage: "pencil")
-                                }
+                                if let primaryEntry = entry.primaryEntry, entry.servingCount == 1 {
+                                    Button {
+                                        editingEntry = primaryEntry
+                                        Haptics.selection()
+                                    } label: {
+                                        Label("Edit", systemImage: "pencil")
+                                    }
 
-                                Button(role: .destructive) {
-                                    deleteEntry(entry)
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
+                                    Button(role: .destructive) {
+                                        deleteEntry(primaryEntry)
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                } else if entry.servingCount > 1 {
+                                    Button {
+                                        foodLogEntryPickerContext = FoodLogEntryPickerContext(
+                                            title: entry.name,
+                                            entries: entry.entries
+                                        )
+                                        Haptics.selection()
+                                    } label: {
+                                        Label("Edit", systemImage: "pencil")
+                                    }
+
+                                    Button(role: .destructive) {
+                                        deleteEntries(entry.entries)
+                                    } label: {
+                                        Label("Delete All", systemImage: "trash")
+                                    }
                                 }
                             }
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                Button(role: .destructive) {
-                                    deleteEntry(entry)
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
+                                if let primaryEntry = entry.primaryEntry, entry.servingCount == 1 {
+                                    Button(role: .destructive) {
+                                        deleteEntry(primaryEntry)
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                } else if entry.servingCount > 1 {
+                                    Button(role: .destructive) {
+                                        deleteEntries(entry.entries)
+                                    } label: {
+                                        Label("Delete All", systemImage: "trash")
+                                    }
                                 }
                             }
                     }
@@ -2992,7 +3388,7 @@ struct ContentView: View {
                     .foregroundStyle(textSecondary)
                     .listRowBackground(surfacePrimary)
             } else {
-                ForEach(allExercises.sorted(by: { $0.createdAt < $1.createdAt })) { entry in
+                ForEach(allExercises.sorted(by: { $0.createdAt > $1.createdAt })) { entry in
                     exerciseLogRow(entry, isDeletable: exercises.contains(where: { $0.id == entry.id }))
                 }
                 if activityCaloriesToday > 0 {
@@ -3053,7 +3449,7 @@ struct ContentView: View {
                 .foregroundStyle(accent)
                 .frame(width: 28, alignment: .center)
             VStack(alignment: .leading, spacing: 2) {
-                Text(entry.exerciseType.title)
+                Text(entry.displayTitle)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(textPrimary)
                 Text(entry.displayValue)
@@ -3151,16 +3547,30 @@ struct ContentView: View {
         }
     }
 
-    private func logRow(_ entry: MealEntry) -> some View {
+    private func logRow(_ entry: FoodLogDisplayEntry) -> some View {
         let nutrientSummary = activeNutrients.prefix(2).map {
             "\(entryValue(for: $0.key, in: entry))\($0.unit) \($0.name)"
         }.joined(separator: " • ")
 
         return HStack(alignment: .firstTextBaseline, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(entry.name)
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(textPrimary)
+                HStack(spacing: 8) {
+                    Text(entry.name)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(textPrimary)
+
+                    if entry.servingCount > 1 {
+                        Text("x\(entry.servingCount)")
+                            .font(.caption2.monospacedDigit().weight(.semibold))
+                            .foregroundStyle(textSecondary)
+                            .frame(minWidth: 22, minHeight: 22)
+                            .padding(.horizontal, 2)
+                            .background(
+                                Circle()
+                                    .fill(surfaceSecondary.opacity(0.95))
+                            )
+                    }
+                }
                 Text("\(entry.calories) cal" + (nutrientSummary.isEmpty ? "" : " • \(nutrientSummary)"))
                     .font(.caption)
                     .foregroundStyle(textSecondary)
@@ -3366,6 +3776,17 @@ struct ContentView: View {
                             .fill(Color.black.opacity(0.70))
                     )
                 }
+
+                VStack {
+                    Spacer()
+
+                    if barcodeErrorToastMessage != nil {
+                        barcodeErrorToastView
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.horizontal, 24)
+                .allowsHitTesting(false)
             }
             .navigationTitle("Scan Barcode")
             .navigationBarTitleDisplayMode(.inline)
@@ -3449,6 +3870,18 @@ struct ContentView: View {
                             }
                         }
                         .foregroundStyle(textPrimary)
+
+                    Button {
+                        dismissKeyboard()
+                        hasScannedBarcodeInCurrentSheet = false
+                        barcodeLookupError = nil
+                        isBarcodeScannerPresented = true
+                        Haptics.selection()
+                    } label: {
+                        Image(systemName: "barcode.viewfinder")
+                            .foregroundStyle(textSecondary)
+                    }
+                    .buttonStyle(.plain)
 
                     if !usdaSearchText.isEmpty {
                         Button {
@@ -4075,6 +4508,9 @@ struct ContentView: View {
 
     private func openAddDestination(_ destination: AddDestination) {
         dismissKeyboard()
+        if selectedAddDestination == .pccMenu, destination != .pccMenu {
+            clearMenuSelection()
+        }
         selectedAddDestination = destination
         isAddDestinationPickerPresented = false
         withAnimation(.none) {
@@ -4091,9 +4527,6 @@ struct ContentView: View {
             }
         case .usdaSearch:
             usdaSearchError = nil
-        case .scanBarcode:
-            barcodeLookupError = nil
-            hasScannedBarcodeInCurrentSheet = false
         case .quickAdd, .manualEntry:
             break
         }
@@ -4188,6 +4621,16 @@ struct ContentView: View {
         Haptics.selection()
     }
 
+    private func deleteEntries(_ entriesToDelete: [MealEntry]) {
+        let idsToDelete = Set(entriesToDelete.map(\.id))
+        guard !idsToDelete.isEmpty else { return }
+
+        withAnimation(.easeInOut(duration: 0.2)) {
+            entries.removeAll { idsToDelete.contains($0.id) }
+        }
+        Haptics.selection()
+    }
+
     private func deleteExercise(_ entry: ExerciseEntry) {
         guard let index = exercises.firstIndex(where: { $0.id == entry.id }) else {
             return
@@ -4241,6 +4684,10 @@ struct ContentView: View {
             return entry.nutrientValues[key] ?? entry.protein
         }
         return entry.nutrientValues[key] ?? 0
+    }
+
+    private func entryValue(for key: String, in entry: FoodLogDisplayEntry) -> Int {
+        entry.nutrientValues[key] ?? 0
     }
 
     private func totalNutrient(for key: String) -> Int {

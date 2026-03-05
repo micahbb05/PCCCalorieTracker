@@ -3,9 +3,11 @@ import Foundation
 /// MET-based calorie estimation for exercise. Always uses light intensity.
 /// Running uses extra-only calories (steps already cover walking-equivalent burn).
 struct ExerciseCalorieService {
-    private static let walkingBaselineMET = 3.0
     private static let runningMinutesPerMile: Double = 10
     private static let cyclingMinutesPerMile: Double = 5
+    // For the same flat-ground distance, walking commonly burns ~65-85% of running calories.
+    // Use a midpoint so running contributes the remaining ~25% as "extra above walking".
+    private static let walkingEquivalentFractionOfRunning = 0.75
 
     /// Light MET values.
     private static func metLight(for type: ExerciseType) -> Double {
@@ -39,8 +41,13 @@ struct ExerciseCalorieService {
 
     static func walkingEquivalentCalories(type: ExerciseType, durationMinutes: Int, distanceMiles: Double?, weightPounds: Int) -> Int {
         guard type == .running else { return 0 }
-        let hours = durationHours(type: type, durationMinutes: durationMinutes, distanceMiles: distanceMiles)
-        return calories(weightPounds: weightPounds, hours: hours, metValue: walkingBaselineMET)
+        let runningCalories = fullCalories(
+            type: type,
+            durationMinutes: durationMinutes,
+            distanceMiles: distanceMiles,
+            weightPounds: weightPounds
+        )
+        return max(Int((Double(runningCalories) * walkingEquivalentFractionOfRunning).rounded()), 0)
     }
 
     /// Calories from duration (weight lifting, walking). Uses light intensity.

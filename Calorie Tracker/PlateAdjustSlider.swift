@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Horizontal slider matching VerticalServeSlider / HorizontalServeSlider style,
-/// but without tick marks. For plate portion adjustment: center = Gemini estimate,
+/// Horizontal slider matching VerticalServeSlider / HorizontalServeSlider style.
+/// For plate portion adjustment: center = Gemini estimate,
 /// ±20% range, stays where dragged.
 struct PlateAdjustSlider: View {
     @Binding var value: Double
@@ -19,6 +19,12 @@ struct PlateAdjustSlider: View {
             let minX = knobRadius
             let maxX = width - knobRadius
             let trackWidth = maxX - minX
+            let values = sliderValues()
+            let positions = values.enumerated().map { index, option in
+                let progress = CGFloat(index) / CGFloat(max(values.count - 1, 1))
+                let x = minX + (progress * trackWidth)
+                return (index, option, x)
+            }
 
             let knobX: CGFloat = {
                 let t = (value - range.lowerBound) / (range.upperBound - range.lowerBound)
@@ -32,14 +38,22 @@ struct PlateAdjustSlider: View {
                     .frame(maxWidth: .infinity)
                     .position(x: width / 2, y: trackY)
 
+                ForEach(Array(positions.enumerated()), id: \.offset) { _, pair in
+                    let index = pair.0
+                    let option = pair.1
+                    let x = pair.2
+                    let isMajor = index % 10 == 0 || abs(option) < 0.0001
+
+                    Rectangle()
+                        .fill(Color.white.opacity(isMajor ? 0.55 : 0.28))
+                        .frame(width: 2, height: isMajor ? 24 : 14)
+                        .position(x: x, y: trackY)
+                }
+
                 Circle()
                     .fill(Color.white)
                     .frame(width: knobSize, height: knobSize)
                     .shadow(color: Color.cyan.opacity(0.45), radius: 12, x: 0, y: 4)
-                    .overlay(
-                        Circle()
-                            .stroke(Color.blue.opacity(0.55), lineWidth: 3)
-                    )
                     .position(x: knobX, y: trackY)
             }
             .contentShape(Rectangle())
@@ -64,5 +78,15 @@ struct PlateAdjustSlider: View {
         guard step > 0 else { return clamped }
         let steps = (clamped / step).rounded()
         return min(max(steps * step, range.lowerBound), range.upperBound)
+    }
+
+    private func sliderValues() -> [Double] {
+        var values: [Double] = []
+        var current = range.lowerBound
+        while current <= range.upperBound + 0.0001 {
+            values.append(current)
+            current += step
+        }
+        return values
     }
 }

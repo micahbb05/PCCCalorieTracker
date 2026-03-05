@@ -60,6 +60,8 @@ class App {
       <div id="view-content" class="animate-fade-in" style="transition: opacity 0.2s ease;">
         <!-- Dynamic content goes here -->
       </div>
+      
+      <div id="toast-container"></div>
     `;
 
     // Attach listeners

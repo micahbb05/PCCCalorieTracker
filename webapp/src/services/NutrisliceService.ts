@@ -86,6 +86,8 @@ export class NutrisliceService {
 
             const calories = nutrientValues['calories'] || 0;
             const protein = nutrientValues['g_protein'] || 0;
+            const carbs = nutrientValues['g_carbs'] || 0;
+            const fat = nutrientValues['g_fat'] || 0;
 
             if (lines.length === 0) {
                 lines.push({ id: 'menu', name: 'Menu', items: [] });
@@ -99,6 +101,8 @@ export class NutrisliceService {
                 name,
                 calories,
                 protein,
+                carbs,
+                fat,
                 nutrientValues,
                 servingAmount: 1, // simplified for now
                 servingUnit: food.serving_size_info?.serving_size_unit || 'serving',

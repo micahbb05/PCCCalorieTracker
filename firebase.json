@@ -1,8 +1,23 @@
 {
-  "functions": {"source": "functions"},
+  "functions": {
+    "source": "functions"
+  },
   "hosting": {
     "public": "public",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-    "rewrites": [{"source": "/privacy", "destination": "/privacy.html"}]
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/api/nutrislice/**",
+        "function": "proxyNutrislice"
+      },
+      {
+        "source": "/privacy",
+        "destination": "/privacy.html"
+      }
+    ]
   }
 }

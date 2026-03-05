@@ -34,7 +34,7 @@ This is the main container for the app. It owns almost all application state and
   - Uses `@State` for in‑memory working sets:
     - `entries`, `exercises` for the currently selected day.
     - `dailyEntryArchive` and related dictionaries for all days.
-    - Menu state, quick adds, onboarding, and UI flags (sheet presentation, keyboard state, etc.).
+    - Menu state, onboarding, and UI flags (sheet presentation, keyboard state, etc.).
 
 - **Day management**
   - `todayDayIdentifier`: builds a `"YYYY-MM-DD"` string based on the app’s calendar (central-ish time).
@@ -312,4 +312,3 @@ Notes and caveats
 - **AI accuracy**: The plate photo feature is intentionally labeled as an estimate. The adjust screen displays a warning banner reminding users to double‑check before logging.
 - **Temperature and averaging**: A relatively high temperature (2.0) is used, but results are averaged across two runs to smooth out noise while still giving the model flexibility to interpret different plates.
 - **Not a medical device**: The app is for personal tracking and educational purposes only; it is not intended for medical use.
-

@@ -146,22 +146,6 @@ struct MealEntry: Identifiable, Codable, Equatable {
     }
 }
 
-struct QuickAddFood: Identifiable, Codable, Equatable {
-    let id: UUID
-    let name: String
-    let calories: Int
-    let nutrientValues: [String: Int]
-    let createdAt: Date
-
-    init(id: UUID, name: String, calories: Int, nutrientValues: [String: Int], createdAt: Date) {
-        self.id = id
-        self.name = MealEntry.normalizedName(name)
-        self.calories = max(0, calories)
-        self.nutrientValues = nutrientValues.mapValues { max(0, $0) }
-        self.createdAt = createdAt
-    }
-}
-
 enum ExerciseType: String, Codable, Identifiable {
     case weightLifting
     case running

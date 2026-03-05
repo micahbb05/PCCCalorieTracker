@@ -508,8 +508,8 @@ function inferBaseOzFromCalories(name: string, calories: number): number {
   const n = name.toLowerCase();
   const calPerOz =
     /chicken|beef|pork|meat|fish|protein/.test(n) ? 50 :
-    /rice|pasta|grain|noodle/.test(n) ? 35 :
-    /sauce|gravy|dressing/.test(n) ? 25 : 40;
+      /rice|pasta|grain|noodle/.test(n) ? 35 :
+        /sauce|gravy|dressing/.test(n) ? 25 : 40;
   return Math.max(0.25, Math.min(calories / calPerOz, 20));
 }
 
@@ -840,15 +840,17 @@ General rules:
 - Do not include nulls.
 - Do not include keys outside the required shape.`;
 
-function parseAIVisionJsonResponse(text: string): { mode: "food_photo" | "nutrition_label"; items: Array<{
-  name: string;
-  servingAmount: number;
-  servingUnit: string;
-  estimatedServings: number;
-  calories: number;
-  protein: number;
-  nutrients: Record<string, number>;
-}> } | null {
+function parseAIVisionJsonResponse(text: string): {
+  mode: "food_photo" | "nutrition_label"; items: Array<{
+    name: string;
+    servingAmount: number;
+    servingUnit: string;
+    estimatedServings: number;
+    calories: number;
+    protein: number;
+    nutrients: Record<string, number>;
+  }>
+} | null {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -1118,3 +1120,46 @@ export const analyzeFoodPhoto = onRequest(
     }
   }
 );
+
+export const proxyNutrislice = onRequest({ region: "us-central1" }, async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+
+  if (req.method !== "GET") {
+    res.status(405).json({ error: "Method not allowed." });
+    return;
+  }
+
+  try {
+    const targetPath = req.url.replace(/^\/api\/nutrislice/, "");
+    const targetUrl = `https://pccdining.api.nutrislice.com${targetPath}`;
+
+    // Nutrislice API blocks exact matches of our referrer/origin
+    const response = await fetch(targetUrl, {
+      headers: {
+        "Accept": "application/json",
+        "User-Agent": "Mozilla/5.0 (compatible; NutrisliceProxy/1.0)"
+      }
+    });
+
+    if (!response.ok) {
+      logger.error("Nutrislice proxy failed", { status: response.status });
+      res.status(response.status).send(await response.text());
+      return;
+    }
+
+    const data = await response.json();
+    res.status(200).json(data);
+  } catch (error) {
+    logger.error("Nutrislice proxy exception", error);
+    res.status(500).json({
+      error: error instanceof Error ? error.message : "Unknown error"
+    });
+  }
+});

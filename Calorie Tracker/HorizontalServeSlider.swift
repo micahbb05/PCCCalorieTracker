@@ -47,10 +47,6 @@ struct HorizontalServeSlider: View {
                     .fill(Color.white)
                     .frame(width: 30, height: 30)
                     .shadow(color: Color.cyan.opacity(0.45), radius: 12, x: 0, y: 4)
-                    .overlay(
-                        Circle()
-                            .stroke(Color.blue.opacity(0.55), lineWidth: 3)
-                    )
                     .position(x: knobX, y: proxy.size.height / 2)
             }
             .contentShape(Rectangle())

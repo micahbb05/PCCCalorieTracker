@@ -183,15 +183,34 @@ final class HealthKitService: ObservableObject {
         guard let type = mapActivityType(workout.workoutActivityType) else { return nil }
         let durationMinutes = max(Int(workout.duration / 60), 1)
         let weight = profile?.weightPounds ?? 170
-        let distanceMiles: Double? = nil
-        let calories = ExerciseCalorieService.calories(type: type, durationMinutes: durationMinutes, distanceMiles: distanceMiles, weightPounds: weight)
+        let distanceMiles: Double? = {
+            guard let distance = workout.totalDistance?.doubleValue(for: .mile()), distance > 0 else { return nil }
+            return distance
+        }()
+        let calories = ExerciseCalorieService.fullCalories(
+            type: type,
+            durationMinutes: durationMinutes,
+            distanceMiles: distanceMiles,
+            weightPounds: weight
+        )
+        let reclassifiedWalkingCalories: Int
+        if type == .running {
+            reclassifiedWalkingCalories = ExerciseCalorieService.walkingEquivalentCalories(
+                type: type,
+                durationMinutes: durationMinutes,
+                distanceMiles: distanceMiles,
+                weightPounds: weight
+            )
+        } else {
+            reclassifiedWalkingCalories = 0
+        }
         return ExerciseEntry(
             id: UUID(),
             exerciseType: type,
             durationMinutes: durationMinutes,
             distanceMiles: distanceMiles,
             calories: calories,
-            reclassifiedWalkingCalories: 0,
+            reclassifiedWalkingCalories: reclassifiedWalkingCalories,
             createdAt: workout.startDate
         )
     }

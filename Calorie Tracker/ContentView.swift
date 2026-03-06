@@ -31,6 +31,7 @@ struct CloudSyncPayload: Codable, Equatable, Sendable {
     let dailyExerciseArchiveData: String
     let venueMenusData: String
     let venueMenuSignaturesData: String
+    let quickAddFoodsData: String
     let useAIBaseServings: Bool
 }
 
@@ -372,6 +373,7 @@ struct ContentView: View {
 
     private enum EntrySource {
         case manual
+        case quickAdd
         case barcode
         case usda
         case aiFoodPhoto
@@ -382,6 +384,7 @@ struct ContentView: View {
     private enum AddDestination: String, CaseIterable, Identifiable {
         case pccMenu
         case usdaSearch
+        case quickAdd
         case aiPhoto
         case manualEntry
 
@@ -391,6 +394,7 @@ struct ContentView: View {
             switch self {
             case .pccMenu: return "PCC Menu"
             case .usdaSearch: return "Find Foods"
+            case .quickAdd: return "Quick Add"
             case .aiPhoto: return "AI Photo"
             case .manualEntry: return "Manual Entry"
             }
@@ -400,6 +404,7 @@ struct ContentView: View {
             switch self {
             case .pccMenu: return "Browse today's PCC dining menu."
             case .usdaSearch: return "Search FoodData Central or scan a barcode."
+            case .quickAdd: return "Add one of your saved foods."
             case .aiPhoto: return "Snap food or nutrition labels with AI."
             case .manualEntry: return "Type food and macro details yourself."
             }
@@ -409,6 +414,7 @@ struct ContentView: View {
             switch self {
             case .pccMenu: return "fork.knife"
             case .usdaSearch: return "magnifyingglass"
+            case .quickAdd: return "bolt.fill"
             case .aiPhoto: return "camera.viewfinder"
             case .manualEntry: return "square.and.pencil"
             }
@@ -535,6 +541,7 @@ struct ContentView: View {
     @AppStorage("dailyExerciseArchiveData") private var storedDailyExerciseArchiveData: String = ""
     @AppStorage("venueMenusData") private var storedVenueMenusData: String = ""
     @AppStorage("venueMenuSignaturesData") private var storedVenueMenuSignaturesData: String = ""
+    @AppStorage("quickAddFoodsData") private var storedQuickAddFoodsData: String = ""
     @AppStorage("cloudSyncLocalModifiedAt") private var cloudSyncLocalModifiedAt: Double = 0
     /// When true, Gemini can override ambiguous base servings (e.g. \"1 each\" entrees) with its inferred base oz.
     /// When false, base servings always come from the menu's serving size.
@@ -547,6 +554,7 @@ struct ContentView: View {
     @State private var dailyBurnedCalorieArchive: [String: Int] = [:]
     @State private var dailyExerciseArchive: [String: [ExerciseEntry]] = [:]
     @State private var dailyGoalTypeArchive: [String: String] = [:]
+    @State private var quickAddFoods: [QuickAddFood] = []
     @State private var trackedNutrientKeys: [String] = ["g_protein"]
     @State private var nutrientGoals: [String: Int] = [:]
     @State private var entryNameText = ""
@@ -588,6 +596,8 @@ struct ContentView: View {
     @State private var historyDistributionRange: NetHistoryRange = .sevenDays
     @State private var editingEntry: MealEntry?
     @State private var foodLogEntryPickerContext: FoodLogEntryPickerContext?
+    @State private var isQuickAddManagerPresented = false
+    @State private var isQuickAddPickerPresented = false
     @State private var onboardingPage = 0
     @State private var hasRequestedHealthDuringOnboarding = false
 
@@ -746,7 +756,9 @@ struct ContentView: View {
     }
 
     private var reclassifiedWalkingCaloriesToday: Int {
-        exercises.reduce(0) { $0 + $1.reclassifiedWalkingCalories }
+        let totalRequestedReclassification = (exercises + healthKitService.todayWorkouts)
+            .reduce(0) { $0 + $1.reclassifiedWalkingCalories }
+        return min(totalRequestedReclassification, activityCaloriesToday)
     }
 
     private var effectiveActivityCaloriesToday: Int {
@@ -817,6 +829,7 @@ struct ContentView: View {
             dailyExerciseArchiveData: storedDailyExerciseArchiveData,
             venueMenusData: storedVenueMenusData,
             venueMenuSignaturesData: storedVenueMenuSignaturesData,
+            quickAddFoodsData: storedQuickAddFoodsData,
             useAIBaseServings: useAIBaseServings
         )
     }
@@ -1324,6 +1337,9 @@ struct ContentView: View {
             .onChange(of: nutrientGoals) { _, _ in
                 saveTrackingPreferences()
             }
+            .onChange(of: quickAddFoods) { _, _ in
+                saveQuickAddFoods()
+            }
             .onChange(of: selectedAppIconChoiceRaw) { _, newValue in
                 AppIconManager.apply(AppIconChoice(rawValue: newValue) ?? .standard)
             }
@@ -1449,6 +1465,12 @@ struct ContentView: View {
 
     private var rootShellModalHost: some View {
         rootShellSheetHost
+            .sheet(isPresented: $isQuickAddManagerPresented) {
+                quickAddManagerSheet
+            }
+            .sheet(isPresented: $isQuickAddPickerPresented) {
+                quickAddPickerSheet
+            }
             .sheet(isPresented: $isAddExerciseSheetPresented) {
                 AddExerciseSheet(
                     weightPounds: resolvedBMRProfile?.weightPounds ?? 170,
@@ -1918,6 +1940,34 @@ struct ContentView: View {
         }
     }
 
+    private var quickAddManagerSheet: some View {
+        QuickAddManagerView(
+            quickAddFoods: $quickAddFoods,
+            trackedNutrientKeys: trackedNutrientKeys,
+            surfacePrimary: surfacePrimary,
+            surfaceSecondary: surfaceSecondary,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+            accent: accent
+        )
+    }
+
+    private var quickAddPickerSheet: some View {
+        QuickAddPickerView(
+            quickAddFoods: quickAddFoods,
+            surfacePrimary: surfacePrimary,
+            surfaceSecondary: surfaceSecondary,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+            accent: accent,
+            onSelect: { item in
+                addQuickAddFood(item)
+            },
+            onClose: nil,
+            showsStandaloneChrome: true
+        )
+    }
+
     private func editEntrySheet(entry: MealEntry) -> some View {
         EditMealEntrySheet(
             entry: entry,
@@ -2077,11 +2127,13 @@ struct ContentView: View {
         storedDailyExerciseArchiveData = payload.dailyExerciseArchiveData
         storedVenueMenusData = payload.venueMenusData
         storedVenueMenuSignaturesData = payload.venueMenuSignaturesData
+        storedQuickAddFoodsData = payload.quickAddFoodsData
         useAIBaseServings = payload.useAIBaseServings
         cloudSyncLocalModifiedAt = updatedAt
 
         loadTrackingPreferences()
         loadDailyEntryArchive()
+        loadQuickAddFoods()
         loadVenueMenus()
         selectedMenuType = menuService.currentMenuType()
         applyCentralTimeTransitions(forceMenuReload: false)
@@ -2100,6 +2152,7 @@ struct ContentView: View {
         sanitizeStoredGoals()
         loadTrackingPreferences()
         loadDailyEntryArchive()
+        loadQuickAddFoods()
         loadVenueMenus()
         selectedMenuType = menuService.currentMenuType()
         Task(priority: .userInitiated) {
@@ -2486,6 +2539,8 @@ struct ContentView: View {
             pccMenuTabView
         case .usdaSearch:
             usdaSearchTabView
+        case .quickAdd:
+            quickAddTabView
         }
     }
 
@@ -2603,6 +2658,33 @@ struct ContentView: View {
         }
     }
 
+    private var quickAddTabView: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            addWorkspaceHeader(
+                title: AddDestination.quickAdd.title,
+                subtitle: AddDestination.quickAdd.subtitle
+            )
+
+            QuickAddPickerView(
+                quickAddFoods: quickAddFoods,
+                surfacePrimary: surfacePrimary,
+                surfaceSecondary: surfaceSecondary,
+                textPrimary: textPrimary,
+                textSecondary: textSecondary,
+                accent: accent,
+                onSelect: { item in
+                    addQuickAddFood(item)
+                },
+                onClose: nil,
+                showsStandaloneChrome: false
+            )
+        }
+        .safeAreaInset(edge: .bottom) {
+            Color.clear
+                .frame(height: Self.embeddedMenuBottomClearance)
+        }
+    }
+
     private func addWorkspaceHeader(title: String, subtitle: String) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             tabHeader(title: title, subtitle: subtitle)
@@ -2657,7 +2739,7 @@ struct ContentView: View {
 
     private var profileTabView: some View {
         VStack(alignment: .leading, spacing: 0) {
-            tabHeader(title: "Profile", subtitle: "Health-based BMR, calorie goal, and nutrient targets")
+            tabHeader(title: "Profile", subtitle: "Calorie and nutrient goals")
                 .padding(.horizontal, 16)
                 .padding(.top, 18)
                 .padding(.bottom, 6)
@@ -2686,6 +2768,13 @@ struct ContentView: View {
                     )
                 }
                 .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 4, trailing: 0))
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+
+                Section {
+                    quickAddManagementCard
+                }
+                .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 4, trailing: 0))
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
             }
@@ -2751,7 +2840,7 @@ struct ContentView: View {
                 .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 4, trailing: 0))
                 .listRowBackground(
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color(uiColor: .secondarySystemBackground).opacity(0.55))
+                        .fill(Color(uiColor: .secondarySystemBackground).opacity(colorScheme == .dark ? 0.82 : 0.55))
                 )
                 .listRowSeparator(.hidden)
             }
@@ -4142,6 +4231,34 @@ struct ContentView: View {
         .padding(.vertical, 2)
     }
 
+    private var quickAddManagementCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Quick Add Foods")
+                .font(.headline.weight(.semibold))
+            Text("Save foods you log often for one-tap adding.")
+                .font(.subheadline)
+                .foregroundStyle(textSecondary)
+
+            Button {
+                isQuickAddManagerPresented = true
+                Haptics.impact(.light)
+            } label: {
+                Text("Manage Quick Add Foods")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+            }
+            .buttonStyle(.bordered)
+            .tint(accent)
+        }
+        .padding(18)
+        .tint(Color(red: 0.20, green: 0.50, blue: 0.98))
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color(uiColor: .secondarySystemBackground).opacity(colorScheme == .dark ? 0.82 : 0.55))
+        )
+    }
+
     private func nutrientFieldBinding(for key: String) -> Binding<String> {
         Binding(
             get: { nutrientInputTexts[key] ?? "" },
@@ -5258,7 +5375,7 @@ struct ContentView: View {
             }
         case .usdaSearch:
             usdaSearchError = nil
-        case .manualEntry:
+        case .quickAdd, .manualEntry:
             break
         }
     }
@@ -5919,7 +6036,7 @@ struct ContentView: View {
         switch source {
         case let .pccMenu(menuType):
             return mealGroup(for: menuType)
-        case .manual, .barcode, .usda, .aiFoodPhoto, .aiNutritionLabel:
+        case .manual, .quickAdd, .barcode, .usda, .aiFoodPhoto, .aiNutritionLabel:
             return genericMealGroup(for: date)
         }
     }
@@ -5954,6 +6071,45 @@ struct ContentView: View {
             return .dinner
         }
         return .snack
+    }
+
+    private func loadQuickAddFoods() {
+        guard
+            !storedQuickAddFoodsData.isEmpty,
+            let data = storedQuickAddFoodsData.data(using: .utf8),
+            let decoded = try? JSONDecoder().decode([QuickAddFood].self, from: data)
+        else {
+            quickAddFoods = []
+            return
+        }
+
+        quickAddFoods = decoded.sorted { $0.createdAt > $1.createdAt }
+    }
+
+    private func saveQuickAddFoods() {
+        guard let data = try? JSONEncoder().encode(quickAddFoods) else {
+            return
+        }
+        storedQuickAddFoodsData = String(decoding: data, as: UTF8.self)
+    }
+
+    private func addQuickAddFood(_ item: QuickAddFood) {
+        let now = Date()
+        let newEntry = MealEntry(
+            id: UUID(),
+            name: item.name,
+            calories: item.calories,
+            nutrientValues: item.nutrientValues,
+            createdAt: now,
+            mealGroup: mealGroup(for: now, source: .quickAdd)
+        )
+
+        withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
+            entries.append(newEntry)
+        }
+
+        isQuickAddPickerPresented = false
+        showAddConfirmation()
     }
 
     @MainActor

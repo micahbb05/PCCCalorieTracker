@@ -5,6 +5,7 @@ struct AppSettingsTabView: View {
     let availableNutrients: [NutrientDefinition]
     @Binding var selectedAppIconChoiceRaw: String
     @Binding var useAIBaseServings: Bool
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -60,7 +61,7 @@ struct AppSettingsTabView: View {
         .padding(18)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(uiColor: .secondarySystemBackground).opacity(0.55))
+                .fill(Color(uiColor: .secondarySystemBackground).opacity(colorScheme == .dark ? 0.82 : 0.55))
         )
     }
 }

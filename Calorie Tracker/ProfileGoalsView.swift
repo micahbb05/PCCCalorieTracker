@@ -15,10 +15,11 @@ struct ProfileGoalsView: View {
     let activeBurnedCaloriesToday: Int
     let isUsingAutomatedCalories: Bool
     let onRequestHealthAccess: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
 
     private var cardBackground: some View {
         RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .fill(Color(uiColor: .secondarySystemBackground).opacity(0.55))
+            .fill(Color(uiColor: .secondarySystemBackground).opacity(colorScheme == .dark ? 0.82 : 0.55))
     }
 
     var body: some View {

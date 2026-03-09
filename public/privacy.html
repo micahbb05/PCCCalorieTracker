@@ -197,7 +197,7 @@
 
   <main>
     <h1>Privacy Policy</h1>
-    <p class="updated">Last updated: March 5, 2026</p>
+    <p class="updated">Last updated: March 6, 2026</p>
 
     <p>Calorie Tracker ("the App") is designed with privacy in mind. This policy explains what data is processed by the
       App, where that data is stored, and which third-party services are used for specific features.</p>
@@ -226,9 +226,9 @@
       <li><strong>Date of birth</strong> — to calculate age for BMR</li>
       <li><strong>Height</strong> — for BMR calculation</li>
       <li><strong>Body mass (weight)</strong> — for BMR calculation</li>
-      <li><strong>Active energy burned</strong> — to adjust your daily calorie goal based on activity</li>
+      <li><strong>Workouts</strong> — to include supported workout activity (for example running, cycling, swimming, and strength/cross-training) in daily burn estimates</li>
     </ul>
-    <p>The App does <strong>not write</strong> data to Apple Health. Health data is used in-app for BMR and goal
+    <p>The App does <strong>not write</strong> data to Apple Health. Health data is used in-app for BMR and calorie-goal
       calculations.</p>
 
     <h2>4. Motion & Fitness (Step Count)</h2>
@@ -254,15 +254,18 @@
         data.</li>
       <li><strong>PCC Dining Nutrislice API</strong> — menu data is fetched from Nutrislice endpoints.</li>
       <li><strong>Google Gemini (via backend)</strong> — for AI plate estimates and AI food/label analysis, the App
-        sends image data and feature-specific food context to backend endpoints that call Gemini.</li>
+        sends image data (base64) and, for plate estimates, selected food-item context to backend endpoints that call Gemini.</li>
       <li><strong>Apple CloudKit (private database)</strong> — used for app-state sync when iCloud is available.</li>
     </ul>
-    <p>The App does not require creating an in-app account. Requests may still include technical metadata such as IP
+    <p>The iOS app does not require creating an in-app account. Requests may still include technical metadata such as IP
       address, timestamps, and device/network headers as part of normal web and cloud operation.</p>
+    <p>For AI analysis requests, the backend processes uploaded image payloads to return results. The backend code does
+      not store submitted image files in app databases as part of normal operation.</p>
 
     <h2>7. Analytics & Tracking</h2>
-    <p>The App does not include third-party advertising SDKs and does not sell personal data. We use limited technical
-      logging for reliability and debugging of backend features.</p>
+    <p>The App does not include third-party advertising SDKs and does not sell personal data. We use limited operational
+      logging in backend services (for example, request status codes and error diagnostics) to keep features reliable and
+      debug failures.</p>
 
     <h2>8. Children</h2>
     <p>The App is not directed at children under 13. We do not knowingly collect personal information from children.</p>

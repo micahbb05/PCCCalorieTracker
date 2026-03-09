@@ -33,6 +33,8 @@ struct CloudSyncPayload: Codable, Equatable, Sendable {
     let venueMenuSignaturesData: String
     let quickAddFoodsData: String
     let useAIBaseServings: Bool
+    let calibrationStateData: String?
+    let healthWeighInsData: String?
 }
 
 struct CloudSyncEnvelope: Codable, Sendable {
@@ -310,6 +312,23 @@ private enum AppTab: String, CaseIterable, Identifiable {
 }
 
 struct ContentView: View {
+    private struct FoodSearchResult: Identifiable {
+        enum Source {
+            case usda
+            case openFoodFacts
+        }
+
+        let id: String
+        let source: Source
+        let name: String
+        let brand: String?
+        let calories: Int
+        let nutrientValues: [String: Int]
+        let servingAmount: Double
+        let servingUnit: String
+        let servingDescription: String?
+    }
+
     private struct FoodReviewItem: Identifiable {
         let id = UUID()
         let name: String
@@ -378,12 +397,14 @@ struct ContentView: View {
         case usda
         case aiFoodPhoto
         case aiNutritionLabel
+        case aiText
         case pccMenu(NutrisliceMenuService.MenuType)
     }
 
     private enum AddDestination: String, CaseIterable, Identifiable {
         case pccMenu
         case usdaSearch
+        case barcode
         case quickAdd
         case aiPhoto
         case manualEntry
@@ -394,8 +415,9 @@ struct ContentView: View {
             switch self {
             case .pccMenu: return "PCC Menu"
             case .usdaSearch: return "Find Foods"
+            case .barcode: return "Scan Barcode"
             case .quickAdd: return "Quick Add"
-            case .aiPhoto: return "AI Photo"
+            case .aiPhoto: return "AI Mode"
             case .manualEntry: return "Manual Entry"
             }
         }
@@ -403,9 +425,10 @@ struct ContentView: View {
         var subtitle: String {
             switch self {
             case .pccMenu: return "Browse today's PCC dining menu."
-            case .usdaSearch: return "Search FoodData Central or scan a barcode."
+            case .usdaSearch: return "Search USDA foods."
+            case .barcode: return "Use your camera to scan packaged foods."
             case .quickAdd: return "Add one of your saved foods."
-            case .aiPhoto: return "Snap food or nutrition labels with AI."
+            case .aiPhoto: return "Use AI for photos or typed meals."
             case .manualEntry: return "Type food and macro details yourself."
             }
         }
@@ -414,8 +437,9 @@ struct ContentView: View {
             switch self {
             case .pccMenu: return "fork.knife"
             case .usdaSearch: return "magnifyingglass"
+            case .barcode: return "barcode.viewfinder"
             case .quickAdd: return "bolt.fill"
-            case .aiPhoto: return "camera.viewfinder"
+            case .aiPhoto: return "sparkles"
             case .manualEntry: return "square.and.pencil"
             }
         }
@@ -487,14 +511,23 @@ struct ContentView: View {
     private struct DailyCalorieModel {
         let bmr: Int?
         let burned: Int
+        let burnedBaseline: Int
         let goal: Int
         let deficit: Int
         let usesBMR: Bool
     }
 
+    private enum CalibrationConfidence: String {
+        case low = "Low"
+        case medium = "Medium"
+        case high = "High"
+    }
+
     private static let fallbackAverageBMR = 1800
     private static let pccMenuUITestLaunchArgument = "UITEST_PCC_MENU"
     private static let embeddedMenuBottomClearance: CGFloat = 130
+    private static let manualEntryContentMaxWidth: CGFloat = 680
+    private static let calibrationErrorWeights: [Double] = [0.1, 0.2, 0.3, 0.4]
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) private var scenePhase
@@ -542,6 +575,8 @@ struct ContentView: View {
     @AppStorage("venueMenusData") private var storedVenueMenusData: String = ""
     @AppStorage("venueMenuSignaturesData") private var storedVenueMenuSignaturesData: String = ""
     @AppStorage("quickAddFoodsData") private var storedQuickAddFoodsData: String = ""
+    @AppStorage("calibrationStateData") private var storedCalibrationStateData: String = ""
+    @AppStorage("healthWeighInsData") private var storedHealthWeighInsData: String = ""
     @AppStorage("cloudSyncLocalModifiedAt") private var cloudSyncLocalModifiedAt: Double = 0
     /// When true, Gemini can override ambiguous base servings (e.g. \"1 each\" entrees) with its inferred base oz.
     /// When false, base servings always come from the menu's serving size.
@@ -555,6 +590,8 @@ struct ContentView: View {
     @State private var dailyExerciseArchive: [String: [ExerciseEntry]] = [:]
     @State private var dailyGoalTypeArchive: [String: String] = [:]
     @State private var quickAddFoods: [QuickAddFood] = []
+    @State private var calibrationState: CalibrationState = .default
+    @State private var healthWeighIns: [HealthWeighInDay] = []
     @State private var trackedNutrientKeys: [String] = ["g_protein"]
     @State private var nutrientGoals: [String: Int] = [:]
     @State private var entryNameText = ""
@@ -562,23 +599,34 @@ struct ContentView: View {
     @State private var nutrientInputTexts: [String: String] = [:]
 
     @State private var isMenuSheetPresented = false
-    @State private var isBarcodeScannerPresented = false
     @State private var isBarcodeLookupInFlight = false
     @State private var barcodeLookupError: String?
     @State private var hasScannedBarcodeInCurrentSheet = false
     @State private var isUSDASearchPresented = false
     @State private var usdaSearchText = ""
-    @State private var usdaSearchResults: [USDAFoodSearchResult] = []
+    @State private var foodSearchResults: [FoodSearchResult] = []
     @State private var isUSDASearchLoading = false
     @State private var usdaSearchError: String?
     @State private var usdaSearchDebounceTask: Task<Void, Never>?
+    @State private var latestFoodSearchRequestID = 0
     @State private var foodReviewItem: FoodReviewItem?
     @State private var foodReviewNameText = ""
     @State private var selectedFoodReviewMultiplier = 1.0
+    @State private var selectedFoodReviewBaselineAmount = 1.0
+    @State private var selectedFoodReviewAmountText = ""
+    @State private var isUpdatingFoodReviewTextFromSlider = false
+    @State private var isFoodReviewKeyboardVisible = false
     @State private var selectedFoodReviewQuantity = 1
     @State private var aiFoodPhotoRequestedPickerSource: PlateImagePickerView.Source?
     @State private var isAIFoodPhotoLoading = false
     @State private var aiFoodPhotoErrorMessage: String?
+    @State private var aiMealTextInput = ""
+    @State private var isAITextLoading = false
+    @State private var aiTextErrorMessage: String?
+    @State private var aiTextMealResults: [AITextMealAnalysisResult.Item] = []
+    @State private var aiTextPlateItems: [MenuItem]?
+    @State private var aiTextOzByItemId: [String: Double] = [:]
+    @State private var aiTextBaseOzByItemId: [String: Double] = [:]
     @State private var aiPhotoItems: [MenuItem]?
     @State private var aiPhotoOzByItemId: [String: Double] = [:]
     @State private var aiPhotoBaseOzByItemId: [String: Double] = [:]
@@ -622,28 +670,47 @@ struct ContentView: View {
     @State private var hasBootstrappedCloudSync = false
     @State private var isApplyingCloudSync = false
     @State private var cloudSyncUploadTask: Task<Void, Never>?
+    @State private var calibrationEvaluationTask: Task<Void, Never>?
+    @State private var lastCalibrationEvaluationAt: Date?
     @State private var isAddConfirmationPresented = false
     @State private var addConfirmationTask: Task<Void, Never>?
     @State private var barcodeErrorToastMessage: String?
     @State private var barcodeErrorToastTask: Task<Void, Never>?
 
+    private var selectedFoodReviewEffectiveMultiplier: Double {
+        guard let item = foodReviewItem else { return 1.0 }
+        let selectedAmount = roundToServingSelectorIncrement(selectedFoodReviewBaselineAmount * selectedFoodReviewMultiplier)
+        let baseAmount = convertedServingAmount(item.servingAmount, unit: item.servingUnit)
+        guard baseAmount > 0 else { return 1.0 }
+        return max(selectedAmount / baseAmount, 0)
+    }
+
     private var selectedFoodReviewTotalMultiplier: Double {
-        selectedFoodReviewMultiplier * Double(selectedFoodReviewQuantity)
+        selectedFoodReviewEffectiveMultiplier * Double(selectedFoodReviewQuantity)
     }
 
     @FocusState private var focusedField: Field?
+    @FocusState private var foodReviewFocusedField: FoodReviewField?
+    @FocusState private var aiMealTextFocused: Bool
     @StateObject private var stepActivityService = StepActivityService()
     @StateObject private var healthKitService = HealthKitService()
 
     private let menuService = NutrisliceMenuService()
     private let openFoodFactsService = OpenFoodFactsService()
     private let usdaFoodService = USDAFoodService()
+    private let aiTextMealService = AITextMealService()
     private let clockTimer = Timer.publish(every: 120, on: .main, in: .common).autoconnect()
+    private let disableUSDASearchForDebug = false
 
     private enum Field: Hashable {
         case name
         case calories
         case nutrient(String)
+    }
+
+    private enum FoodReviewField: Hashable {
+        case name
+        case amount
     }
 
     private enum ManualEntryGridField: Hashable {
@@ -775,9 +842,11 @@ struct ContentView: View {
         if resolvedBMRProfile == nil,
            let archivedGoal = dailyCalorieGoalArchive[todayDayIdentifier],
            let archivedBurned = dailyBurnedCalorieArchive[todayDayIdentifier] {
+            let effectiveOffset = calibrationState.isEnabled ? calibrationState.calibrationOffsetCalories : 0
             return DailyCalorieModel(
                 bmr: nil,
                 burned: archivedBurned,
+                burnedBaseline: max(archivedBurned - effectiveOffset, 1),
                 goal: archivedGoal,
                 deficit: deficitForDay(todayDayIdentifier),
                 usesBMR: false
@@ -785,7 +854,9 @@ struct ContentView: View {
         }
 
         let bmr = resolvedBMRProfile.flatMap(calculatedBMR(for:)) ?? ContentView.fallbackAverageBMR
-        let burned = max(bmr + effectiveActivityCaloriesToday + exerciseCaloriesToday, 1)
+        let burnedBaseline = max(bmr + effectiveActivityCaloriesToday + exerciseCaloriesToday, 1)
+        let effectiveOffset = calibrationState.isEnabled ? calibrationState.calibrationOffsetCalories : 0
+        let burned = max(burnedBaseline + effectiveOffset, 1)
         let dayGoalType = goalTypeForDay(todayDayIdentifier)
         let amount = deficitForDay(todayDayIdentifier)
         let goal: Int
@@ -797,6 +868,7 @@ struct ContentView: View {
         return DailyCalorieModel(
             bmr: bmr,
             burned: burned,
+            burnedBaseline: burnedBaseline,
             goal: goal,
             deficit: amount,
             usesBMR: resolvedBMRProfile != nil
@@ -804,6 +876,46 @@ struct ContentView: View {
     }
     private var burnedCaloriesToday: Int { currentDailyCalorieModel.burned }
     private var calorieGoal: Int { currentDailyCalorieModel.goal }
+    private var calibrationOffsetCalories: Int { calibrationState.calibrationOffsetCalories }
+    private var calibrationConfidence: CalibrationConfidence {
+        let checks = max(calibrationState.dataQualityChecks, 1)
+        let passRate = Double(calibrationState.dataQualityPasses) / Double(checks)
+        let recent = calibrationState.recentDailyErrors.suffix(4)
+        guard !recent.isEmpty else { return .low }
+        let mean = recent.reduce(0, +) / Double(recent.count)
+        let variance = recent.reduce(0.0) { partial, value in
+            let delta = value - mean
+            return partial + (delta * delta)
+        } / Double(recent.count)
+        let stdDev = sqrt(variance)
+
+        if passRate >= 0.8, stdDev <= 20, recent.count >= 3 {
+            return .high
+        }
+        if passRate >= 0.5, stdDev <= 40 {
+            return .medium
+        }
+        return .low
+    }
+
+    private var calibrationStatusText: String {
+        guard calibrationState.isEnabled else { return "Off" }
+        switch calibrationState.lastRunStatus {
+        case .never: return "Not enough data yet"
+        case .applied: return "Applied"
+        case .skipped: return "Skipped"
+        }
+    }
+
+    private var calibrationLastRunText: String {
+        guard let lastRunDate = calibrationState.lastRunDate else { return "--" }
+        return lastRunDate.formatted(date: .abbreviated, time: .omitted)
+    }
+
+    private var calibrationNextRunText: String {
+        guard let next = nextCalibrationRunDate(from: Date()) else { return "--" }
+        return next.formatted(date: .abbreviated, time: .omitted)
+    }
     private var selectedAppIconChoice: AppIconChoice {
         AppIconChoice(rawValue: selectedAppIconChoiceRaw) ?? .standard
     }
@@ -830,7 +942,9 @@ struct ContentView: View {
             venueMenusData: storedVenueMenusData,
             venueMenuSignaturesData: storedVenueMenuSignaturesData,
             quickAddFoodsData: storedQuickAddFoodsData,
-            useAIBaseServings: useAIBaseServings
+            useAIBaseServings: useAIBaseServings,
+            calibrationStateData: storedCalibrationStateData,
+            healthWeighInsData: storedHealthWeighInsData
         )
     }
 
@@ -955,6 +1069,11 @@ struct ContentView: View {
     private var manualEntryBottomPadding: CGFloat {
         guard isManualEntryEditing else { return 140 }
         return max(124, keyboardHeight + 24)
+    }
+
+    private var aiModeBottomPadding: CGFloat {
+        guard isKeyboardVisible else { return 120 }
+        return max(120, keyboardHeight + 32)
     }
 
     private func menu(for venue: DiningVenue, menuType: NutrisliceMenuService.MenuType) -> NutrisliceMenu {
@@ -1290,6 +1409,7 @@ struct ContentView: View {
             }
             .onChange(of: healthKitService.todayWorkouts) { _, _ in
                 syncCurrentDayGoalArchive()
+                scheduleCalibrationEvaluation()
             }
             .onChange(of: scenePhase) { _, newPhase in
                 handleScenePhaseChange(newPhase)
@@ -1404,16 +1524,13 @@ struct ContentView: View {
             .sheet(isPresented: $isMenuSheetPresented, onDismiss: clearMenuSelection) {
                 menuSheet
             }
-            .sheet(isPresented: $isBarcodeScannerPresented, onDismiss: {
-                hasScannedBarcodeInCurrentSheet = false
-            }) {
-                barcodeScannerSheet
-            }
             .sheet(isPresented: $isUSDASearchPresented) {
                 usdaSearchSheet
             }
             .sheet(item: $foodReviewItem, onDismiss: {
                 foodReviewNameText = ""
+                selectedFoodReviewBaselineAmount = 1.0
+                selectedFoodReviewAmountText = ""
                 foodReviewItem = nil
             }) { context in
                 foodReviewSheet(item: context)
@@ -1450,6 +1567,7 @@ struct ContentView: View {
                         items: items,
                         ozByItemId: $aiPhotoOzByItemId,
                         baseOzByItemId: aiPhotoBaseOzByItemId,
+                        trackedNutrientKeys: trackedNutrientKeys,
                         mealGroup: genericMealGroup(for: Date()),
                         onConfirm: { pairs in
                             addAIPhotoItemsWithPortions(pairs)
@@ -1457,6 +1575,28 @@ struct ContentView: View {
                         },
                         onDismiss: {
                             clearAIPhotoMultiItemState()
+                        }
+                    )
+                }
+            }
+            .fullScreenCover(isPresented: Binding(
+                get: { aiTextPlateItems != nil },
+                set: { if !$0 { clearAITextPlateState() } }
+            )) {
+                if let items = aiTextPlateItems {
+                    PlateEstimateResultView(
+                        items: items,
+                        ozByItemId: $aiTextOzByItemId,
+                        baseOzByItemId: aiTextBaseOzByItemId,
+                        trackedNutrientKeys: trackedNutrientKeys,
+                        mealGroup: genericMealGroup(for: Date()),
+                        onConfirm: { pairs in
+                            addAITextItemsWithPortions(pairs)
+                            clearAITextPlateState()
+                            clearAITextMealState()
+                        },
+                        onDismiss: {
+                            clearAITextPlateState()
                         }
                     )
                 }
@@ -1521,50 +1661,107 @@ struct ContentView: View {
     private var addDestinationPickerSheet: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Choose how to add food")
+                Text("Add Food")
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(textPrimary)
             }
 
-            VStack(spacing: 10) {
-                ForEach(AddDestination.allCases) { destination in
-                    Button {
-                        openAddDestination(destination)
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: destination.iconName)
-                                .font(.subheadline.weight(.semibold))
-                                .frame(width: 18)
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(destination.title)
-                                    .font(.subheadline.weight(.semibold))
-                                Text(destination.subtitle)
-                                    .font(.caption)
-                                    .foregroundStyle(textSecondary)
-                            }
-
-                            Spacer()
-                        }
-                        .foregroundStyle(textPrimary)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .fill(surfaceSecondary.opacity(0.95))
-                        )
+            VStack(spacing: 12) {
+                Button {
+                    openAddDestination(.pccMenu)
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: AddDestination.pccMenu.iconName)
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(accent)
+                        Text(AddDestination.pccMenu.title)
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(textPrimary)
+                            .multilineTextAlignment(.center)
                     }
-                    .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(surfaceSecondary.opacity(0.95))
+                    )
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    openAddDestination(.manualEntry)
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: AddDestination.manualEntry.iconName)
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(accent)
+                        Text(AddDestination.manualEntry.title)
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(textPrimary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(surfaceSecondary.opacity(0.95))
+                    )
+                }
+                .buttonStyle(.plain)
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                    addDestinationSquareButton(title: "Search Foods", icon: "magnifyingglass") {
+                        openAddDestination(.usdaSearch)
+                    }
+
+                    addDestinationSquareButton(title: "Scan Barcode", icon: "barcode.viewfinder") {
+                        openBarcodeScannerFromPicker()
+                    }
+
+                    addDestinationSquareButton(title: "AI Mode", icon: "sparkles") {
+                        openAddDestination(.aiPhoto)
+                    }
+
+                    addDestinationSquareButton(title: "Quick add", icon: "bolt.fill") {
+                        openAddDestination(.quickAdd)
+                    }
                 }
             }
         }
         .padding(.horizontal, 20)
         .padding(.top, 28)
         .padding(.bottom, 16)
-        .presentationDetents([.height(404)])
+        .presentationDetents([.height(428)])
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(32)
         .presentationBackground(surfacePrimary)
+    }
+
+    private func addDestinationSquareButton(
+        title: String,
+        icon: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            VStack(spacing: 10) {
+                Image(systemName: icon)
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(accent)
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(textPrimary)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity, minHeight: 76, alignment: .center)
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(surfaceSecondary.opacity(0.95))
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     private var resetTodaySheet: some View {
@@ -1668,7 +1865,7 @@ struct ContentView: View {
         VStack {
             Spacer()
 
-            if let barcodeErrorToastMessage, !isBarcodeScannerPresented {
+            if let barcodeErrorToastMessage, selectedAddDestination != .barcode {
                 barcodeErrorToastView
             } else if isAddConfirmationPresented {
                 HStack(spacing: 10) {
@@ -2129,10 +2326,14 @@ struct ContentView: View {
         storedVenueMenuSignaturesData = payload.venueMenuSignaturesData
         storedQuickAddFoodsData = payload.quickAddFoodsData
         useAIBaseServings = payload.useAIBaseServings
+        storedCalibrationStateData = payload.calibrationStateData ?? ""
+        storedHealthWeighInsData = payload.healthWeighInsData ?? ""
         cloudSyncLocalModifiedAt = updatedAt
 
         loadTrackingPreferences()
         loadDailyEntryArchive()
+        loadCalibrationState()
+        loadHealthWeighIns()
         loadQuickAddFoods()
         loadVenueMenus()
         selectedMenuType = menuService.currentMenuType()
@@ -2152,6 +2353,8 @@ struct ContentView: View {
         sanitizeStoredGoals()
         loadTrackingPreferences()
         loadDailyEntryArchive()
+        loadCalibrationState()
+        loadHealthWeighIns()
         loadQuickAddFoods()
         loadVenueMenus()
         selectedMenuType = menuService.currentMenuType()
@@ -2167,8 +2370,12 @@ struct ContentView: View {
         stepActivityService.requestAccessAndRefresh()
         Task {
             await healthKitService.refreshIfPossible()
+            await MainActor.run {
+                scheduleCalibrationEvaluation()
+            }
         }
         syncCurrentDayGoalArchive()
+        scheduleCalibrationEvaluation()
     }
 
     private var isPCCMenuUITestMode: Bool {
@@ -2343,6 +2550,7 @@ struct ContentView: View {
 
     private func handleHealthProfileChange(_ newProfile: HealthKitService.SyncedProfile?) {
         syncCurrentDayGoalArchive()
+        scheduleCalibrationEvaluation()
     }
 
     private func handleScenePhaseChange(_ newPhase: ScenePhase) {
@@ -2351,12 +2559,16 @@ struct ContentView: View {
         stepActivityService.refreshIfAuthorized()
         Task {
             await healthKitService.refreshIfPossible()
+            await MainActor.run {
+                scheduleCalibrationEvaluation()
+            }
         }
         Task(priority: .utility) {
             await bootstrapCloudSync()
         }
         syncCurrentDayGoalArchive()
         syncHistorySelection(preferToday: true)
+        scheduleCalibrationEvaluation()
         Task {
             await preloadMenuForNutrientDiscovery()
         }
@@ -2367,11 +2579,15 @@ struct ContentView: View {
         stepActivityService.refreshIfAuthorized()
         Task {
             await healthKitService.refreshIfPossible()
+            await MainActor.run {
+                scheduleCalibrationEvaluation()
+            }
         }
         Task(priority: .utility) {
             await bootstrapCloudSync()
         }
         syncCurrentDayGoalArchive()
+        scheduleCalibrationEvaluation()
     }
 
     @ViewBuilder
@@ -2393,7 +2609,15 @@ struct ContentView: View {
     private func updateKeyboardState(from notification: Notification) {
         let endFrame = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect) ?? .zero
         let duration = (notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double) ?? 0.25
-        let visibleHeight = max(0, endFrame.height)
+        let visibleHeight: CGFloat = {
+            if notification.name == UIResponder.keyboardWillHideNotification {
+                return 0
+            }
+
+            let screenBounds = UIScreen.main.bounds
+            let overlapHeight = endFrame.intersection(screenBounds).height
+            return max(0, overlapHeight)
+        }()
 
         withAnimation(.easeOut(duration: duration)) {
             keyboardHeight = visibleHeight
@@ -2440,6 +2664,7 @@ struct ContentView: View {
                 if selectedTab == .add, selectedAddDestination == .pccMenu {
                     clearMenuSelection()
                 }
+                clearAITextMealState()
                 withAnimation(.none) {
                     selectedTab = tab
                 }
@@ -2539,81 +2764,144 @@ struct ContentView: View {
             pccMenuTabView
         case .usdaSearch:
             usdaSearchTabView
+        case .barcode:
+            barcodeTabView
         case .quickAdd:
             quickAddTabView
         }
     }
 
     private var aiPhotoTabView: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            addWorkspaceHeader(
-                title: AddDestination.aiPhoto.title,
-                subtitle: AddDestination.aiPhoto.subtitle
-            )
+        ScrollViewReader { proxy in
+            VStack(alignment: .leading, spacing: 0) {
+                addWorkspaceHeader(
+                    title: AddDestination.aiPhoto.title,
+                    subtitle: AddDestination.aiPhoto.subtitle
+                )
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    aiPhotoCaptureCard
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-                .padding(.bottom, 120)
-            }
-            .scrollIndicators(.hidden)
-        }
-        .overlay {
-            if isAIFoodPhotoLoading {
-                ZStack {
-                    Color.black.opacity(0.28)
-                        .ignoresSafeArea()
-
-                    VStack(spacing: 14) {
-                        ProgressView()
-                            .scaleEffect(1.15)
-                            .tint(.white)
-                        Text("Analyzing photo…")
-                            .font(.headline.weight(.medium))
-                            .foregroundStyle(.white)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        aiPhotoCaptureCard
+                        aiModeOrDivider
+                        aiTextMealCard
+                            .id("aiTextMealCard")
                     }
-                    .padding(.horizontal, 28)
-                    .padding(.vertical, 24)
-                    .background(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .fill(Color.black.opacity(0.72))
-                    )
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .padding(.bottom, aiModeBottomPadding)
+                }
+                .scrollIndicators(.hidden)
+                .scrollDismissesKeyboard(.interactively)
+            }
+            .onChange(of: aiMealTextFocused) { _, isFocused in
+                guard isFocused else { return }
+                scheduleAITextCardScroll(using: proxy)
+            }
+            .onChange(of: keyboardHeight) { _, newHeight in
+                guard aiMealTextFocused, newHeight > 0 else { return }
+                scheduleAITextCardScroll(using: proxy)
+            }
+            .overlay {
+                if isAIFoodPhotoLoading || isAITextLoading {
+                    ZStack {
+                        Color.black.opacity(0.28)
+                            .ignoresSafeArea()
+
+                        VStack(spacing: 14) {
+                            ProgressView()
+                                .scaleEffect(1.15)
+                                .tint(.white)
+                            Text(isAITextLoading ? "Analyzing text…" : "Analyzing photo…")
+                                .font(.headline.weight(.medium))
+                                .foregroundStyle(.white)
+                        }
+                        .padding(.horizontal, 28)
+                        .padding(.vertical, 24)
+                        .background(
+                            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                .fill(Color.black.opacity(0.72))
+                        )
+                    }
                 }
             }
-        }
-        .alert("AI analysis failed", isPresented: Binding(
-            get: { aiFoodPhotoErrorMessage != nil },
-            set: { if !$0 { aiFoodPhotoErrorMessage = nil } }
-        )) {
-            Button("OK", role: .cancel) {
-                aiFoodPhotoErrorMessage = nil
+            .alert("AI analysis failed", isPresented: Binding(
+                get: { aiFoodPhotoErrorMessage != nil || aiTextErrorMessage != nil },
+                set: {
+                    if !$0 {
+                        aiFoodPhotoErrorMessage = nil
+                        aiTextErrorMessage = nil
+                    }
+                }
+            )) {
+                Button("OK", role: .cancel) {
+                    aiFoodPhotoErrorMessage = nil
+                    aiTextErrorMessage = nil
+                }
+            } message: {
+                Text(aiFoodPhotoErrorMessage ?? aiTextErrorMessage ?? "Unknown error")
             }
-        } message: {
-            Text(aiFoodPhotoErrorMessage ?? "Unknown error")
+        }
+    }
+
+    private func scheduleAITextCardScroll(using proxy: ScrollViewProxy) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                proxy.scrollTo("aiTextMealCard", anchor: .top)
+            }
         }
     }
 
     private var manualEntryTabView: some View {
         ScrollViewReader { proxy in
-            VStack(alignment: .leading, spacing: 0) {
-                addWorkspaceHeader(
-                    title: AddDestination.manualEntry.title,
-                    subtitle: AddDestination.manualEntry.subtitle
-                )
+            GeometryReader { outerGeometry in
+                VStack(alignment: .leading, spacing: 0) {
+                    addWorkspaceHeader(
+                        title: AddDestination.manualEntry.title,
+                        subtitle: AddDestination.manualEntry.subtitle
+                    )
+                    .frame(maxWidth: Self.manualEntryContentMaxWidth, alignment: .leading)
+                    .frame(maxWidth: .infinity, alignment: .center)
 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
-                        manualEntryFormCard
+                    GeometryReader { contentGeometry in
+                        let closedSpacerHeight = manualEntryClosedSpacerHeight(in: contentGeometry)
+                        let topSpacerHeight: CGFloat = isManualEntryEditing ? 12 : closedSpacerHeight
+                        let bottomSpacerHeight: CGFloat = isManualEntryEditing
+                            ? manualEntryEditingBottomPadding(in: outerGeometry)
+                            : closedSpacerHeight + Self.embeddedMenuBottomClearance
+
+                        ScrollView {
+                            VStack(spacing: 0) {
+                                Color.clear
+                                    .frame(height: topSpacerHeight)
+
+                                VStack(alignment: .leading, spacing: 18) {
+                                    manualEntryFormCard
+                                }
+                                .background(
+                                    GeometryReader { proxy in
+                                        Color.clear.preference(
+                                            key: ManualEntryFormHeightPreferenceKey.self,
+                                            value: proxy.size.height
+                                        )
+                                    }
+                                )
+
+                                Color.clear
+                                    .frame(height: bottomSpacerHeight)
+                            }
+                            .frame(maxWidth: Self.manualEntryContentMaxWidth, alignment: .leading)
+                            .frame(maxWidth: .infinity)
+                            .frame(minHeight: contentGeometry.size.height, alignment: .top)
+                            .padding(.horizontal, 16)
+                        }
+                        .scrollIndicators(.hidden)
+                        .scrollDismissesKeyboard(.interactively)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-                    .padding(.bottom, manualEntryBottomPadding)
                 }
-                .scrollIndicators(.hidden)
-                .scrollDismissesKeyboard(.interactively)
+            }
+            .onPreferenceChange(ManualEntryFormHeightPreferenceKey.self) { newHeight in
+                guard newHeight > 0 else { return }
+                manualEntryFormHeight = newHeight
             }
             .onChange(of: focusedField) { _, newValue in
                 guard newValue != nil else { return }
@@ -2645,8 +2933,10 @@ struct ContentView: View {
         .onChange(of: usdaSearchText) { _, newValue in
             usdaSearchDebounceTask?.cancel()
             let query = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !query.isEmpty else {
-                usdaSearchResults = []
+            guard query.count >= 2 else {
+                latestFoodSearchRequestID += 1
+                foodSearchResults = []
+                isUSDASearchLoading = false
                 usdaSearchError = nil
                 return
             }
@@ -2678,6 +2968,67 @@ struct ContentView: View {
                 onClose: nil,
                 showsStandaloneChrome: false
             )
+        }
+        .safeAreaInset(edge: .bottom) {
+            Color.clear
+                .frame(height: Self.embeddedMenuBottomClearance)
+        }
+    }
+
+    private var barcodeTabView: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            addWorkspaceHeader(
+                title: AddDestination.barcode.title,
+                subtitle: AddDestination.barcode.subtitle
+            )
+
+            ZStack {
+                BarcodeScannerView(
+                    onScan: { code in
+                        Task {
+                            await handleScannedBarcode(code)
+                        }
+                    },
+                    didScan: hasScannedBarcodeInCurrentSheet
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+
+                if isBarcodeLookupInFlight {
+                    VStack(spacing: 14) {
+                        ProgressView()
+                            .tint(.white)
+                            .scaleEffect(1.15)
+                        Text("Looking up nutrition data...")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white)
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 18)
+                    .background(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(Color.black.opacity(0.70))
+                    )
+                }
+
+                VStack {
+                    Spacer()
+
+                    if barcodeErrorToastMessage != nil {
+                        barcodeErrorToastView
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.horizontal, 24)
+                .allowsHitTesting(false)
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(textSecondary.opacity(0.16), lineWidth: 1)
+            )
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .safeAreaInset(edge: .bottom) {
             Color.clear
@@ -2746,35 +3097,51 @@ struct ContentView: View {
 
             List {
                 Section {
-                    ProfileGoalsView(
-                        deficitCalories: $storedDeficitCalories,
-                        goalTypeRaw: $goalTypeRaw,
-                        surplusCalories: $storedSurplusCalories,
-                        useWeekendDeficit: $useWeekendDeficit,
-                        weekendDeficitCalories: $storedWeekendDeficitCalories,
-                        trackedNutrientKeys: trackedNutrientKeys,
-                        nutrientGoals: $nutrientGoals,
-                        healthAuthorizationState: healthKitService.authorizationState,
-                        healthProfile: healthKitService.profile,
-                        bmrCalories: currentDailyCalorieModel.bmr,
-                        burnedCaloriesToday: burnedCaloriesToday,
-                        activeBurnedCaloriesToday: effectiveActivityCaloriesToday + exerciseCaloriesToday,
-                        isUsingAutomatedCalories: currentDailyCalorieModel.usesBMR,
-                        onRequestHealthAccess: {
-                            Task {
-                                await healthKitService.requestAccessAndRefresh()
+                    VStack(alignment: .leading, spacing: 14) {
+                        ProfileGoalsView(
+                            deficitCalories: $storedDeficitCalories,
+                            goalTypeRaw: $goalTypeRaw,
+                            surplusCalories: $storedSurplusCalories,
+                            useWeekendDeficit: $useWeekendDeficit,
+                            weekendDeficitCalories: $storedWeekendDeficitCalories,
+                            trackedNutrientKeys: trackedNutrientKeys,
+                            nutrientGoals: $nutrientGoals,
+                            healthAuthorizationState: healthKitService.authorizationState,
+                            healthProfile: healthKitService.profile,
+                            bmrCalories: currentDailyCalorieModel.bmr,
+                            burnedCaloriesToday: burnedCaloriesToday,
+                            activeBurnedCaloriesToday: effectiveActivityCaloriesToday + exerciseCaloriesToday,
+                            isUsingAutomatedCalories: currentDailyCalorieModel.usesBMR,
+                            isCalibrationEnabled: Binding(
+                                get: { calibrationState.isEnabled },
+                                set: { newValue in
+                                    calibrationState.isEnabled = newValue
+                                    saveCalibrationState()
+                                    syncCurrentDayGoalArchive()
+                                    if newValue {
+                                        scheduleCalibrationEvaluation(force: true)
+                                    } else {
+                                        calibrationEvaluationTask?.cancel()
+                                    }
+                                }
+                            ),
+                            calibrationOffsetCalories: calibrationOffsetCalories,
+                            calibrationStatusText: calibrationStatusText,
+                            calibrationSkipReason: calibrationState.isEnabled && calibrationState.lastRunStatus == .skipped ? calibrationState.lastSkipReason : nil,
+                            calibrationLastRunText: calibrationLastRunText,
+                            calibrationNextRunText: calibrationNextRunText,
+                            calibrationConfidenceText: calibrationConfidence.rawValue,
+                            onRequestHealthAccess: {
+                                Task {
+                                    await healthKitService.requestAccessAndRefresh()
+                                }
                             }
-                        }
-                    )
+                        )
+
+                        quickAddManagementCard
+                    }
                 }
                 .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 4, trailing: 0))
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-
-                Section {
-                    quickAddManagementCard
-                }
-                .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 4, trailing: 0))
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
             }
@@ -2790,7 +3157,7 @@ struct ContentView: View {
 
     private var settingsTabView: some View {
         VStack(alignment: .leading, spacing: 0) {
-            tabHeader(title: "Settings", subtitle: "Tracked nutrients and app appearance")
+            tabHeader(title: "Settings", subtitle: "App preferences that apply everywhere")
                 .padding(.horizontal, 16)
                 .padding(.top, 18)
                 .padding(.bottom, 6)
@@ -2809,38 +3176,62 @@ struct ContentView: View {
                 .listRowSeparator(.hidden)
 
                 Section {
-                    Button {
-                        hasCompletedOnboarding = false
-                        Haptics.impact(.light)
-                    } label: {
-                        HStack {
-                            Label("Replay Onboarding", systemImage: "arrow.counterclockwise")
-                            Spacer()
-                        }
-                        .padding(18)
-                    }
-                    .buttonStyle(.plain)
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("App & Privacy")
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(.primary)
 
-                    Button {
-                        if let url = URL(string: "https://calorie-tracker-364e3.web.app/privacy") {
-                            UIApplication.shared.open(url)
+                        VStack(spacing: 0) {
+                            Button {
+                                hasCompletedOnboarding = false
+                                Haptics.impact(.light)
+                            } label: {
+                                HStack {
+                                    Label("Replay Onboarding", systemImage: "arrow.counterclockwise")
+                                        .foregroundStyle(.primary)
+                                    Spacer()
+                                }
+                                .padding(18)
+                            }
+                            .buttonStyle(.plain)
+
+                            Divider()
+                                .overlay(Color.secondary.opacity(0.18))
+
+                            Button {
+                                if let url = URL(string: "https://calorie-tracker-364e3.web.app/privacy") {
+                                    UIApplication.shared.open(url)
+                                }
+                            } label: {
+                                HStack {
+                                    Label("Privacy Policy", systemImage: "doc.text")
+                                        .foregroundStyle(.primary)
+                                    Spacer()
+                                    Image(systemName: "arrow.up.right")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                }
+                                .padding(18)
+                            }
+                            .buttonStyle(.plain)
                         }
-                    } label: {
-                        HStack {
-                            Label("Privacy Policy", systemImage: "doc.text")
-                            Spacer()
-                            Image(systemName: "arrow.up.right")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(18)
                     }
-                    .buttonStyle(.plain)
+                    .padding(18)
                 }
                 .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 4, trailing: 0))
                 .listRowBackground(
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .fill(Color(uiColor: .secondarySystemBackground).opacity(colorScheme == .dark ? 0.82 : 0.55))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .stroke(Color.white.opacity(colorScheme == .dark ? 0.08 : 0.14), lineWidth: 1)
+                        )
+                        .shadow(
+                            color: Color.black.opacity(colorScheme == .dark ? 0.20 : 0.08),
+                            radius: colorScheme == .dark ? 10 : 6,
+                            x: 0,
+                            y: 2
+                        )
                 )
                 .listRowSeparator(.hidden)
             }
@@ -2884,15 +3275,9 @@ struct ContentView: View {
 
     private var aiPhotoCaptureCard: some View {
         VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Analyze Food Or Nutrition Facts")
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(textPrimary)
-
-                Text("Take a picture or choose one from your library. Food photos estimate calories and protein. Nutrition labels read the visible nutrition facts.")
-                    .font(.subheadline)
-                    .foregroundStyle(textSecondary)
-            }
+            Text("Scan Food or Nutrition Label")
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(textPrimary)
 
             VStack(spacing: 12) {
                 aiPhotoActionButton(
@@ -2914,6 +3299,66 @@ struct ContentView: View {
         }
         .padding(18)
         .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.15))
+    }
+
+    private var aiTextMealCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Describe Your Meal")
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(textPrimary)
+
+            TextEditor(text: $aiMealTextInput)
+                .frame(minHeight: 108)
+                .padding(10)
+                .focused($aiMealTextFocused)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(surfaceSecondary.opacity(0.95))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(textSecondary.opacity(0.16), lineWidth: 1)
+                )
+                .foregroundStyle(textPrimary)
+                .scrollContentBackground(.hidden)
+
+            Button {
+                analyzeAITextMeal()
+            } label: {
+                if isAITextLoading {
+                    ProgressView()
+                        .tint(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                } else {
+                    Text("Analyze Description")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(accent)
+            .disabled(isAITextLoading || aiMealTextInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+        }
+        .padding(18)
+        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.15))
+    }
+
+    private var aiModeOrDivider: some View {
+        HStack(spacing: 10) {
+            Rectangle()
+                .fill(textSecondary.opacity(0.25))
+                .frame(height: 1)
+            Text("or")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(textSecondary)
+            Rectangle()
+                .fill(textSecondary.opacity(0.25))
+                .frame(height: 1)
+        }
+        .padding(.horizontal, 8)
     }
 
     private func aiPhotoActionButton(title: String, subtitle: String, systemImage: String, action: @escaping () -> Void) -> some View {
@@ -2947,7 +3392,7 @@ struct ContentView: View {
             )
         }
         .buttonStyle(.plain)
-        .disabled(isAIFoodPhotoLoading)
+        .disabled(isAIFoodPhotoLoading || isAITextLoading)
     }
 
     private var todayHistorySummary: some View {
@@ -3612,6 +4057,7 @@ struct ContentView: View {
                     .padding(.bottom, 32)
                 }
                 .scrollIndicators(.hidden)
+
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -3625,7 +4071,7 @@ struct ContentView: View {
     }
 
     private func statTile(title: String, value: String, detail: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(textSecondary)
@@ -4256,6 +4702,16 @@ struct ContentView: View {
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(Color(uiColor: .secondarySystemBackground).opacity(colorScheme == .dark ? 0.82 : 0.55))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(Color.white.opacity(colorScheme == .dark ? 0.08 : 0.14), lineWidth: 1)
+                )
+                .shadow(
+                    color: Color.black.opacity(colorScheme == .dark ? 0.20 : 0.08),
+                    radius: colorScheme == .dark ? 10 : 6,
+                    x: 0,
+                    y: 2
+                )
         )
     }
 
@@ -4311,11 +4767,11 @@ struct ContentView: View {
                }) {
                 let lastRowIndex = manualEntryGridRows.count - 1
                 if rowIndex == lastRowIndex {
-                    proxy.scrollTo("addEntryButton", anchor: UnitPoint(x: 0.5, y: 0.5))
+                    proxy.scrollTo("addEntryButton", anchor: .bottom)
                     return
                 }
 
-                proxy.scrollTo(manualEntryScrollID(for: field), anchor: UnitPoint(x: 0.5, y: 0.32))
+                proxy.scrollTo(manualEntryScrollID(for: field), anchor: .center)
                 return
             }
 
@@ -4402,67 +4858,6 @@ struct ContentView: View {
         dismissKeyboard()
     }
 
-    private var barcodeScannerSheet: some View {
-        NavigationStack {
-            ZStack {
-                LinearGradient(
-                    colors: [backgroundTop, backgroundBottom],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
-
-                BarcodeScannerView(
-                    onScan: { code in
-                        Task {
-                            await handleScannedBarcode(code)
-                        }
-                    },
-                    didScan: hasScannedBarcodeInCurrentSheet
-                )
-                .ignoresSafeArea()
-
-                if isBarcodeLookupInFlight {
-                    VStack(spacing: 14) {
-                        ProgressView()
-                            .tint(.white)
-                            .scaleEffect(1.15)
-                        Text("Looking up nutrition data...")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white)
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 18)
-                    .background(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(Color.black.opacity(0.70))
-                    )
-                }
-
-                VStack {
-                    Spacer()
-
-                    if barcodeErrorToastMessage != nil {
-                        barcodeErrorToastView
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(.horizontal, 24)
-                .allowsHitTesting(false)
-            }
-            .navigationTitle("Scan Barcode")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Close") {
-                        isBarcodeScannerPresented = false
-                    }
-                    .foregroundStyle(.white)
-                }
-            }
-        }
-    }
-
     private var usdaSearchSheet: some View {
         usdaSearchPage(onClose: {
             isUSDASearchPresented = false
@@ -4537,7 +4932,8 @@ struct ContentView: View {
                         dismissKeyboard()
                         hasScannedBarcodeInCurrentSheet = false
                         barcodeLookupError = nil
-                        isBarcodeScannerPresented = true
+                        isUSDASearchPresented = false
+                        openAddDestination(.barcode)
                         Haptics.selection()
                     } label: {
                         Image(systemName: "barcode.viewfinder")
@@ -4547,8 +4943,10 @@ struct ContentView: View {
 
                     if !usdaSearchText.isEmpty {
                         Button {
+                            latestFoodSearchRequestID += 1
                             usdaSearchText = ""
-                            usdaSearchResults = []
+                            foodSearchResults = []
+                            isUSDASearchLoading = false
                             usdaSearchError = nil
                             usdaSearchDebounceTask?.cancel()
                             usdaSearchDebounceTask = nil
@@ -4591,15 +4989,15 @@ struct ContentView: View {
                         .foregroundStyle(Color.orange)
                 }
 
-                if !usdaSearchResults.isEmpty {
+                if !foodSearchResults.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Results")
                             .font(.headline.weight(.semibold))
                             .foregroundStyle(textPrimary)
 
                         LazyVStack(spacing: 12) {
-                            ForEach(usdaSearchResults) { result in
-                                usdaSearchResultCard(result)
+                            ForEach(foodSearchResults) { result in
+                                foodSearchResultCard(result)
                             }
                         }
                     }
@@ -4635,14 +5033,11 @@ struct ContentView: View {
                                 .foregroundStyle(accent)
 
                             VStack(alignment: .leading, spacing: 6) {
-                                Text("Item name")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(textSecondary)
-
                                 TextField("Food name", text: $foodReviewNameText)
                                     .font(.system(size: 28, weight: .bold, design: .rounded))
                                     .foregroundStyle(textPrimary)
                                     .submitLabel(.done)
+                                    .focused($foodReviewFocusedField, equals: .name)
                                     .inputStyle(surface: surfacePrimary.opacity(0.94), text: textPrimary, secondary: textSecondary)
                             }
 
@@ -4653,35 +5048,41 @@ struct ContentView: View {
                                     .lineLimit(2)
                             }
 
-                            Text("Base serve: \(formattedDisplayServingAmount(item.servingAmount, unit: item.servingUnit)) \(displayServingUnit(for: item.servingUnit))")
+                            Text("Base serve: \(formattedDisplayServingWithUnit(item.servingAmount, unit: item.servingUnit))")
                                 .font(.subheadline)
                                 .foregroundStyle(textSecondary)
                         }
 
-                        HStack(alignment: .center, spacing: 22) {
-                            VerticalServeSlider(
+                        VStack(alignment: .leading, spacing: 14) {
+                            let minMultiplier = 0.25
+                            let maxMultiplier = 1.75
+                            let minServingAmount = formattedServingAmount(selectedFoodReviewBaselineAmount * minMultiplier)
+                            let maxServingAmount = formattedServingAmount(selectedFoodReviewBaselineAmount * maxMultiplier)
+                            let minServingUnit = inflectedUnit(displayServingUnit(for: item.servingUnit), quantity: selectedFoodReviewBaselineAmount * minMultiplier)
+                            let maxServingUnit = inflectedUnit(displayServingUnit(for: item.servingUnit), quantity: selectedFoodReviewBaselineAmount * maxMultiplier)
+                            HStack {
+                                Text("\(minServingAmount) \(minServingUnit)")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(textSecondary)
+                                Spacer()
+                                Text("\(maxServingAmount) \(maxServingUnit)")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(textSecondary)
+                            }
+
+                            HorizontalServeSlider(
                                 value: $selectedFoodReviewMultiplier,
-                                range: 0.25...2.0,
+                                range: minMultiplier...maxMultiplier,
                                 step: 0.25
                             ) {
                                 Haptics.selection()
                             }
-                            .frame(width: 104, height: 336)
+                            .frame(height: 52)
 
-                            VStack(alignment: .leading, spacing: 14) {
+                            HStack(alignment: .top, spacing: 14) {
+                                foodReviewServingAmountCard(for: item)
                                 foodReviewQuantityCard
-
-                                reviewStatCard(
-                                    title: "Serving Size",
-                                    value: "\(formattedDisplayServingAmount(item.servingAmount * selectedFoodReviewMultiplier, unit: item.servingUnit)) \(displayServingUnit(for: item.servingUnit)) (\(String(format: "%.2f", selectedFoodReviewMultiplier))x)"
-                                )
-
-                                Text("Move up for more, down for less")
-                                    .font(.caption)
-                                    .foregroundStyle(textSecondary)
-                                    .padding(.top, 2)
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
 
                         foodReviewNutrientCard(for: item)
@@ -4690,7 +5091,9 @@ struct ContentView: View {
                     .padding(.top, 24)
                     .padding(.bottom, 120)
                 }
+                .scrollDismissesKeyboard(.interactively)
                 .scrollIndicators(.hidden)
+
             }
             .safeAreaInset(edge: .bottom) {
                 Button {
@@ -4729,18 +5132,60 @@ struct ContentView: View {
                     .foregroundStyle(textPrimary)
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { notification in
+                let endFrame = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect) ?? .zero
+                let visibleHeight = max(0, UIScreen.main.bounds.maxY - endFrame.minY)
+                isFoodReviewKeyboardVisible = visibleHeight > 20
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+                isFoodReviewKeyboardVisible = false
+            }
+            .onAppear {
+                isFoodReviewKeyboardVisible = false
+                syncFoodReviewAmountText()
+            }
+            .onDisappear {
+                isFoodReviewKeyboardVisible = false
+            }
+            .onChange(of: selectedFoodReviewMultiplier) { _, _ in
+                if foodReviewFocusedField != .amount {
+                    syncFoodReviewAmountText()
+                }
+            }
+            .onChange(of: selectedFoodReviewAmountText) { _, newValue in
+                applyTypedFoodReviewAmountIfPossible(text: newValue)
+            }
+            .interactiveDismissDisabled(isFoodReviewKeyboardVisible)
         }
     }
 
-    private func usdaSearchResultCard(_ result: USDAFoodSearchResult) -> some View {
+    private func foodSearchResultCard(_ result: FoodSearchResult) -> some View {
         Button {
             openFoodReview(for: result)
         } label: {
             VStack(alignment: .leading, spacing: 8) {
-                Text(result.name)
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(textPrimary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                HStack(spacing: 8) {
+                    Text(result.name)
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(textPrimary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text({
+                        switch result.source {
+                        case .usda:
+                            return "USDA"
+                        case .openFoodFacts:
+                            return "Open Food Facts"
+                        }
+                    }())
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(textSecondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(surfaceSecondary.opacity(0.9))
+                        )
+                }
 
                 if let brand = result.brand {
                     Text(brand)
@@ -4752,7 +5197,7 @@ struct ContentView: View {
                     .font(.caption.weight(.medium))
                     .foregroundStyle(textSecondary)
 
-                Text("\(formattedDisplayServingAmount(result.servingAmount, unit: result.servingUnit)) \(displayServingUnit(for: result.servingUnit))")
+                Text(formattedDisplayServingWithUnit(result.servingAmount, unit: result.servingUnit))
                     .font(.caption2)
                     .foregroundStyle(textSecondary.opacity(0.9))
             }
@@ -4764,13 +5209,21 @@ struct ContentView: View {
     }
 
     private func foodReviewNutrientCard(for item: FoodReviewItem) -> some View {
-        ServingNutrientGridCard(
-            title: "Nutrients For Total Selection",
+        let showNAForMissingNutrients: Bool
+        switch item.entrySource {
+        case .aiFoodPhoto, .aiNutritionLabel, .aiText:
+            showNAForMissingNutrients = true
+        default:
+            showNAForMissingNutrients = false
+        }
+        return ServingNutrientGridCard(
+            title: "Nutrition Info",
             calories: item.calories,
             nutrientValues: item.nutrientValues,
             multiplier: selectedFoodReviewTotalMultiplier,
             trackedNutrientKeys: trackedNutrientKeys,
             displayedNutrientKeys: item.displayedNutrientKeys,
+            showNAForMissingNutrients: showNAForMissingNutrients,
             surface: surfacePrimary.opacity(0.95),
             stroke: textSecondary.opacity(0.15),
             titleColor: textPrimary,
@@ -4780,7 +5233,7 @@ struct ContentView: View {
     }
 
     private func reviewStatCard(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(textSecondary)
@@ -4802,10 +5255,12 @@ struct ContentView: View {
     }
 
     private var foodReviewQuantityCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             Text("Number of Servings")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(textSecondary)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .multilineTextAlignment(.center)
 
             HStack(spacing: 14) {
                 Button {
@@ -4833,9 +5288,56 @@ struct ContentView: View {
                 }
                 .foregroundStyle(accent)
             }
+            .frame(maxWidth: .infinity, alignment: .center)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(surfacePrimary.opacity(0.94))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(textSecondary.opacity(0.12), lineWidth: 1)
+        )
+    }
+
+    private func foodReviewServingAmountCard(for item: FoodReviewItem) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Serving Size")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(textSecondary)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .multilineTextAlignment(.center)
+
+            TextField("", text: $selectedFoodReviewAmountText)
+                .font(.subheadline.weight(.semibold))
+                .keyboardType(.decimalPad)
+                .focused($foodReviewFocusedField, equals: .amount)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .padding(.trailing, 46)
+                .foregroundStyle(textPrimary)
+                .tint(textPrimary)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(surfaceSecondary)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(textSecondary.opacity(0.35), lineWidth: 1)
+                )
+                .overlay(alignment: .trailing) {
+                    Text(inflectedTextFieldUnit(for: item.servingUnit, amountText: selectedFoodReviewAmountText))
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(textSecondary)
+                        .padding(.trailing, 12)
+                        .allowsHitTesting(false)
+                }
+
+        }
+        .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+        .padding(10)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(surfacePrimary.opacity(0.94))
@@ -5187,6 +5689,151 @@ struct ContentView: View {
         }
     }
 
+    private func analyzeAITextMeal() {
+        let mealText = aiMealTextInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !mealText.isEmpty else {
+            aiTextErrorMessage = "Enter what you ate."
+            return
+        }
+
+        dismissKeyboard()
+        isAITextLoading = true
+        aiTextErrorMessage = nil
+        aiTextMealResults = []
+
+        Task {
+            do {
+                let result = try await aiTextMealService.analyze(mealText: mealText)
+                await MainActor.run {
+                    isAITextLoading = false
+                    if result.items.isEmpty {
+                        aiTextErrorMessage = "AI could not find any foods from that text."
+                    } else {
+                        aiTextMealResults = result.items
+                        presentAITextPlateResults()
+                        Haptics.selection()
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    isAITextLoading = false
+                    aiTextErrorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private func isAmbiguousAIServingUnit(_ unit: String) -> Bool {
+        let normalized = unit.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return normalized.isEmpty
+            || normalized == "serving"
+            || normalized == "servings"
+            || normalized == "each"
+            || normalized == "ea"
+            || normalized == "item"
+            || normalized == "items"
+            || normalized == "portion"
+            || normalized == "portions"
+    }
+
+    private func isLikelyCountServingUnit(name: String, unit: String) -> Bool {
+        let normalizedUnit = unit.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let normalizedName = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let countUnits: Set<String> = [
+            "piece", "pieces",
+            "slice", "slices",
+            "nugget", "nuggets",
+            "sandwich", "sandwiches",
+            "burger", "burgers",
+            "taco", "tacos",
+            "burrito", "burritos",
+            "wrap", "wraps",
+            "cookie", "cookies",
+            "chip", "chips"
+        ]
+        if countUnits.contains(normalizedUnit) { return true }
+        return normalizedName.contains("nugget")
+            || normalizedName.contains("sandwich")
+            || normalizedName.contains("burger")
+            || normalizedName.contains("taco")
+            || normalizedName.contains("burrito")
+            || normalizedName.contains("wrap")
+            || normalizedName.contains("cookie")
+            || normalizedName.contains("chips")
+            || normalizedName.hasSuffix(" chip")
+    }
+
+    private func normalizedEstimatedServingsForCountItems(
+        name: String,
+        servingAmount: Double,
+        servingUnit: String,
+        estimatedServings: Double
+    ) -> Double {
+        let safeEstimated = max(min(estimatedServings, 100), 0.01)
+        let safeServingAmount = max(servingAmount, 1)
+        guard safeServingAmount > 1 else { return safeEstimated }
+        guard isLikelyCountServingUnit(name: name, unit: servingUnit) else { return safeEstimated }
+
+        // Guard against AI returning total piece count (e.g. 5 nuggets) as servings.
+        let roundedEstimate = safeEstimated.rounded()
+        let looksIntegerCount = abs(safeEstimated - roundedEstimate) <= 0.05
+        if looksIntegerCount && safeEstimated + 0.05 >= safeServingAmount {
+            return max(safeEstimated / safeServingAmount, 0.01)
+        }
+        return safeEstimated
+    }
+
+    private func presentAITextPlateResults() {
+        guard !aiTextMealResults.isEmpty else { return }
+
+        let menuItems = aiTextMealResults.enumerated().map { index, item -> MenuItem in
+            let cleanedNutrients = NutrientCatalog.acceptedImportedNutrientValues(item.nutrients)
+            let calories = max(item.calories, cleanedNutrients["calories"] ?? 0)
+            let protein = max(item.protein, cleanedNutrients["g_protein"] ?? 0)
+            var nutrientValues = cleanedNutrients
+            nutrientValues.removeValue(forKey: "calories")
+            if protein > 0, nutrientValues["g_protein"] == nil {
+                nutrientValues["g_protein"] = protein
+            }
+            return MenuItem(
+                id: "ai-text-\(index)-\(UUID().uuidString)",
+                name: item.name,
+                calories: calories,
+                nutrientValues: nutrientValues,
+                servingAmount: item.servingAmount,
+                servingUnit: item.servingUnit,
+                calorieSource: item.sourceType == "real" ? .web : .estimated
+            )
+        }
+
+        var ozById: [String: Double] = [:]
+        var baseOzById: [String: Double] = [:]
+        for (menuItem, aiItem) in zip(menuItems, aiTextMealResults) {
+            let estimatedServings = normalizedEstimatedServingsForCountItems(
+                name: aiItem.name,
+                servingAmount: aiItem.servingAmount,
+                servingUnit: aiItem.servingUnit,
+                estimatedServings: aiItem.estimatedServings
+            )
+            if menuItem.isCountBased {
+                let baseCount = max(menuItem.servingAmount, 1)
+                ozById[menuItem.id] = max(baseCount * estimatedServings, 0.25)
+            } else if isAmbiguousAIServingUnit(menuItem.servingUnit) {
+                // For ambiguous AI units (serving/each/item), treat estimatedServings as direct serving count.
+                baseOzById[menuItem.id] = 1.0
+                ozById[menuItem.id] = max(estimatedServings, 0.01)
+            } else {
+                let baseOz = menuItem.servingOzForPortions
+                baseOzById[menuItem.id] = baseOz
+                ozById[menuItem.id] = max(baseOz * estimatedServings, 0.01)
+            }
+        }
+
+        aiTextPlateItems = menuItems
+        aiTextOzByItemId = ozById
+        aiTextBaseOzByItemId = baseOzById
+    }
+
     @MainActor
     private func handleAIFoodPhotoResult(_ result: AIFoodPhotoAnalysisResult) {
         switch result.mode {
@@ -5197,20 +5844,36 @@ struct ContentView: View {
             }
 
             if result.items.count == 1 {
-                let nutrientValues = firstItem.protein > 0 ? ["g_protein": firstItem.protein] : [:]
-                presentFoodReview(
-                    FoodReviewItem(
-                        name: firstItem.name,
-                        subtitle: "AI food estimate",
-                        calories: firstItem.calories,
-                        nutrientValues: nutrientValues,
-                        servingAmount: firstItem.servingAmount,
-                        servingUnit: firstItem.servingUnit,
-                        entrySource: .aiFoodPhoto,
-                        displayedNutrientKeys: ["g_protein"]
-                    ),
-                    initialMultiplier: firstItem.estimatedServings
+                let menuItem = MenuItem(
+                    id: "ai-photo-0-\(UUID().uuidString)",
+                    name: firstItem.name,
+                    calories: firstItem.calories,
+                    nutrientValues: firstItem.protein > 0 ? ["g_protein": firstItem.protein] : [:],
+                    servingAmount: firstItem.servingAmount,
+                    servingUnit: firstItem.servingUnit,
+                    calorieSource: firstItem.sourceType == .real ? .web : .estimated
                 )
+
+                aiPhotoOzByItemId = [:]
+                aiPhotoBaseOzByItemId = [:]
+                let estimatedServings = normalizedEstimatedServingsForCountItems(
+                    name: firstItem.name,
+                    servingAmount: firstItem.servingAmount,
+                    servingUnit: firstItem.servingUnit,
+                    estimatedServings: firstItem.estimatedServings
+                )
+                if menuItem.isCountBased {
+                    let baseCount = max(menuItem.servingAmount, 1)
+                    aiPhotoOzByItemId[menuItem.id] = max(baseCount * estimatedServings, 0.25)
+                } else if isAmbiguousAIServingUnit(menuItem.servingUnit) {
+                    aiPhotoBaseOzByItemId[menuItem.id] = 1.0
+                    aiPhotoOzByItemId[menuItem.id] = max(estimatedServings, 0.01)
+                } else {
+                    let baseOz = menuItem.servingOzForPortions
+                    aiPhotoBaseOzByItemId[menuItem.id] = baseOz
+                    aiPhotoOzByItemId[menuItem.id] = max(baseOz * estimatedServings, 0.01)
+                }
+                aiPhotoItems = [menuItem]
                 return
             }
 
@@ -5221,19 +5884,30 @@ struct ContentView: View {
                     calories: item.calories,
                     nutrientValues: item.protein > 0 ? ["g_protein": item.protein] : [:],
                     servingAmount: item.servingAmount,
-                    servingUnit: item.servingUnit
+                    servingUnit: item.servingUnit,
+                    calorieSource: item.sourceType == .real ? .web : .estimated
                 )
             }
 
             var ozById: [String: Double] = [:]
             var baseOzById: [String: Double] = [:]
             for (menuItem, aiItem) in zip(menuItems, result.items) {
+                let estimatedServings = normalizedEstimatedServingsForCountItems(
+                    name: aiItem.name,
+                    servingAmount: aiItem.servingAmount,
+                    servingUnit: aiItem.servingUnit,
+                    estimatedServings: aiItem.estimatedServings
+                )
                 if menuItem.isCountBased {
-                    ozById[menuItem.id] = max(1, Double(Int(aiItem.estimatedServings.rounded())))
+                    let baseCount = max(menuItem.servingAmount, 1)
+                    ozById[menuItem.id] = max(baseCount * estimatedServings, 0.25)
+                } else if isAmbiguousAIServingUnit(menuItem.servingUnit) {
+                    baseOzById[menuItem.id] = 1.0
+                    ozById[menuItem.id] = max(estimatedServings, 0.01)
                 } else {
                     let baseOz = menuItem.servingOzForPortions
                     baseOzById[menuItem.id] = baseOz
-                    ozById[menuItem.id] = max(baseOz * aiItem.estimatedServings, 0.01)
+                    ozById[menuItem.id] = max(baseOz * estimatedServings, 0.01)
                 }
             }
 
@@ -5273,11 +5947,23 @@ struct ContentView: View {
         aiPhotoBaseOzByItemId = [:]
     }
 
+    private func clearAITextPlateState() {
+        aiTextPlateItems = nil
+        aiTextOzByItemId = [:]
+        aiTextBaseOzByItemId = [:]
+    }
+
     private func addAIPhotoItemsWithPortions(_ pairs: [(item: MenuItem, oz: Double, baseOz: Double)]) {
         let now = Date()
         let mealGrp = genericMealGroup(for: now)
         let newEntries = pairs.map { pair -> MealEntry in
-            let multiplier = pair.item.isCountBased ? pair.oz : (pair.baseOz > 0 ? (pair.oz / pair.baseOz) : 1.0)
+            let multiplier: Double
+            if pair.item.isCountBased {
+                let baseCount = max(pair.item.servingAmount, 1)
+                multiplier = pair.oz / baseCount
+            } else {
+                multiplier = pair.baseOz > 0 ? (pair.oz / pair.baseOz) : 1.0
+            }
             let scaledNutrients = pair.item.nutrientValues.mapValues { Int((Double($0) * multiplier).rounded()) }
             let scaledCalories = Int((Double(pair.item.calories) * multiplier).rounded())
             return MealEntry(
@@ -5297,12 +5983,50 @@ struct ContentView: View {
         showAddConfirmation()
     }
 
+    private func addAITextItemsWithPortions(_ pairs: [(item: MenuItem, oz: Double, baseOz: Double)]) {
+        let now = Date()
+        let mealGrp = genericMealGroup(for: now)
+        let newEntries = pairs.map { pair -> MealEntry in
+            let multiplier: Double
+            if pair.item.isCountBased {
+                let baseCount = max(pair.item.servingAmount, 1)
+                multiplier = pair.oz / baseCount
+            } else {
+                multiplier = pair.baseOz > 0 ? (pair.oz / pair.baseOz) : 1.0
+            }
+
+            let scaledNutrients = pair.item.nutrientValues.mapValues { Int((Double($0) * multiplier).rounded()) }
+            let scaledCalories = Int((Double(pair.item.calories) * multiplier).rounded())
+            return MealEntry(
+                id: UUID(),
+                name: MealEntry.normalizedName(pair.item.name),
+                calories: scaledCalories,
+                nutrientValues: scaledNutrients,
+                createdAt: now,
+                mealGroup: mealGrp
+            )
+        }
+
+        guard !newEntries.isEmpty else { return }
+        withAnimation(.easeInOut(duration: 0.25)) {
+            entries.append(contentsOf: newEntries)
+        }
+        Haptics.notification(.success)
+        showAddConfirmation()
+    }
+
     private func addMenuItemsWithPortions(_ pairs: [(item: MenuItem, oz: Double, baseOz: Double)]) {
         let now = Date()
         let mealGrp = mealGroup(for: selectedMenuType)
         var expandedSelections: [MealEntry] = []
         for (item, oz, baseOz) in pairs {
-            let multiplier: Double = item.isCountBased ? oz : (baseOz > 0 ? (oz / baseOz) : 1.0)
+            let multiplier: Double
+            if item.isCountBased {
+                let baseCount = max(item.servingAmount, 1)
+                multiplier = oz / baseCount
+            } else {
+                multiplier = baseOz > 0 ? (oz / baseOz) : 1.0
+            }
             var scaledNutrients: [String: Int] = [:]
             for (key, value) in item.nutrientValues {
                 scaledNutrients[key] = Int((Double(value) * multiplier).rounded())
@@ -5357,6 +6081,9 @@ struct ContentView: View {
         if selectedAddDestination == .pccMenu, destination != .pccMenu {
             clearMenuSelection()
         }
+        if destination != .aiPhoto {
+            clearAITextMealState()
+        }
         selectedAddDestination = destination
         isAddDestinationPickerPresented = false
         withAnimation(.none) {
@@ -5366,6 +6093,7 @@ struct ContentView: View {
         switch destination {
         case .aiPhoto:
             aiFoodPhotoErrorMessage = nil
+            aiTextErrorMessage = nil
         case .pccMenu:
             let shouldLoadMenu = prepareMenuDestination(for: .fourWinds)
             if shouldLoadMenu {
@@ -5375,9 +6103,26 @@ struct ContentView: View {
             }
         case .usdaSearch:
             usdaSearchError = nil
+        case .barcode:
+            hasScannedBarcodeInCurrentSheet = false
+            barcodeLookupError = nil
         case .quickAdd, .manualEntry:
             break
         }
+    }
+
+    private func openBarcodeScannerFromPicker() {
+        openAddDestination(.barcode)
+        hasScannedBarcodeInCurrentSheet = false
+        barcodeLookupError = nil
+    }
+
+    private func clearAITextMealState() {
+        aiMealTextInput = ""
+        aiTextMealResults = []
+        aiTextErrorMessage = nil
+        isAITextLoading = false
+        clearAITextPlateState()
     }
 
     private func clearMenuSelection() {
@@ -5398,7 +6143,6 @@ struct ContentView: View {
             let product = try await openFoodFactsService.fetchProduct(for: barcode)
             isBarcodeLookupInFlight = false
             hasScannedBarcodeInCurrentSheet = false
-            isBarcodeScannerPresented = false
             selectedFoodReviewMultiplier = 1.0
             DispatchQueue.main.async {
                 openFoodReview(for: product)
@@ -5415,25 +6159,175 @@ struct ContentView: View {
 
     @MainActor
     private func performUSDASearch() async {
-        guard !isUSDASearchLoading else { return }
+        let query = usdaSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard query.count >= 2 else {
+            latestFoodSearchRequestID += 1
+            foodSearchResults = []
+            isUSDASearchLoading = false
+            usdaSearchError = nil
+            return
+        }
 
+        latestFoodSearchRequestID += 1
+        let requestID = latestFoodSearchRequestID
         isUSDASearchLoading = true
         usdaSearchError = nil
 
         do {
-            usdaSearchResults = try await usdaFoodService.searchFoods(query: usdaSearchText)
+            let results = try await searchFoodsAcrossSources(query: query)
+            guard requestID == latestFoodSearchRequestID else { return }
+            foodSearchResults = results
             Haptics.selection()
         } catch {
-            usdaSearchResults = []
-            usdaSearchError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-            Haptics.notification(.warning)
+            guard requestID == latestFoodSearchRequestID else { return }
+            foodSearchResults = []
+            if case USDAFoodError.noResults = error {
+                usdaSearchError = nil
+            } else {
+                usdaSearchError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                Haptics.notification(.warning)
+            }
         }
 
-        isUSDASearchLoading = false
+        if requestID == latestFoodSearchRequestID {
+            isUSDASearchLoading = false
+        }
+    }
+
+    private func searchFoodsAcrossSources(query: String) async throws -> [FoodSearchResult] {
+        let merged = mergeAndRankSearchResults(
+            usda: await searchUSDAResults(query: query),
+            query: query
+        )
+        if merged.isEmpty {
+            throw USDAFoodError.noResults
+        }
+        return merged
+    }
+
+    private func searchUSDAResults(query: String) async -> [USDAFoodSearchResult] {
+        if disableUSDASearchForDebug {
+            return []
+        }
+        do {
+            return try await usdaFoodService.searchFoods(query: query)
+        } catch {
+            return []
+        }
+    }
+
+    private func mergeAndRankSearchResults(
+        usda: [USDAFoodSearchResult],
+        query: String
+    ) -> [FoodSearchResult] {
+        let combined = usda.map(mapUSDAResult)
+        var bestByKey: [String: (FoodSearchResult, Int)] = [:]
+
+        for result in combined {
+            let score = searchRelevanceScore(for: result, query: query)
+            guard isSearchResultRelevant(result, query: query, score: score) else {
+                continue
+            }
+            let key = normalizedSearchKey(name: result.name, brand: result.brand)
+            if let existing = bestByKey[key], existing.1 >= score {
+                continue
+            }
+            bestByKey[key] = (result, score)
+        }
+
+        return bestByKey.values
+            .sorted {
+                if $0.1 == $1.1 {
+                    return $0.0.name.localizedCaseInsensitiveCompare($1.0.name) == .orderedAscending
+                }
+                return $0.1 > $1.1
+            }
+            .map(\.0)
+            .prefix(25)
+            .map { $0 }
+    }
+
+    private func mapUSDAResult(_ result: USDAFoodSearchResult) -> FoodSearchResult {
+        FoodSearchResult(
+            id: "usda-\(result.fdcId)",
+            source: .usda,
+            name: result.name,
+            brand: result.brand,
+            calories: result.calories,
+            nutrientValues: result.nutrientValues,
+            servingAmount: result.servingAmount,
+            servingUnit: result.servingUnit,
+            servingDescription: result.servingDescription
+        )
+    }
+
+    private func searchRelevanceScore(for result: FoodSearchResult, query: String) -> Int {
+        let normalizedQuery = query
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        let name = result.name.lowercased()
+        let brand = (result.brand ?? "").lowercased()
+        let tokens = normalizedQuery.split(whereSeparator: \.isWhitespace).map(String.init)
+
+        var score = 0
+        if name == normalizedQuery { score += 140 }
+        if name.hasPrefix(normalizedQuery) { score += 90 }
+        if name.contains(normalizedQuery) { score += 60 }
+        if !brand.isEmpty, brand.contains(normalizedQuery) { score += 24 }
+
+        for token in tokens {
+            if name.contains(token) { score += 22 }
+            if !brand.isEmpty, brand.contains(token) { score += 10 }
+        }
+
+        if result.calories > 0 { score += 8 }
+        if (result.nutrientValues["g_protein"] ?? 0) > 0 { score += 6 }
+        return score
+    }
+
+    private func isSearchResultRelevant(_ result: FoodSearchResult, query: String, score: Int) -> Bool {
+        let normalizedQuery = query
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        guard !normalizedQuery.isEmpty else { return false }
+
+        let name = result.name.lowercased()
+        let brand = (result.brand ?? "").lowercased()
+        let searchable = "\(name) \(brand)"
+        if searchable.contains(normalizedQuery) {
+            return true
+        }
+
+        let tokens = normalizedQuery.split(whereSeparator: \.isWhitespace).map(String.init)
+        let longTokens = tokens.filter { $0.count >= 3 }
+        let matchedLongTokenCount = longTokens.filter { searchable.contains($0) }.count
+
+        switch result.source {
+        case .usda:
+            if longTokens.count <= 1 {
+                return matchedLongTokenCount >= 1 && score >= 28
+            }
+            let requiredLongMatches = min(2, longTokens.count)
+            return matchedLongTokenCount >= requiredLongMatches && score >= 34
+        case .openFoodFacts:
+            return matchedLongTokenCount >= 1 && score >= 20
+        }
+    }
+
+    private func normalizedSearchKey(name: String, brand: String?) -> String {
+        let normalizedName = name
+            .lowercased()
+            .components(separatedBy: .alphanumerics.inverted)
+            .joined()
+        let normalizedBrand = (brand ?? "")
+            .lowercased()
+            .components(separatedBy: .alphanumerics.inverted)
+            .joined()
+        return "\(normalizedName)|\(normalizedBrand)"
     }
 
     private func addReviewedFood(_ item: FoodReviewItem) {
-        let multiplier = selectedFoodReviewMultiplier
+        let multiplier = selectedFoodReviewEffectiveMultiplier
         let quantity = max(1, selectedFoodReviewQuantity)
         let editedName = MealEntry.normalizedName(foodReviewNameText)
         var scaledNutrients: [String: Int] = [:]
@@ -5462,6 +6356,8 @@ struct ContentView: View {
         foodReviewItem = nil
         foodReviewNameText = ""
         selectedFoodReviewMultiplier = 1.0
+        selectedFoodReviewBaselineAmount = 1.0
+        selectedFoodReviewAmountText = ""
         selectedFoodReviewQuantity = 1
         barcodeLookupError = nil
         usdaSearchError = nil
@@ -5621,6 +6517,40 @@ struct ContentView: View {
             next[nutrient.key] = nutrientInputTexts[nutrient.key] ?? ""
         }
         nutrientInputTexts = next
+    }
+
+    private func loadCalibrationState() {
+        guard
+            !storedCalibrationStateData.isEmpty,
+            let data = storedCalibrationStateData.data(using: .utf8),
+            let decoded = try? JSONDecoder().decode(CalibrationState.self, from: data)
+        else {
+            calibrationState = .default
+            return
+        }
+        calibrationState = decoded
+    }
+
+    private func saveCalibrationState() {
+        guard let data = try? JSONEncoder().encode(calibrationState) else { return }
+        storedCalibrationStateData = String(decoding: data, as: UTF8.self)
+    }
+
+    private func loadHealthWeighIns() {
+        guard
+            !storedHealthWeighInsData.isEmpty,
+            let data = storedHealthWeighInsData.data(using: .utf8),
+            let decoded = try? JSONDecoder().decode([HealthWeighInDay].self, from: data)
+        else {
+            healthWeighIns = []
+            return
+        }
+        healthWeighIns = decoded
+    }
+
+    private func saveHealthWeighIns() {
+        guard let data = try? JSONEncoder().encode(healthWeighIns) else { return }
+        storedHealthWeighInsData = String(decoding: data, as: UTF8.self)
     }
 
     private func loadDailyEntryArchive() {
@@ -5898,6 +6828,257 @@ struct ContentView: View {
         saveDailyGoalTypeArchive()
     }
 
+    private func scheduleCalibrationEvaluation(force: Bool = false) {
+        guard calibrationState.isEnabled else { return }
+        guard healthKitService.authorizationState == .connected else { return }
+        if !force, let last = lastCalibrationEvaluationAt, Date().timeIntervalSince(last) < 60 * 60 * 6 {
+            return
+        }
+
+        calibrationEvaluationTask?.cancel()
+        calibrationEvaluationTask = Task(priority: .utility) {
+            let reducedWeights = await healthKitService.fetchReducedBodyMassHistory(days: 21)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                lastCalibrationEvaluationAt = Date()
+                healthWeighIns = reducedWeights
+                saveHealthWeighIns()
+                evaluateWeeklyCalibrationIfNeeded(referenceDate: Date())
+            }
+        }
+    }
+
+    private func evaluateWeeklyCalibrationIfNeeded(referenceDate: Date) {
+        guard calibrationState.isEnabled else { return }
+        let weekID = calibrationWeekID(for: referenceDate)
+        if calibrationState.lastAppliedWeekID == weekID {
+            return
+        }
+
+        let currentWeekIDs = trailingDayIdentifiers(endingAt: referenceDate, count: 7, endingOffsetDays: 0)
+        let priorWeekIDs = trailingDayIdentifiers(endingAt: referenceDate, count: 7, endingOffsetDays: 7)
+        guard currentWeekIDs.count == 7, priorWeekIDs.count == 7 else {
+            markCalibrationSkipped(reason: "Unable to build weekly windows.")
+            return
+        }
+
+        let combinedDayIDs = priorWeekIDs + currentWeekIDs
+        let weightByDay = Dictionary(uniqueKeysWithValues: healthWeighIns.map { ($0.dayIdentifier, $0.representativePounds) })
+        let spikeExcludedDays = spikeExcludedDayIDs(orderedDayIDs: combinedDayIDs, weightByDay: weightByDay)
+
+        let validPriorWeights = priorWeekIDs.compactMap { dayID -> Double? in
+            guard !spikeExcludedDays.contains(dayID) else { return nil }
+            return weightByDay[dayID]
+        }
+        let validCurrentWeights = currentWeekIDs.compactMap { dayID -> Double? in
+            guard !spikeExcludedDays.contains(dayID) else { return nil }
+            return weightByDay[dayID]
+        }
+        guard validPriorWeights.count >= 5 else {
+            markCalibrationSkipped(reason: "Need at least 5 valid Health weigh-ins in the prior week.")
+            return
+        }
+        guard validCurrentWeights.count >= 5 else {
+            markCalibrationSkipped(reason: "Need at least 5 valid Health weigh-ins in the current week.")
+            return
+        }
+
+        let intakeLoggedDays = currentWeekIDs.filter { dailyCalories(for: $0) > 0 }.count
+        let intakeCompleteness = Double(intakeLoggedDays) / 7.0
+        guard intakeCompleteness >= 0.85 else {
+            markCalibrationSkipped(reason: "Intake logging is below 85% for the week.")
+            return
+        }
+
+        let currentWeekBaselineBurns = currentWeekIDs.map { burnedBaselineForCalibration(dayIdentifier: $0) }
+        let missingBurnDays = currentWeekBaselineBurns.filter { $0 == nil }.count
+        guard missingBurnDays <= 2 else {
+            markCalibrationSkipped(reason: "Burn baseline is missing for too many days this week.")
+            return
+        }
+
+        let wPrev = validPriorWeights.reduce(0, +) / Double(validPriorWeights.count)
+        let wCurr = validCurrentWeights.reduce(0, +) / Double(validCurrentWeights.count)
+        let jumpLimit = max(wPrev * 0.025, 0.01)
+        guard abs(wCurr - wPrev) <= jumpLimit else {
+            markCalibrationSkipped(reason: "Week-over-week average weight jump exceeded 2.5%.")
+            return
+        }
+
+        let fallbackBurn = {
+            let available = currentWeekBaselineBurns.compactMap { $0 }
+            if available.isEmpty { return ContentView.fallbackAverageBMR }
+            let avg = Double(available.reduce(0, +)) / Double(available.count)
+            return max(Int(avg.rounded()), 1)
+        }()
+
+        let predictedDeltaKcal = currentWeekIDs.reduce(0.0) { partial, dayID in
+            let intake = Double(dailyCalories(for: dayID))
+            let burned = Double(burnedBaselineForCalibration(dayIdentifier: dayID) ?? fallbackBurn)
+            return partial + (intake - burned)
+        }
+        let actualDeltaKcal = (wCurr - wPrev) * 3500.0
+        let dailyError = (actualDeltaKcal - predictedDeltaKcal) / 7.0
+
+        var recentErrors = calibrationState.recentDailyErrors
+        recentErrors.append(dailyError)
+        if recentErrors.count > 4 {
+            recentErrors = Array(recentErrors.suffix(4))
+        }
+
+        let isFastStart = calibrationState.appliedWeekCount < 3
+        let adjustmentParams = calibrationAdjustmentParameters(recentErrors: recentErrors, isFastStart: isFastStart)
+        let smoothedDailyError = clamp(
+            weightedErrorMean(recentErrors),
+            lower: -adjustmentParams.errorClamp,
+            upper: adjustmentParams.errorClamp
+        )
+        // Invert correction sign: positive error implies burn was overestimated, so offset must decrease.
+        let offsetStep = clamp(
+            (-smoothedDailyError) * adjustmentParams.alpha,
+            lower: -adjustmentParams.maxStep,
+            upper: adjustmentParams.maxStep
+        )
+        let newOffset = Int(
+            clamp(
+                Double(calibrationState.calibrationOffsetCalories) + offsetStep,
+                lower: -adjustmentParams.offsetLimit,
+                upper: adjustmentParams.offsetLimit
+            ).rounded()
+        )
+
+        calibrationState.calibrationOffsetCalories = newOffset
+        calibrationState.recentDailyErrors = recentErrors
+        calibrationState.appliedWeekCount += 1
+        calibrationState.lastAppliedWeekID = weekID
+        calibrationState.lastRunDate = Date()
+        calibrationState.lastRunStatus = .applied
+        calibrationState.lastSkipReason = nil
+        calibrationState.dataQualityChecks += 1
+        calibrationState.dataQualityPasses += 1
+        saveCalibrationState()
+        syncCurrentDayGoalArchive()
+    }
+
+    private func markCalibrationSkipped(reason: String) {
+        calibrationState.lastRunDate = Date()
+        calibrationState.lastRunStatus = .skipped
+        calibrationState.lastSkipReason = reason
+        calibrationState.dataQualityChecks += 1
+        saveCalibrationState()
+    }
+
+    private func burnedBaselineForCalibration(dayIdentifier: String) -> Int? {
+        if dayIdentifier == todayDayIdentifier {
+            return currentDailyCalorieModel.burnedBaseline
+        }
+        guard let burned = dailyBurnedCalorieArchive[dayIdentifier] else { return nil }
+        let effectiveOffset = calibrationState.isEnabled ? calibrationState.calibrationOffsetCalories : 0
+        return max(burned - effectiveOffset, 1)
+    }
+
+    private func trailingDayIdentifiers(endingAt referenceDate: Date, count: Int, endingOffsetDays: Int) -> [String] {
+        guard count > 0 else { return [] }
+        let referenceDay = centralCalendar.startOfDay(for: referenceDate)
+        guard let endingDay = centralCalendar.date(byAdding: .day, value: -endingOffsetDays, to: referenceDay) else {
+            return []
+        }
+
+        return (0..<count).compactMap { index in
+            let offset = -(count - 1 - index)
+            guard let day = centralCalendar.date(byAdding: .day, value: offset, to: endingDay) else { return nil }
+            return centralDayIdentifier(for: day)
+        }
+    }
+
+    private func spikeExcludedDayIDs(orderedDayIDs: [String], weightByDay: [String: Double]) -> Set<String> {
+        guard orderedDayIDs.count > 1 else { return [] }
+        var excluded: Set<String> = []
+        for index in 1..<orderedDayIDs.count {
+            let previous = orderedDayIDs[index - 1]
+            let current = orderedDayIDs[index]
+            guard let previousWeight = weightByDay[previous], let currentWeight = weightByDay[current] else {
+                continue
+            }
+            if abs(currentWeight - previousWeight) > 4.0 {
+                excluded.insert(current)
+            }
+        }
+        return excluded
+    }
+
+    private func weightedErrorMean(_ values: [Double]) -> Double {
+        guard !values.isEmpty else { return 0 }
+        let trimmed = Array(values.suffix(Self.calibrationErrorWeights.count))
+        let weights = Array(Self.calibrationErrorWeights.suffix(trimmed.count))
+        let weightedSum = zip(trimmed, weights).reduce(0.0) { partial, element in
+            partial + (element.0 * element.1)
+        }
+        let totalWeight = weights.reduce(0, +)
+        guard totalWeight > 0 else { return 0 }
+        return weightedSum / totalWeight
+    }
+
+    private struct CalibrationAdjustmentParameters {
+        let errorClamp: Double
+        let alpha: Double
+        let maxStep: Double
+        let offsetLimit: Double
+    }
+
+    private func calibrationAdjustmentParameters(recentErrors: [Double], isFastStart: Bool) -> CalibrationAdjustmentParameters {
+        let defaultParams = CalibrationAdjustmentParameters(
+            errorClamp: 100,
+            alpha: isFastStart ? 0.5 : 0.2,
+            maxStep: isFastStart ? 60 : 40,
+            offsetLimit: 300
+        )
+
+        let trailing = Array(recentErrors.suffix(3))
+        guard trailing.count == 3 else { return defaultParams }
+
+        let signs = trailing.map { value -> Int in
+            if value > 0 { return 1 }
+            if value < 0 { return -1 }
+            return 0
+        }
+        guard let firstSign = signs.first, firstSign != 0, signs.allSatisfy({ $0 == firstSign }) else {
+            return defaultParams
+        }
+
+        let absErrors = trailing.map { abs($0) }
+        guard absErrors.allSatisfy({ $0 >= 250 }) else { return defaultParams }
+
+        let meanAbs = absErrors.reduce(0, +) / Double(absErrors.count)
+        let intensity = clamp((meanAbs - 250) / 600 + 1, lower: 1, upper: 2)
+
+        return CalibrationAdjustmentParameters(
+            errorClamp: 100 * intensity,
+            alpha: (isFastStart ? 0.5 : 0.2) + (isFastStart ? 0.1 : 0.15) * (intensity - 1),
+            maxStep: (isFastStart ? 60 : 40) * intensity,
+            offsetLimit: 300 + (300 * (intensity - 1))
+        )
+    }
+
+    private func calibrationWeekID(for date: Date) -> String {
+        let components = centralCalendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date)
+        let year = components.yearForWeekOfYear ?? 0
+        let week = components.weekOfYear ?? 0
+        return String(format: "%04d-W%02d", year, week)
+    }
+
+    private func nextCalibrationRunDate(from date: Date) -> Date? {
+        let startOfDay = centralCalendar.startOfDay(for: date)
+        guard let startOfWeek = centralCalendar.dateInterval(of: .weekOfYear, for: startOfDay)?.start else {
+            return nil
+        }
+        return centralCalendar.date(byAdding: .day, value: 7, to: startOfWeek)
+    }
+
+    private func clamp(_ value: Double, lower: Double, upper: Double) -> Double {
+        min(max(value, lower), upper)
+    }
+
     private func historySummary(for identifier: String) -> HistoryDaySummary {
         let dayEntries = entries(forDayIdentifier: identifier)
         let total = dayEntries.reduce(0) { $0 + $1.calories }
@@ -5992,17 +7173,49 @@ struct ContentView: View {
     }
 
     private func presentFoodReview(_ item: FoodReviewItem, initialMultiplier: Double = 1.0) {
-        selectedFoodReviewMultiplier = min(max(initialMultiplier, 0.25), 2.0)
+        let baseAmount = convertedServingAmount(item.servingAmount, unit: item.servingUnit)
+        selectedFoodReviewBaselineAmount = max(roundToServingSelectorIncrement(baseAmount * initialMultiplier), 0)
+        selectedFoodReviewMultiplier = 1.0
+        selectedFoodReviewAmountText = formattedServingAmount(selectedFoodReviewBaselineAmount)
         selectedFoodReviewQuantity = 1
         foodReviewNameText = item.name
         foodReviewItem = item
+    }
+
+    private func syncFoodReviewAmountText() {
+        let amount = formattedServingAmount(selectedFoodReviewBaselineAmount * selectedFoodReviewMultiplier)
+        if selectedFoodReviewAmountText != amount {
+            isUpdatingFoodReviewTextFromSlider = true
+            selectedFoodReviewAmountText = amount
+        }
+    }
+
+    private func applyTypedFoodReviewAmountIfPossible(text: String) {
+        if isUpdatingFoodReviewTextFromSlider {
+            isUpdatingFoodReviewTextFromSlider = false
+            return
+        }
+        guard let typedAmount = parsedDecimalAmount(text), typedAmount >= 0 else { return }
+        let roundedTypedAmount = roundToServingSelectorIncrement(typedAmount)
+        let currentAmount = roundToServingSelectorIncrement(selectedFoodReviewBaselineAmount * selectedFoodReviewMultiplier)
+        if abs(roundedTypedAmount - currentAmount) > 0.0005 {
+            selectedFoodReviewBaselineAmount = roundedTypedAmount
+            selectedFoodReviewMultiplier = 1.0
+        }
+    }
+
+    private func parsedDecimalAmount(_ text: String) -> Double? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let normalized = trimmed.replacingOccurrences(of: ",", with: ".")
+        return Double(normalized)
     }
 
     private func openFoodReview(for product: OpenFoodFactsProduct) {
         presentFoodReview(
             FoodReviewItem(
             name: product.name,
-            subtitle: nil,
+            subtitle: product.brand,
             calories: product.calories,
             nutrientValues: product.nutrientValues,
             servingAmount: product.servingAmount,
@@ -6032,11 +7245,70 @@ struct ContentView: View {
         }
     }
 
+    private func openFoodReview(for result: FoodSearchResult) {
+        isUSDASearchPresented = false
+        dismissKeyboard()
+        let source: EntrySource
+        switch result.source {
+        case .usda:
+            source = .usda
+        case .openFoodFacts:
+            source = .barcode
+        }
+        DispatchQueue.main.async {
+            presentFoodReview(
+                FoodReviewItem(
+                    name: result.name,
+                    subtitle: result.brand,
+                    calories: result.calories,
+                    nutrientValues: result.nutrientValues,
+                    servingAmount: result.servingAmount,
+                    servingUnit: result.servingUnit,
+                    entrySource: source,
+                    displayedNutrientKeys: nil
+                )
+            )
+        }
+    }
+
+    private func openFoodReview(for item: AITextMealAnalysisResult.Item) {
+        let cleanedNutrients = NutrientCatalog.acceptedImportedNutrientValues(item.nutrients)
+        let calories = max(item.calories, cleanedNutrients["calories"] ?? 0)
+        let protein = max(item.protein, cleanedNutrients["g_protein"] ?? 0)
+        var nutrientValues = cleanedNutrients
+        nutrientValues.removeValue(forKey: "calories")
+        if protein > 0, nutrientValues["g_protein"] == nil {
+            nutrientValues["g_protein"] = protein
+        }
+
+        let subtitlePrefix = item.sourceType == "real" ? "AI web match" : "AI estimate"
+        let subtitle = [subtitlePrefix, item.brand].compactMap { $0 }.joined(separator: " • ")
+
+        presentFoodReview(
+            FoodReviewItem(
+                name: item.name,
+                subtitle: subtitle,
+                calories: calories,
+                nutrientValues: nutrientValues,
+                servingAmount: item.servingAmount,
+                servingUnit: item.servingUnit,
+                entrySource: .aiText,
+                displayedNutrientKeys: nil
+            ),
+            initialMultiplier: normalizedEstimatedServingsForCountItems(
+                name: item.name,
+                servingAmount: item.servingAmount,
+                servingUnit: item.servingUnit,
+                estimatedServings: item.estimatedServings
+            )
+        )
+    }
+
     private func mealGroup(for date: Date, source: EntrySource) -> MealGroup {
         switch source {
         case let .pccMenu(menuType):
             return mealGroup(for: menuType)
-        case .manual, .quickAdd, .barcode, .usda, .aiFoodPhoto, .aiNutritionLabel:
+        case .manual, .quickAdd, .barcode, .usda, .aiFoodPhoto, .aiNutritionLabel, .aiText:
             return genericMealGroup(for: date)
         }
     }
@@ -6156,21 +7428,48 @@ struct ContentView: View {
     }
 
     private func formattedServingAmount(_ amount: Double) -> String {
-        if abs(amount.rounded() - amount) < 0.001 {
-            return String(format: "%.0f", amount)
-        }
-        if abs((amount * 10).rounded() - (amount * 10)) < 0.001 {
-            return String(format: "%.1f", amount)
-        }
-        return String(format: "%.2f", amount)
+        formatServingSelectorAmount(amount)
     }
 
     private func formattedDisplayServingAmount(_ amount: Double, unit: String) -> String {
         formattedServingAmount(convertedServingAmount(amount, unit: unit))
     }
 
+    private func formattedDisplayServingWithUnit(_ amount: Double, unit: String) -> String {
+        let convertedAmount = convertedServingAmount(amount, unit: unit)
+        let formattedAmount = formattedServingAmount(convertedAmount)
+        let unitText = inflectedUnit(displayServingUnit(for: unit), quantity: convertedAmount)
+        return "\(formattedAmount) \(unitText)"
+    }
+
     private func displayServingUnit(for unit: String) -> String {
         isGramUnit(unit) ? "oz" : unit
+    }
+
+    private func inflectedTextFieldUnit(for unit: String, amountText: String) -> String {
+        let displayUnit = displayServingUnit(for: unit)
+        guard let amount = parsedDecimalAmount(amountText) else { return displayUnit }
+        return inflectedUnit(displayUnit, quantity: amount)
+    }
+
+    private func inflectedUnit(_ unit: String, quantity: Double) -> String {
+        let trimmed = unit.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return quantity == 1 ? "serving" : "servings" }
+        let lower = trimmed.lowercased()
+        let invariant = ["oz", "fl oz", "g", "mg", "kg", "lb", "lbs", "ml", "l", "tbsp", "tsp"]
+        if invariant.contains(lower) { return lower }
+        if quantity == 1 {
+            if lower.hasSuffix("ies"), lower.count > 3 { return String(lower.dropLast(3) + "y") }
+            if lower.hasSuffix("ses"), lower.count > 3 { return String(lower.dropLast(2)) }
+            if lower.hasSuffix("s"), lower.count > 1 { return String(lower.dropLast()) }
+            return lower
+        }
+        if lower.hasSuffix("s") { return lower }
+        if lower.hasSuffix("y"), lower.count > 1 { return String(lower.dropLast() + "ies") }
+        if lower.hasSuffix("ch") || lower.hasSuffix("sh") || lower.hasSuffix("x") || lower.hasSuffix("z") {
+            return lower + "es"
+        }
+        return lower + "s"
     }
 
     private func convertedServingAmount(_ amount: Double, unit: String) -> Double {

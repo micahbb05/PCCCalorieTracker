@@ -1,0 +1,89 @@
+Running-to-Steps Borrow Accuracy Audit
+Generated: 2026-03-09T12:45:19.413Z
+
+Reference: 0.50 kcal/kg/km walking net baseline.
+App under test: ExerciseCalorieService.walkingEquivalentCalories + clamp by step calories in ContentView.
+
+Summary (per-run requested borrow)
+  Cases: 8
+  MAE: 0.0 kcal
+  MAPE: 0.0%
+  Bias range: 0.0% to +0.0%
+
+Summary (effective day borrow after clamp to step calories)
+  Days: 6
+  MAE: 0.0 kcal
+  Delta range: 0 to 0 kcal
+  Clamp hits: 2/6
+
+C1-normal-distance
+  stepCaloriesToday: 420
+  requestedAppBorrow: 175
+  requestedRefBorrow: 175
+  effectiveAppBorrow: 175
+  effectiveRefBorrow: 175
+  clampHit: false
+  requestDelta: 0
+  effectiveDelta: 0
+    C1-normal-distance-run1 input={"weightLb":150,"distanceMiles":3.2,"durationMinutes":30,"paceMinPerMile":9.4} app=175 ref=175 delta=0 (0.00%)
+
+C2-duration-only-with-pace
+  stepCaloriesToday: 380
+  requestedAppBorrow: 277
+  requestedRefBorrow: 277
+  effectiveAppBorrow: 277
+  effectiveRefBorrow: 277
+  clampHit: false
+  requestDelta: 0
+  effectiveDelta: 0
+    C2-duration-only-with-pace-run1 input={"weightLb":180,"distanceMiles":null,"durationMinutes":40,"paceMinPerMile":9.5} app=277 ref=277 delta=0 (0.00%)
+
+C3-two-runs-high-steps
+  stepCaloriesToday: 700
+  requestedAppBorrow: 392
+  requestedRefBorrow: 392
+  effectiveAppBorrow: 392
+  effectiveRefBorrow: 392
+  clampHit: false
+  requestDelta: 0
+  effectiveDelta: 0
+    C3-two-runs-high-steps-run1 input={"weightLb":165,"distanceMiles":2.5,"durationMinutes":23,"paceMinPerMile":9.2} app=151 ref=151 delta=0 (0.00%)
+    C3-two-runs-high-steps-run2 input={"weightLb":165,"distanceMiles":4,"durationMinutes":38,"paceMinPerMile":9.5} app=241 ref=241 delta=0 (0.00%)
+
+C4-clamp-low-steps
+  stepCaloriesToday: 140
+  requestedAppBorrow: 328
+  requestedRefBorrow: 328
+  effectiveAppBorrow: 140
+  effectiveRefBorrow: 140
+  clampHit: true
+  requestDelta: 0
+  effectiveDelta: 0
+    C4-clamp-low-steps-run1 input={"weightLb":200,"distanceMiles":4.5,"durationMinutes":42,"paceMinPerMile":9.3} app=328 ref=328 delta=0 (0.00%)
+
+C5-clamp-two-runs
+  stepCaloriesToday: 210
+  requestedAppBorrow: 451
+  requestedRefBorrow: 451
+  effectiveAppBorrow: 210
+  effectiveRefBorrow: 210
+  clampHit: true
+  requestDelta: 0
+  effectiveDelta: 0
+    C5-clamp-two-runs-run1 input={"weightLb":190,"distanceMiles":3,"durationMinutes":28,"paceMinPerMile":9.4} app=208 ref=208 delta=0 (0.00%)
+    C5-clamp-two-runs-run2 input={"weightLb":190,"distanceMiles":null,"durationMinutes":35,"paceMinPerMile":10} app=243 ref=243 delta=0 (0.00%)
+
+C6-duration-no-pace-default-pace-infer
+  stepCaloriesToday: 330
+  requestedAppBorrow: 310
+  requestedRefBorrow: 310
+  effectiveAppBorrow: 310
+  effectiveRefBorrow: 310
+  clampHit: false
+  requestDelta: 0
+  effectiveDelta: 0
+    C6-duration-no-pace-default-pace-infer-run1 input={"weightLb":170,"distanceMiles":null,"durationMinutes":50,"paceMinPerMile":null} app=310 ref=310 delta=0 (0.00%)
+
+
+Report written: /Users/micah/Documents/Calorie Tracker/output/running_step_borrow_audit.txt
+

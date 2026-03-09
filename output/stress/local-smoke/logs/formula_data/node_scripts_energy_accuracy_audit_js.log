@@ -1,0 +1,205 @@
+Energy Accuracy Audit
+Generated: 2026-03-09T04:46:08.408Z
+
+Reference assumptions: running 1.00 kcal/kg/km net, walking 0.50 kcal/kg/km net, BMR = Mifflin-St Jeor.
+App assumptions under test: walking 0.55 kcal/kg/km net, running distance 1.00 kcal/kg/km net.
+
+1) Running calories (manual/auto path)
+  Cases: 4
+  MAE: 0.0 kcal
+  MAPE: 0.0% (good)
+  Bias range: 0.0% to +0.0%
+  Worst case: R1 (app=190, ref=190, err=0 kcal, 0.0%)
+
+2) Running calories (HealthKit import path)
+  Cases: 4
+  MAE: 5.8 kcal
+  MAPE: 0.9% (good)
+  Bias range: -3.6% to +0.0%
+  Worst case: HK4 (app=622, ref=645, err=-23 kcal, -3.6%)
+
+3) Walking-equivalent borrowed from steps
+  Cases: 4
+  MAE: 0.0 kcal
+  MAPE: 0.0% (good)
+  Bias range: 0.0% to +0.0%
+  Worst case: W1 (app=102, ref=102, err=0 kcal, 0.0%)
+
+4) Step calories
+  Cases: 6
+  MAE: 0.3 kcal
+  MAPE: 0.1% (good)
+  Bias range: 0.0% to +0.6%
+  Worst case: S2 (app=166, ref=165, err=1 kcal, 0.6%)
+
+5) Daily burned/TDEE baseline (BMR + activity + exercise)
+  Cases: 5
+  MAE: 3.2 kcal
+  MAPE: 0.2% (good)
+  Bias range: -0.8% to +0.0%
+  Worst case: T4 (app=1988, ref=2004, err=-16 kcal, -0.8%)
+
+Overall gate: PASS
+
+--- Detailed Inputs/Outputs ---
+
+Category 1 details: Running calories (manual/auto)
+  R1
+    input: {"id":"R1","weightLb":130,"distanceMiles":2,"durationMinutes":18,"paceMinPerMile":9}
+    app: 190
+    ref: 190
+    deltaKcal: 0
+    deltaPct: 0.00%
+  R2
+    input: {"id":"R2","weightLb":160,"distanceMiles":3.1,"durationMinutes":28,"paceMinPerMile":9}
+    app: 362
+    ref: 362
+    deltaKcal: 0
+    deltaPct: 0.00%
+  R3
+    input: {"id":"R3","weightLb":185,"distanceMiles":5,"durationMinutes":47,"paceMinPerMile":9.4}
+    app: 675
+    ref: 675
+    deltaKcal: 0
+    deltaPct: 0.00%
+  R4
+    input: {"id":"R4","weightLb":220,"distanceMiles":7,"durationMinutes":70,"paceMinPerMile":10}
+    app: 1124
+    ref: 1124
+    deltaKcal: 0
+    deltaPct: 0.00%
+
+Category 2 details: Running calories (HealthKit path)
+  HK1
+    input: {"id":"HK1","weightLb":145,"distanceMiles":2.5,"durationSeconds":1320,"durationMinutes":22}
+    app: 265
+    ref: 265
+    deltaKcal: 0
+    deltaPct: 0.00%
+  HK2
+    input: {"id":"HK2","weightLb":170,"distanceMiles":4.2,"durationSeconds":2280,"durationMinutes":38}
+    app: 521
+    ref: 521
+    deltaKcal: 0
+    deltaPct: 0.00%
+  HK3
+    input: {"id":"HK3","weightLb":195,"distanceMiles":6,"durationSeconds":3480,"durationMinutes":58}
+    app: 854
+    ref: 854
+    deltaKcal: 0
+    deltaPct: 0.00%
+  HK4
+    input: {"id":"HK4","weightLb":210,"distanceMiles":null,"durationSeconds":2400,"paceMinPerMile":9.5,"durationMinutes":40}
+    app: 622
+    ref: 645
+    deltaKcal: -23
+    deltaPct: -3.57%
+
+Category 3 details: Walking-equivalent borrowed
+  W1
+    input: {"id":"W1","weightLb":140,"distanceMiles":2,"durationMinutes":18,"paceMinPerMile":9}
+    app: 102
+    ref: 102
+    deltaKcal: 0
+    deltaPct: 0.00%
+  W2
+    input: {"id":"W2","weightLb":165,"distanceMiles":3.1,"durationMinutes":30,"paceMinPerMile":9.7}
+    app: 187
+    ref: 187
+    deltaKcal: 0
+    deltaPct: 0.00%
+  W3
+    input: {"id":"W3","weightLb":190,"distanceMiles":5,"durationMinutes":50,"paceMinPerMile":10}
+    app: 347
+    ref: 347
+    deltaKcal: 0
+    deltaPct: 0.00%
+  W4
+    input: {"id":"W4","weightLb":220,"distanceMiles":null,"durationMinutes":45,"paceMinPerMile":9}
+    app: 401
+    ref: 401
+    deltaKcal: 0
+    deltaPct: 0.00%
+
+Category 4 details: Step calories
+  S1
+    input: {"id":"S1","steps":3000,"distanceMeters":0,"weightLb":120,"heightIn":62}
+    app: 53
+    ref: 53
+    deltaKcal: 0
+    deltaPct: 0.00%
+  S2
+    input: {"id":"S2","steps":7000,"distanceMeters":0,"weightLb":150,"heightIn":66}
+    app: 166
+    ref: 165
+    deltaKcal: 1
+    deltaPct: 0.61%
+  S3
+    input: {"id":"S3","steps":10000,"distanceMeters":0,"weightLb":170,"heightIn":68}
+    app: 276
+    ref: 276
+    deltaKcal: 0
+    deltaPct: 0.00%
+  S4
+    input: {"id":"S4","steps":14000,"distanceMeters":0,"weightLb":200,"heightIn":72}
+    app: 482
+    ref: 481
+    deltaKcal: 1
+    deltaPct: 0.21%
+  S5
+    input: {"id":"S5","steps":12000,"distanceMeters":8900,"weightLb":190,"heightIn":71}
+    app: 384
+    ref: 384
+    deltaKcal: 0
+    deltaPct: 0.00%
+  S6
+    input: {"id":"S6","steps":8500,"distanceMeters":6100,"weightLb":155,"heightIn":67}
+    app: 214
+    ref: 214
+    deltaKcal: 0
+    deltaPct: 0.00%
+
+Category 5 details: TDEE baseline
+  T1
+    input: {"id":"T1","profile":{"sex":"male","age":24,"heightIn":70,"weightLb":175},"steps":9000,"distanceMeters":6800,"runs":[{"distanceMiles":3,"durationMinutes":27,"durationSeconds":1620,"paceMinPerMile":9}],"otherExerciseCalories":120}
+    app_components: {"bmr":1790,"step":270,"walkBorrow":192,"effectiveBorrow":192,"effectiveActivity":78,"runCalories":383,"burnedBaseline":2371}
+    ref_components: {"bmr":1790,"step":270,"walkBorrow":192,"effectiveBorrow":192,"effectiveActivity":78,"runCalories":383,"burnedBaseline":2371}
+    app_burnedBaseline: 2371
+    ref_burnedBaseline: 2371
+    deltaKcal: 0
+    deltaPct: 0.00%
+  T2
+    input: {"id":"T2","profile":{"sex":"female","age":29,"heightIn":64,"weightLb":140},"steps":7000,"distanceMeters":5100,"runs":[{"distanceMiles":2,"durationMinutes":20,"durationSeconds":1200,"paceMinPerMile":10}],"otherExerciseCalories":80}
+    app_components: {"bmr":1345,"step":162,"walkBorrow":102,"effectiveBorrow":102,"effectiveActivity":60,"runCalories":204,"burnedBaseline":1689}
+    ref_components: {"bmr":1345,"step":162,"walkBorrow":102,"effectiveBorrow":102,"effectiveActivity":60,"runCalories":204,"burnedBaseline":1689}
+    app_burnedBaseline: 1689
+    ref_burnedBaseline: 1689
+    deltaKcal: 0
+    deltaPct: 0.00%
+  T3
+    input: {"id":"T3","profile":{"sex":"male","age":37,"heightIn":72,"weightLb":205},"steps":12000,"distanceMeters":9300,"runs":[{"distanceMiles":4,"durationMinutes":38,"durationSeconds":2280,"paceMinPerMile":9.5}],"otherExerciseCalories":0}
+    app_components: {"bmr":1893,"step":432,"walkBorrow":299,"effectiveBorrow":299,"effectiveActivity":133,"runCalories":599,"burnedBaseline":2625}
+    ref_components: {"bmr":1893,"step":432,"walkBorrow":299,"effectiveBorrow":299,"effectiveActivity":133,"runCalories":599,"burnedBaseline":2625}
+    app_burnedBaseline: 2625
+    ref_burnedBaseline: 2625
+    deltaKcal: 0
+    deltaPct: 0.00%
+  T4
+    input: {"id":"T4","profile":{"sex":"female","age":45,"heightIn":66,"weightLb":165},"steps":6000,"distanceMeters":0,"runs":[{"distanceMiles":null,"durationMinutes":35,"durationSeconds":2100,"paceMinPerMile":9.5}],"otherExerciseCalories":150}
+    app_components: {"bmr":1410,"step":156,"walkBorrow":222,"effectiveBorrow":156,"effectiveActivity":0,"runCalories":428,"burnedBaseline":1988}
+    ref_components: {"bmr":1410,"step":156,"walkBorrow":222,"effectiveBorrow":156,"effectiveActivity":0,"runCalories":444,"burnedBaseline":2004}
+    app_burnedBaseline: 1988
+    ref_burnedBaseline: 2004
+    deltaKcal: -16
+    deltaPct: -0.80%
+  T5
+    input: {"id":"T5","profile":{"sex":"male","age":31,"heightIn":68,"weightLb":180},"steps":15000,"distanceMeters":11200,"runs":[{"distanceMiles":5,"durationMinutes":48,"durationSeconds":2880,"paceMinPerMile":9.6}],"otherExerciseCalories":90}
+    app_components: {"bmr":1746,"step":457,"walkBorrow":328,"effectiveBorrow":328,"effectiveActivity":129,"runCalories":657,"burnedBaseline":2622}
+    ref_components: {"bmr":1746,"step":457,"walkBorrow":328,"effectiveBorrow":328,"effectiveActivity":129,"runCalories":657,"burnedBaseline":2622}
+    app_burnedBaseline: 2622
+    ref_burnedBaseline: 2622
+    deltaKcal: 0
+    deltaPct: 0.00%
+
+Report written: /Users/micah/Documents/Calorie Tracker/output/energy_accuracy_audit_report.txt
+

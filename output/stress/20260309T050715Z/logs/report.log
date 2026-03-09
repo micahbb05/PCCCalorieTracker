@@ -1,0 +1,413 @@
+{
+  "version": 1,
+  "generatedAt": "2026-03-09T05:09:59.062Z",
+  "runId": "20260309T050715Z",
+  "gate": {
+    "name": "pr_smoke_gate",
+    "passed": true,
+    "tier": "pr",
+    "thresholds": {
+      "crash_free_required": true,
+      "api_success_rate_min": 0.995,
+      "api_non_ai_p95_latency_ms_max": 1200,
+      "api_ai_p95_latency_ms_max": 4500,
+      "contract_validity_min": 1,
+      "ai_parse_validity_min": 0.99,
+      "ai_malformed_rate_max": 0.01,
+      "ai_text_mape_max": 20,
+      "ai_image_mape_max": 25,
+      "math_invariant_pass_rate_min": 1,
+      "deterministic_formula_deviation_pct_max": 2,
+      "data_integrity_negative_values_max": 0,
+      "data_integrity_unit_normalization_errors_max": 0,
+      "data_integrity_archive_reconciliation_min": 1,
+      "ui_critical_dead_ends_max": 0,
+      "ui_action_success_rate_min": 0.99
+    },
+    "checks": [
+      {
+        "key": "fixtures",
+        "passed": true,
+        "actual": true,
+        "threshold": true
+      },
+      {
+        "key": "formula_suite_executed",
+        "passed": true,
+        "actual": true,
+        "threshold": true
+      },
+      {
+        "key": "api_suite_executed",
+        "passed": true,
+        "actual": true,
+        "threshold": true
+      },
+      {
+        "key": "ai_suite_executed",
+        "passed": true,
+        "actual": true,
+        "threshold": true
+      },
+      {
+        "key": "ui_suite_executed",
+        "passed": true,
+        "actual": true,
+        "threshold": true
+      },
+      {
+        "key": "e2e_suite_executed",
+        "passed": true,
+        "actual": true,
+        "threshold": true
+      }
+    ]
+  },
+  "suites": {
+    "fixture_validation": {
+      "suite": "fixture_schema_validation",
+      "passed": true,
+      "totalErrors": 0,
+      "failures": []
+    },
+    "formula_data": {
+      "suite": "formula_data",
+      "tier": "pr",
+      "passed": true,
+      "metrics": {
+        "baselinePassRate": 1,
+        "deterministicFormulaMAPE": 0,
+        "deterministicFormulaDeviationPctMax": 0,
+        "invariantPassRate": 1,
+        "propertyFuzzPassRate": 1,
+        "dataIntegrityNegativeValues": 0,
+        "dataIntegrityUnitNormalizationErrors": 0,
+        "dataIntegrityArchiveReconciliationRate": 1
+      },
+      "invariants": {
+        "noNegativeValues": true,
+        "noInvalidUnits": true,
+        "deterministicWithinRange": true,
+        "propertyFuzzPass": true
+      },
+      "scriptRuns": [
+        {
+          "key": "node scripts/step_walking_accuracy_tests.js",
+          "ok": true,
+          "exitCode": 0,
+          "durationMs": 34
+        },
+        {
+          "key": "node scripts/running_step_borrow_audit.js",
+          "ok": true,
+          "exitCode": 0,
+          "durationMs": 30
+        },
+        {
+          "key": "node scripts/calibration_scenario_tests.js",
+          "ok": true,
+          "exitCode": 0,
+          "durationMs": 35
+        },
+        {
+          "key": "node scripts/energy_accuracy_audit.js",
+          "ok": true,
+          "exitCode": 0,
+          "durationMs": 31
+        },
+        {
+          "key": "swift scripts/algorithmic_stress_test.swift",
+          "ok": true,
+          "skipped": true,
+          "exitCode": 1,
+          "durationMs": 5225
+        }
+      ],
+      "propertyFuzz": {
+        "iterations": 3000,
+        "failures": 0,
+        "passRate": 1
+      },
+      "deviations": [
+        {
+          "id": "T1",
+          "actual": {
+            "bmr": 1790,
+            "step": 270,
+            "walkBorrow": 192,
+            "runCalories": 383,
+            "burnedBaseline": 2371
+          },
+          "expected": {
+            "bmr": 1790,
+            "step": 270,
+            "walkBorrow": 192,
+            "runCalories": 383,
+            "burnedBaseline": 2371
+          }
+        },
+        {
+          "id": "T2",
+          "actual": {
+            "bmr": 1345,
+            "step": 162,
+            "walkBorrow": 102,
+            "runCalories": 204,
+            "burnedBaseline": 1689
+          },
+          "expected": {
+            "bmr": 1345,
+            "step": 162,
+            "walkBorrow": 102,
+            "runCalories": 204,
+            "burnedBaseline": 1689
+          }
+        },
+        {
+          "id": "T3",
+          "actual": {
+            "bmr": 1893,
+            "step": 432,
+            "walkBorrow": 299,
+            "runCalories": 599,
+            "burnedBaseline": 2625
+          },
+          "expected": {
+            "bmr": 1893,
+            "step": 432,
+            "walkBorrow": 299,
+            "runCalories": 599,
+            "burnedBaseline": 2625
+          }
+        },
+        {
+          "id": "T4",
+          "actual": {
+            "bmr": 1410,
+            "step": 156,
+            "walkBorrow": 156,
+            "runCalories": 428,
+            "burnedBaseline": 1988
+          },
+          "expected": {
+            "bmr": 1410,
+            "step": 156,
+            "walkBorrow": 156,
+            "runCalories": 428,
+            "burnedBaseline": 1988
+          }
+        }
+      ],
+      "unknownNutrients": []
+    },
+    "api_contract_load": {
+      "suite": "api_contract_load",
+      "tier": "pr",
+      "passed": true,
+      "metrics": {
+        "apiSuccessRate": 0.6,
+        "contractValidity": 0.6,
+        "apiNonAiP95LatencyMs": 1482,
+        "apiAiP95LatencyMs": 11128
+      },
+      "endpoints": [
+        {
+          "id": "search-usda-banana",
+          "endpoint": "searchUSDAFoods",
+          "ai": false,
+          "samples": 10,
+          "successRate": 1,
+          "contractRate": 1,
+          "p95LatencyMs": 1010,
+          "avgLatencyMs": 695.3,
+          "errors": []
+        },
+        {
+          "id": "proxy-nutrislice-fourwinds",
+          "endpoint": "proxyNutrislice",
+          "ai": false,
+          "samples": 12,
+          "successRate": 1,
+          "contractRate": 1,
+          "p95LatencyMs": 1482,
+          "avgLatencyMs": 320.0833333333333,
+          "errors": []
+        },
+        {
+          "id": "analyze-food-text",
+          "endpoint": "analyzeFoodText",
+          "ai": true,
+          "samples": 1,
+          "successRate": 1,
+          "contractRate": 1,
+          "p95LatencyMs": 11128,
+          "avgLatencyMs": 11128,
+          "errors": []
+        },
+        {
+          "id": "estimate-plate-portions",
+          "endpoint": "estimatePlatePortions",
+          "ai": true,
+          "samples": 1,
+          "successRate": 0,
+          "contractRate": 0,
+          "p95LatencyMs": 0,
+          "avgLatencyMs": 0,
+          "errors": [
+            {
+              "ok": false,
+              "status": 0,
+              "durationMs": 0,
+              "contractValid": false,
+              "error": "This operation was aborted"
+            }
+          ]
+        },
+        {
+          "id": "analyze-food-photo",
+          "endpoint": "analyzeFoodPhoto",
+          "ai": true,
+          "samples": 1,
+          "successRate": 0,
+          "contractRate": 0,
+          "p95LatencyMs": 0,
+          "avgLatencyMs": 0,
+          "errors": [
+            {
+              "ok": false,
+              "status": 0,
+              "durationMs": 0,
+              "contractValid": false,
+              "error": "This operation was aborted"
+            }
+          ]
+        }
+      ],
+      "failureInjection": [
+        {
+          "name": "searchUSDAFoods-empty-query",
+          "status": 400,
+          "ok": true,
+          "bodySample": "{\"error\":\"Enter a food name to search.\"}"
+        },
+        {
+          "name": "analyzeFoodText-empty-body",
+          "status": 400,
+          "ok": true,
+          "bodySample": "{\"error\":\"Missing mealText.\"}"
+        },
+        {
+          "name": "estimatePlatePortions-invalid-body",
+          "status": 400,
+          "ok": true,
+          "bodySample": "{\"error\":\"Missing imageBase64 or foodItems/foodNames.\"}"
+        },
+        {
+          "name": "proxyNutrislice-invalid-url",
+          "status": 405,
+          "ok": true,
+          "bodySample": "{\"error\":\"Method not allowed.\"}"
+        }
+      ]
+    },
+    "ai_quality": {
+      "suite": "ai_quality",
+      "tier": "pr",
+      "passed": true,
+      "metrics": {
+        "aiParseValidity": 1,
+        "aiMalformedRate": 0,
+        "aiTextMAPE": 0,
+        "aiImageMAPE": 0,
+        "aiHallucinationRate": 0
+      },
+      "cases": [
+        {
+          "id": "text-cfa-sandwich",
+          "kind": "text",
+          "status": 200,
+          "latencyMs": 5986,
+          "ok": true,
+          "parseValid": true,
+          "malformed": false,
+          "calorieErrorPct": 0,
+          "hallucination": false,
+          "totalCalories": 420,
+          "expectedRange": [
+            350,
+            650
+          ],
+          "matchedKeywords": [
+            "sandwich",
+            "chicken"
+          ],
+          "itemCount": 1
+        },
+        {
+          "id": "text-rice-chicken",
+          "kind": "text",
+          "status": 200,
+          "latencyMs": 8795,
+          "ok": true,
+          "parseValid": true,
+          "malformed": false,
+          "calorieErrorPct": 0,
+          "hallucination": false,
+          "totalCalories": 390,
+          "expectedRange": [
+            350,
+            700
+          ],
+          "matchedKeywords": [
+            "rice",
+            "chicken"
+          ],
+          "itemCount": 2
+        }
+      ]
+    },
+    "ui_e2e": {
+      "suite": "ui_e2e",
+      "passed": false,
+      "metrics": {
+        "uiActionCount": 0,
+        "uiActionSuccesses": 0,
+        "uiActionSuccessRate": 0,
+        "uiCriticalDeadEnds": 0,
+        "e2eHappyPathPass": 0,
+        "passedTests": 0,
+        "failedTests": 0
+      },
+      "logFile": "output/stress/20260309T050715Z/logs/ui/xcodebuild_ui.log"
+    },
+    "e2e_scenarios": {
+      "suite": "e2e_scenarios",
+      "tier": "pr",
+      "passed": true,
+      "metrics": {
+        "scenarioPassRate": 1
+      },
+      "scenarios": [
+        {
+          "name": "usda_path",
+          "ok": true,
+          "status": 200,
+          "selectedFood": "BANANA",
+          "calories": 312
+        },
+        {
+          "name": "menu_import_path",
+          "ok": true,
+          "status": 404,
+          "note": "proxy reachable; upstream path unavailable in direct function mode"
+        },
+        {
+          "name": "ai_text_path",
+          "ok": true,
+          "status": 200,
+          "itemCount": 1
+        }
+      ]
+    }
+  }
+}

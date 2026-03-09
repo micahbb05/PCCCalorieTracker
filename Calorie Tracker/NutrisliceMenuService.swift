@@ -40,23 +40,81 @@ enum DiningVenue: String, Codable, CaseIterable, Identifiable {
 }
 
 struct MenuItem: Identifiable, Hashable, Codable {
+    enum CalorieSource: String, Hashable, Codable {
+        case web
+        case estimated
+    }
+
     let id: String
     let name: String
     let calories: Int
     let nutrientValues: [String: Int]
     let servingAmount: Double
     let servingUnit: String
+    let calorieSource: CalorieSource?
+
+    init(
+        id: String,
+        name: String,
+        calories: Int,
+        nutrientValues: [String: Int],
+        servingAmount: Double,
+        servingUnit: String,
+        calorieSource: CalorieSource? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.calories = calories
+        self.nutrientValues = nutrientValues
+        self.servingAmount = servingAmount
+        self.servingUnit = servingUnit
+        self.calorieSource = calorieSource
+    }
 
     var protein: Int {
         nutrientValues["g_protein"] ?? 0
     }
 
-    /// True only for items unambiguously sold by count (cookies, chips, pieces, slices). Excludes generic "serving"/"item"/"each" so entrees like orange chicken use oz.
+    /// Detects portions sold by count (discrete items) vs measured amounts (oz/cup/g/etc).
     var isCountBased: Bool {
         let u = servingUnit.trimmingCharacters(in: .whitespaces).lowercased()
         let n = name.trimmingCharacters(in: .whitespaces).lowercased()
-        if ["piece", "pieces", "slice", "slices"].contains(u) { return true }
+
+        // Explicit measured menu units (volume/weight) should always stay measurement-based.
+        if u.contains("cup")
+            || u.contains("oz")
+            || u == "g" || u == "gram" || u == "grams"
+            || u.contains("tbsp") || u.contains("tablespoon")
+            || u.contains("tsp") || u.contains("teaspoon")
+            || u == "ml" || u == "l" || u == "lb" || u == "lbs" {
+            return false
+        }
+
+        if [
+            "piece", "pieces",
+            "slice", "slices",
+            "nugget", "nuggets",
+            "sandwich", "sandwiches",
+            "burger", "burgers",
+            "taco", "tacos",
+            "burrito", "burritos",
+            "wrap", "wraps"
+        ].contains(u) { return true }
+        if n.contains("nugget") { return true }
         if n.contains("cookie") || n.contains("chips") || n.hasSuffix(" chip") { return true }
+        if n.contains("sandwich") || n.contains("burger") || n.contains("burrito") || n.contains("taco") || n.contains("wrap") {
+            return true
+        }
+
+        let ambiguousUnits: Set<String> = ["", "serving", "servings", "each", "ea", "item", "items", "portion", "portions"]
+        if !ambiguousUnits.contains(u) {
+            let letters = CharacterSet.letters
+            let unitChars = CharacterSet(charactersIn: u)
+            let looksLikeSingleWordUnit = !u.contains(" ") && !u.isEmpty && letters.isSuperset(of: unitChars)
+            if looksLikeSingleWordUnit {
+                return true
+            }
+        }
         return false
     }
 

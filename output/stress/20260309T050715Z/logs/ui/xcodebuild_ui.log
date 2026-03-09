@@ -1,0 +1,24 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test -project "/Users/micah/Documents/Calorie Tracker/Calorie Tracker.xcodeproj" -scheme "Calorie Tracker" -destination "platform=iOS Simulator,name=Nonexistent" "-only-testing:Calorie TrackerUITests/testPCCMenuSearchAndScrollStayAnchored" "-only-testing:Calorie TrackerUITests/testPCCMenuLastCategoryClearsBottomBar" "-only-testing:Calorie TrackerUITests/testStressRapidTabSwitching" "-only-testing:Calorie TrackerUITests/testStressExcessiveTextEntry" "-only-testing:Calorie TrackerUITests/testStressMonkey2000Interactions" "-only-testing:Calorie TrackerUITests/testE2EHappyPathPCCMenuSearchFlow"
+
+2026-03-09 00:09:50.747 xcodebuild[39333:3602939] Writing error result bundle to /var/folders/96/53cwcbj521q1vtjplkrvc7d80000gn/T/ResultBundle_2026-09-03_00-09-0050.xcresult
+xcodebuild: error: Unable to find a device matching the provided destination specifier:
+		{ platform:iOS Simulator, OS:latest, name:Nonexistent }
+
+	The requested device could not be found because no available devices matched the request.
+
+	Available destinations for the "Calorie Tracker" scheme:
+		{ platform:macOS, arch:arm64, variant:Designed for [iPad,iPhone], id:00006000-0018685A2153401E, name:My Mac }
+		{ platform:iOS, id:dvtdevice-DVTiPhonePlaceholder-iphoneos:placeholder, name:Any iOS Device }
+		{ platform:iOS Simulator, id:dvtdevice-DVTiOSDeviceSimulatorPlaceholder-iphonesimulator:placeholder, name:Any iOS Simulator Device }
+		{ platform:iOS Simulator, arch:arm64, id:DE344D59-86A3-4A9A-B3BF-AEB60AB01DA8, OS:26.3.1, name:iPad (A16) }
+		{ platform:iOS Simulator, arch:arm64, id:3E900089-F14F-4085-8EF5-18AD9E5AD481, OS:26.3.1, name:iPad Air 11-inch (M3) }
+		{ platform:iOS Simulator, arch:arm64, id:0052A9A1-E45F-4876-A06D-31EED020243C, OS:26.3.1, name:iPad Air 13-inch (M3) }
+		{ platform:iOS Simulator, arch:arm64, id:469D12B8-D660-4EEE-A0EE-1D8DC64428F9, OS:26.3.1, name:iPad Pro 11-inch (M5) }
+		{ platform:iOS Simulator, arch:arm64, id:09C85F4B-9DA0-46A8-8CBC-43FCD8903972, OS:26.3.1, name:iPad Pro 13-inch (M5) }
+		{ platform:iOS Simulator, arch:arm64, id:405631DD-8CDC-462C-B781-669AF0133FDA, OS:26.3.1, name:iPad mini (A17 Pro) }
+		{ platform:iOS Simulator, arch:arm64, id:2EBEB53F-8CF8-4DC4-836D-0854D32F99CC, OS:26.3.1, name:iPhone 16e }
+		{ platform:iOS Simulator, arch:arm64, id:CB0631A6-FC18-46D4-BC4D-E4156BADE578, OS:26.3.1, name:iPhone 17 }
+		{ platform:iOS Simulator, arch:arm64, id:19475186-232E-46A2-BF9D-A41DFDC94D06, OS:26.3.1, name:iPhone 17 Pro }
+		{ platform:iOS Simulator, arch:arm64, id:204BBFDA-E132-446A-B35B-88810AF488F9, OS:26.3.1, name:iPhone 17 Pro Max }
+		{ platform:iOS Simulator, arch:arm64, id:73C790ED-EA61-4869-88E2-9C6D37D6E682, OS:26.3.1, name:iPhone Air }

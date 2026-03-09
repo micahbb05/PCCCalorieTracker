@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "definitions": {
+    "food_fixture": {
+      "type": "object",
+      "required": ["id", "name", "servingAmount", "servingUnit", "calories", "nutrientValues"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "brand": { "type": ["string", "null"] },
+        "servingAmount": { "type": "number", "exclusiveMinimum": 0 },
+        "servingUnit": { "type": "string", "minLength": 1 },
+        "calories": { "type": "integer", "minimum": 0 },
+        "nutrientValues": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        },
+        "source": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "exercise_fixture": {
+      "type": "object",
+      "required": ["id", "profile", "steps", "distanceMeters", "runs", "expected"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "profile": {
+          "type": "object",
+          "required": ["sex", "age", "heightIn", "weightLb"],
+          "properties": {
+            "sex": { "type": "string", "enum": ["male", "female"] },
+            "age": { "type": "integer", "minimum": 10, "maximum": 100 },
+            "heightIn": { "type": "number", "exclusiveMinimum": 0 },
+            "weightLb": { "type": "number", "exclusiveMinimum": 0 }
+          },
+          "additionalProperties": true
+        },
+        "steps": { "type": "integer", "minimum": 0 },
+        "distanceMeters": { "type": "number", "minimum": 0 },
+        "runs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["durationMinutes"],
+            "properties": {
+              "distanceMiles": { "type": ["number", "null"], "minimum": 0 },
+              "durationMinutes": { "type": "number", "minimum": 0 },
+              "durationSeconds": { "type": ["number", "null"], "minimum": 0 },
+              "paceMinPerMile": { "type": ["number", "null"], "minimum": 0 }
+            },
+            "additionalProperties": true
+          }
+        },
+        "otherExerciseCalories": { "type": "number", "minimum": 0 },
+        "expected": {
+          "type": "object",
+          "required": ["bmr", "step", "walkBorrow", "runCalories", "burnedBaseline"],
+          "properties": {
+            "bmr": { "type": "number", "minimum": 0 },
+            "step": { "type": "number", "minimum": 0 },
+            "walkBorrow": { "type": "number", "minimum": 0 },
+            "runCalories": { "type": "number", "minimum": 0 },
+            "burnedBaseline": { "type": "number", "minimum": 0 }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "ai_eval_case": {
+      "type": "object",
+      "required": ["id", "kind", "input", "expected"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "enum": ["text", "image"] },
+        "input": {
+          "type": "object",
+          "properties": {
+            "mealText": { "type": "string" },
+            "imagePath": { "type": "string" },
+            "mimeType": { "type": "string" }
+          },
+          "additionalProperties": true
+        },
+        "expected": {
+          "type": "object",
+          "required": ["totalCaloriesMin", "totalCaloriesMax"],
+          "properties": {
+            "expectedFoodKeywords": { "type": "array", "items": { "type": "string" } },
+            "totalCaloriesMin": { "type": "number", "minimum": 0 },
+            "totalCaloriesMax": { "type": "number", "minimum": 0 },
+            "allowExtraItems": { "type": "boolean" }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "api_load_profile": {
+      "type": "object",
+      "required": ["id", "endpoint", "method", "ai", "phases"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "endpoint": { "type": "string", "minLength": 1 },
+        "method": { "type": "string", "enum": ["GET", "POST"] },
+        "ai": { "type": "boolean" },
+        "query": { "type": "object", "additionalProperties": { "type": ["string", "number", "boolean"] } },
+        "body": { "type": ["object", "null"] },
+        "expectedStatuses": { "type": "array", "items": { "type": "integer" } },
+        "phases": {
+          "type": "object",
+          "required": ["steady", "burst", "soak"],
+          "properties": {
+            "steady": {
+              "type": "object",
+              "required": ["requests", "concurrency"],
+              "properties": {
+                "requests": { "type": "integer", "minimum": 1 },
+                "concurrency": { "type": "integer", "minimum": 1 }
+              },
+              "additionalProperties": true
+            },
+            "burst": {
+              "type": "object",
+              "required": ["requests", "concurrency"],
+              "properties": {
+                "requests": { "type": "integer", "minimum": 1 },
+                "concurrency": { "type": "integer", "minimum": 1 }
+              },
+              "additionalProperties": true
+            },
+            "soak": {
+              "type": "object",
+              "required": ["durationSeconds", "concurrency"],
+              "properties": {
+                "durationSeconds": { "type": "integer", "minimum": 1 },
+                "concurrency": { "type": "integer", "minimum": 1 }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

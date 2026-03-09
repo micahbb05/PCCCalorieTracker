@@ -1,0 +1,74 @@
+{
+  "suite": "ai_quality",
+  "tier": "nightly",
+  "passed": false,
+  "metrics": {
+    "aiParseValidity": 0.6666666666666666,
+    "aiMalformedRate": 0.3333333333333333,
+    "aiTextMAPE": 0,
+    "aiImageMAPE": 100,
+    "aiHallucinationRate": 0
+  },
+  "cases": [
+    {
+      "id": "text-cfa-sandwich",
+      "kind": "text",
+      "status": 200,
+      "latencyMs": 5648,
+      "ok": true,
+      "parseValid": true,
+      "malformed": false,
+      "calorieErrorPct": 0,
+      "hallucination": false,
+      "totalCalories": 420,
+      "expectedRange": [
+        350,
+        650
+      ],
+      "matchedKeywords": [
+        "sandwich",
+        "chicken"
+      ],
+      "itemCount": 1
+    },
+    {
+      "id": "text-rice-chicken",
+      "kind": "text",
+      "status": 200,
+      "latencyMs": 6585,
+      "ok": true,
+      "parseValid": true,
+      "malformed": false,
+      "calorieErrorPct": 0,
+      "hallucination": false,
+      "totalCalories": 390,
+      "expectedRange": [
+        350,
+        700
+      ],
+      "matchedKeywords": [
+        "rice",
+        "chicken"
+      ],
+      "itemCount": 2
+    },
+    {
+      "id": "image-ten-food-collage",
+      "kind": "image",
+      "status": 502,
+      "latencyMs": 23998,
+      "ok": false,
+      "parseValid": false,
+      "malformed": true,
+      "calorieErrorPct": 100,
+      "hallucination": false,
+      "totalCalories": 0,
+      "expectedRange": [
+        400,
+        3500
+      ],
+      "matchedKeywords": [],
+      "itemCount": 0
+    }
+  ]
+}

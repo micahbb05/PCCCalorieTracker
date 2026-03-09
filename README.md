@@ -1,7 +1,7 @@
-Calorie Tracker (iOS) – PCC Dining + AI Plate Estimates
+Calorie Tracker (iOS) – PCC Dining + AI Food Logging
 =======================================================
 
-This project is an iOS calorie‑tracking app with tight integration to Pensacola Christian College (PCC) dining menus, barcode and USDA search, Apple Health, and an AI‑powered plate photo feature backed by Firebase Functions and Google Gemini.
+This project is an iOS calorie‑tracking app with tight integration to Pensacola Christian College (PCC) dining menus, barcode and USDA search, Apple Health, and AI photo features backed by Firebase Functions and Google Gemini.
 
 This README summarizes how the codebase is structured, how the major features work, and how to run and deploy it.
 
@@ -11,7 +11,9 @@ High‑level architecture
 - **Client app**: Native SwiftUI iOS app in the `Calorie Tracker` Xcode project.
   - Tracks meals, exercises, goals, and history entirely on‑device using `UserDefaults` archives.
   - Pulls PCC menus from Nutrislice, and supports barcode scanning and USDA food search.
-  - Lets the user take a plate photo and uses Gemini to estimate portions for the selected menu items.
+  - Supports:
+    - Plate photos for selected menu items (Gemini portion estimation).
+    - General food photos and nutrition label photos (Gemini structured food/nutrient extraction).
 - **Backend**: Firebase Functions in `functions/`.
   - Proxy for USDA FoodData Central search.
   - Plate portion estimation endpoint (`estimatePlatePortions`) that calls Gemini 2.5 with the plate photo and menu context and returns structured JSON.
@@ -55,9 +57,13 @@ This is the main container for the app. It owns almost all application state and
 - **Health and activity**
   - Owns `StepActivityService` and `HealthKitService`.
   - Uses:
-    - Apple Health for sex, age (DOB), height, weight, and active energy burned.
-    - Motion & Fitness for step‑based activity.
-  - Computes daily energy burn and uses that plus deficit/surplus settings to derive a daily calorie goal.
+    - Apple Health for sex, age (DOB), height, weight, today’s workouts, and body-mass history for weekly calibration.
+    - Motion & Fitness for step count + distance.
+  - Computes daily burned calories as:
+    - `BMR + effective step activity + exercise calories (+ optional weekly calibration offset)`.
+  - Running overlap is explicitly de-duplicated:
+    - Running contributes full run calories.
+    - A walking-equivalent portion is reclassified from step calories to avoid counting both “run” and “steps” for the same distance.
 
 - **Menus and history**
   - Uses `NutrisliceMenuService` to fetch PCC menus:
@@ -154,6 +160,23 @@ Encapsulates Nutrislice menu fetching and serving logic:
 - Presents a system image picker and returns JPEG data via `onPicked`.
 - Used exclusively from `MenuSheetView` when the user chooses AI portion estimation.
 
+### 6. `ExerciseCalorieService.swift` and `StepActivityService.swift`
+
+These two services power burn estimation and overlap handling:
+
+- **`StepActivityService`**
+  - Estimates walking activity from steps/distance using a net walking baseline of **0.50 kcal/kg/km**.
+  - Uses pedometer distance when available; otherwise estimates distance via stride (`0.415 * height`).
+- **`ExerciseCalorieService`**
+  - Running:
+    - Uses distance-based running economy when distance is present (`1.0 kcal/kg/km` net).
+    - Falls back to pace/speed-aware MET estimates when distance is unavailable.
+  - Cycling:
+    - Uses speed-aware MET bins when speed can be inferred; otherwise light-intensity fallback.
+  - Running walking-equivalent:
+    - Uses **0.50 kcal/kg/km** walking-equivalent calories for overlap removal.
+    - Infers running distance from pace+duration when distance is missing.
+
 Key Firebase Functions
 ----------------------
 
@@ -247,6 +270,19 @@ Proxy endpoint for USDA FoodData Central search:
 - Accepts `?query=` and forwards it to USDA with your API key.
 - Maps back USDA results into a shape the app can consume: name, nutrients, serving info, etc.
 
+### 3. `analyzeFoodPhoto`
+
+AI endpoint for general photo logging:
+
+- Accepts an image and classifies it as:
+  - `food_photo` (meal/food image), or
+  - `nutrition_label` (nutrition facts panel).
+- Returns structured JSON with:
+  - detected items,
+  - calories/protein,
+  - normalized nutrient keys when available.
+- Uses Gemini 2.5 Flash with low temperature (`0.2`) and JSON-only response format.
+
 Marketing site and privacy policy
 ---------------------------------
 
@@ -254,7 +290,7 @@ Marketing site and privacy policy
   - Simple static landing page describing:
     - PCC Dining integration.
     - Health‑based goals (Apple Health).
-    - AI plate photo estimates.
+    - AI plate photo estimates and AI food photo logging.
     - Barcode scanning and USDA food search.
   - Links to the App Store listing and the privacy policy.
 
@@ -310,5 +346,7 @@ Notes and caveats
 -----------------
 
 - **AI accuracy**: The plate photo feature is intentionally labeled as an estimate. The adjust screen displays a warning banner reminding users to double‑check before logging.
+- **Energy model**: Burn estimates are model-based (BMR + steps + exercise) and not direct calorimetry. Running/steps overlap is adjusted by subtracting walking-equivalent calories from step activity for runs.
+- **Calibration**: Optional weekly calibration can apply a daily burn offset based on trend weight and logged intake quality checks.
 - **Temperature and averaging**: A relatively high temperature (2.0) is used, but results are averaged across two runs to smooth out noise while still giving the model flexibility to interpret different plates.
 - **Not a medical device**: The app is for personal tracking and educational purposes only; it is not intended for medical use.

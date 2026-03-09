@@ -1,0 +1,80 @@
+[
+  {
+    "id": "search-usda-banana",
+    "endpoint": "searchUSDAFoods",
+    "method": "GET",
+    "ai": false,
+    "query": { "query": "banana" },
+    "expectedStatuses": [200],
+    "phases": {
+      "steady": { "requests": 20, "concurrency": 4 },
+      "burst": { "requests": 30, "concurrency": 10 },
+      "soak": { "durationSeconds": 3600, "concurrency": 2 }
+    }
+  },
+  {
+    "id": "proxy-nutrislice-fourwinds",
+    "endpoint": "proxyNutrislice",
+    "method": "GET",
+    "ai": false,
+    "query": {
+      "date": "2026-03-08"
+    },
+    "expectedStatuses": [200, 404, 405],
+    "phases": {
+      "steady": { "requests": 10, "concurrency": 2 },
+      "burst": { "requests": 20, "concurrency": 6 },
+      "soak": { "durationSeconds": 3600, "concurrency": 1 }
+    }
+  },
+  {
+    "id": "analyze-food-text",
+    "endpoint": "analyzeFoodText",
+    "method": "POST",
+    "ai": true,
+    "body": { "mealText": "2 tacos and rice" },
+    "expectedStatuses": [200],
+    "phases": {
+      "steady": { "requests": 8, "concurrency": 2 },
+      "burst": { "requests": 10, "concurrency": 4 },
+      "soak": { "durationSeconds": 3600, "concurrency": 1 }
+    }
+  },
+  {
+    "id": "estimate-plate-portions",
+    "endpoint": "estimatePlatePortions",
+    "method": "POST",
+    "ai": true,
+    "body": {
+      "imagePath": "output/ai-stress/ten-food-collage.png",
+      "mimeType": "image/png",
+      "foodItems": [
+        { "name": "Apple", "calories": 95, "servingAmount": 1, "servingUnit": "each" },
+        { "name": "Banana", "calories": 105, "servingAmount": 1, "servingUnit": "each" },
+        { "name": "Steak", "calories": 271, "servingAmount": 4, "servingUnit": "oz" }
+      ]
+    },
+    "expectedStatuses": [200],
+    "phases": {
+      "steady": { "requests": 6, "concurrency": 2 },
+      "burst": { "requests": 8, "concurrency": 3 },
+      "soak": { "durationSeconds": 3600, "concurrency": 1 }
+    }
+  },
+  {
+    "id": "analyze-food-photo",
+    "endpoint": "analyzeFoodPhoto",
+    "method": "POST",
+    "ai": true,
+    "body": {
+      "imagePath": "output/ai-stress/ten-food-collage.png",
+      "mimeType": "image/png"
+    },
+    "expectedStatuses": [200],
+    "phases": {
+      "steady": { "requests": 4, "concurrency": 1 },
+      "burst": { "requests": 6, "concurrency": 2 },
+      "soak": { "durationSeconds": 3600, "concurrency": 1 }
+    }
+  }
+]

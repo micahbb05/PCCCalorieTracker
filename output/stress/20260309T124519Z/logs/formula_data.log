@@ -1,0 +1,130 @@
+{
+  "suite": "formula_data",
+  "tier": "pr",
+  "passed": true,
+  "metrics": {
+    "baselinePassRate": 1,
+    "deterministicFormulaMAPE": 0,
+    "deterministicFormulaDeviationPctMax": 0,
+    "invariantPassRate": 1,
+    "propertyFuzzPassRate": 1,
+    "dataIntegrityNegativeValues": 0,
+    "dataIntegrityUnitNormalizationErrors": 0,
+    "dataIntegrityArchiveReconciliationRate": 1
+  },
+  "invariants": {
+    "noNegativeValues": true,
+    "noInvalidUnits": true,
+    "deterministicWithinRange": true,
+    "propertyFuzzPass": true
+  },
+  "scriptRuns": [
+    {
+      "key": "node scripts/step_walking_accuracy_tests.js",
+      "ok": true,
+      "exitCode": 0,
+      "durationMs": 33
+    },
+    {
+      "key": "node scripts/running_step_borrow_audit.js",
+      "ok": true,
+      "exitCode": 0,
+      "durationMs": 40
+    },
+    {
+      "key": "node scripts/calibration_scenario_tests.js",
+      "ok": true,
+      "exitCode": 0,
+      "durationMs": 33
+    },
+    {
+      "key": "node scripts/energy_accuracy_audit.js",
+      "ok": true,
+      "exitCode": 0,
+      "durationMs": 32
+    },
+    {
+      "key": "swift scripts/algorithmic_stress_test.swift",
+      "ok": true,
+      "skipped": true,
+      "exitCode": 1,
+      "durationMs": 5699
+    }
+  ],
+  "propertyFuzz": {
+    "iterations": 3000,
+    "failures": 0,
+    "passRate": 1
+  },
+  "deviations": [
+    {
+      "id": "T1",
+      "actual": {
+        "bmr": 1790,
+        "step": 270,
+        "walkBorrow": 192,
+        "runCalories": 383,
+        "burnedBaseline": 2371
+      },
+      "expected": {
+        "bmr": 1790,
+        "step": 270,
+        "walkBorrow": 192,
+        "runCalories": 383,
+        "burnedBaseline": 2371
+      }
+    },
+    {
+      "id": "T2",
+      "actual": {
+        "bmr": 1345,
+        "step": 162,
+        "walkBorrow": 102,
+        "runCalories": 204,
+        "burnedBaseline": 1689
+      },
+      "expected": {
+        "bmr": 1345,
+        "step": 162,
+        "walkBorrow": 102,
+        "runCalories": 204,
+        "burnedBaseline": 1689
+      }
+    },
+    {
+      "id": "T3",
+      "actual": {
+        "bmr": 1893,
+        "step": 432,
+        "walkBorrow": 299,
+        "runCalories": 599,
+        "burnedBaseline": 2625
+      },
+      "expected": {
+        "bmr": 1893,
+        "step": 432,
+        "walkBorrow": 299,
+        "runCalories": 599,
+        "burnedBaseline": 2625
+      }
+    },
+    {
+      "id": "T4",
+      "actual": {
+        "bmr": 1410,
+        "step": 156,
+        "walkBorrow": 156,
+        "runCalories": 428,
+        "burnedBaseline": 1988
+      },
+      "expected": {
+        "bmr": 1410,
+        "step": 156,
+        "walkBorrow": 156,
+        "runCalories": 428,
+        "burnedBaseline": 1988
+      }
+    }
+  ],
+  "unknownNutrients": []
+}

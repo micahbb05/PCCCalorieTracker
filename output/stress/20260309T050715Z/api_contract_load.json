@@ -1,0 +1,110 @@
+{
+  "suite": "api_contract_load",
+  "tier": "pr",
+  "passed": true,
+  "metrics": {
+    "apiSuccessRate": 0.6,
+    "contractValidity": 0.6,
+    "apiNonAiP95LatencyMs": 1482,
+    "apiAiP95LatencyMs": 11128
+  },
+  "endpoints": [
+    {
+      "id": "search-usda-banana",
+      "endpoint": "searchUSDAFoods",
+      "ai": false,
+      "samples": 10,
+      "successRate": 1,
+      "contractRate": 1,
+      "p95LatencyMs": 1010,
+      "avgLatencyMs": 695.3,
+      "errors": []
+    },
+    {
+      "id": "proxy-nutrislice-fourwinds",
+      "endpoint": "proxyNutrislice",
+      "ai": false,
+      "samples": 12,
+      "successRate": 1,
+      "contractRate": 1,
+      "p95LatencyMs": 1482,
+      "avgLatencyMs": 320.0833333333333,
+      "errors": []
+    },
+    {
+      "id": "analyze-food-text",
+      "endpoint": "analyzeFoodText",
+      "ai": true,
+      "samples": 1,
+      "successRate": 1,
+      "contractRate": 1,
+      "p95LatencyMs": 11128,
+      "avgLatencyMs": 11128,
+      "errors": []
+    },
+    {
+      "id": "estimate-plate-portions",
+      "endpoint": "estimatePlatePortions",
+      "ai": true,
+      "samples": 1,
+      "successRate": 0,
+      "contractRate": 0,
+      "p95LatencyMs": 0,
+      "avgLatencyMs": 0,
+      "errors": [
+        {
+          "ok": false,
+          "status": 0,
+          "durationMs": 0,
+          "contractValid": false,
+          "error": "This operation was aborted"
+        }
+      ]
+    },
+    {
+      "id": "analyze-food-photo",
+      "endpoint": "analyzeFoodPhoto",
+      "ai": true,
+      "samples": 1,
+      "successRate": 0,
+      "contractRate": 0,
+      "p95LatencyMs": 0,
+      "avgLatencyMs": 0,
+      "errors": [
+        {
+          "ok": false,
+          "status": 0,
+          "durationMs": 0,
+          "contractValid": false,
+          "error": "This operation was aborted"
+        }
+      ]
+    }
+  ],
+  "failureInjection": [
+    {
+      "name": "searchUSDAFoods-empty-query",
+      "status": 400,
+      "ok": true,
+      "bodySample": "{\"error\":\"Enter a food name to search.\"}"
+    },
+    {
+      "name": "analyzeFoodText-empty-body",
+      "status": 400,
+      "ok": true,
+      "bodySample": "{\"error\":\"Missing mealText.\"}"
+    },
+    {
+      "name": "estimatePlatePortions-invalid-body",
+      "status": 400,
+      "ok": true,
+      "bodySample": "{\"error\":\"Missing imageBase64 or foodItems/foodNames.\"}"
+    },
+    {
+      "name": "proxyNutrislice-invalid-url",
+      "status": 405,
+      "ok": true,
+      "bodySample": "{\"error\":\"Method not allowed.\"}"
+    }
+  ]
+}

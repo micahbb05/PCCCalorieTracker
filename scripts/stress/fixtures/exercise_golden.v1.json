@@ -1,0 +1,38 @@
+[
+  {
+    "id": "T1",
+    "profile": { "sex": "male", "age": 24, "heightIn": 70, "weightLb": 175 },
+    "steps": 9000,
+    "distanceMeters": 6800,
+    "runs": [{ "distanceMiles": 3.0, "durationMinutes": 27, "durationSeconds": 1620, "paceMinPerMile": 9.0 }],
+    "otherExerciseCalories": 120,
+    "expected": { "bmr": 1790, "step": 270, "walkBorrow": 192, "runCalories": 383, "burnedBaseline": 2371 }
+  },
+  {
+    "id": "T2",
+    "profile": { "sex": "female", "age": 29, "heightIn": 64, "weightLb": 140 },
+    "steps": 7000,
+    "distanceMeters": 5100,
+    "runs": [{ "distanceMiles": 2.0, "durationMinutes": 20, "durationSeconds": 1200, "paceMinPerMile": 10.0 }],
+    "otherExerciseCalories": 80,
+    "expected": { "bmr": 1345, "step": 162, "walkBorrow": 102, "runCalories": 204, "burnedBaseline": 1689 }
+  },
+  {
+    "id": "T3",
+    "profile": { "sex": "male", "age": 37, "heightIn": 72, "weightLb": 205 },
+    "steps": 12000,
+    "distanceMeters": 9300,
+    "runs": [{ "distanceMiles": 4.0, "durationMinutes": 38, "durationSeconds": 2280, "paceMinPerMile": 9.5 }],
+    "otherExerciseCalories": 0,
+    "expected": { "bmr": 1893, "step": 432, "walkBorrow": 299, "runCalories": 599, "burnedBaseline": 2625 }
+  },
+  {
+    "id": "T4",
+    "profile": { "sex": "female", "age": 45, "heightIn": 66, "weightLb": 165 },
+    "steps": 6000,
+    "distanceMeters": 0,
+    "runs": [{ "distanceMiles": null, "durationMinutes": 35, "durationSeconds": 2100, "paceMinPerMile": 9.5 }],
+    "otherExerciseCalories": 150,
+    "expected": { "bmr": 1410, "step": 156, "walkBorrow": 156, "runCalories": 428, "burnedBaseline": 1988 }
+  }
+]

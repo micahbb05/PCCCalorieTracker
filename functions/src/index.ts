@@ -338,10 +338,13 @@ export const searchUSDAFoods = onRequest({ region: "us-central1", secrets: [usda
 
 // --- Plate portion estimate (Gemini) ---
 
-const GEMINI_SYSTEM_PROMPT = `You are a portion estimator. You will receive a photo of a plate of food and a list of food items with context.
-The plate is 11 inches in diameter — use this for scale when estimating portions.
-Not every listed item may be on the plate. Only estimate what you actually see.
-IMPORTANT: If an item is NOT on the plate or not visible, use exactly "0 oz" (never guess 1 oz or 1).
+const GEMINI_SYSTEM_PROMPT = `You are a portion estimator. You will receive a food photo and a list of food items with context.
+The image may be either:
+- a single plate of food, or
+- a collage/board of multiple foods used for recognition testing.
+If a real plate is visible, assume an 11-inch diameter plate for scale. If no plate is visible, estimate portions from typical serving size and visible relative size.
+Not every listed item may be present. Only estimate what you actually see.
+IMPORTANT: If an item is NOT visible in the image, use exactly "0 oz" (never guess 1 oz or 1).
 
 For each item you receive: name, calories per serving, and serving size (e.g. "1 each", "4 oz", "0.5 cups", "113g").
 If the serving is already given in an explicit unit (oz, g/grams, cups, tablespoons, teaspoons), TREAT THAT AS THE BASE SERVING and do NOT change it — just copy it through as the base. Only infer base oz when the serving is ambiguous ("1 each", "1 serving", etc.), using calories and food type: dense protein ~50–60 cal/oz, rice/grains ~35–40 cal/oz, sauces/veg ~15–25 cal/oz. Do not default to 4 oz — infer from calories and the food type.
@@ -361,8 +364,8 @@ You MUST respond ONLY with valid JSON, no extra text, matching this shape:
 
 Rules for the JSON:
 - Use the exact item name from the list for "name".
-- For oz-based items (entrees, sides, rice, etc.), set "portionOz" to the estimated oz on the plate (0 if not on plate). Omit "portionCount" or set it to 0.
-- For count-based items (cookies, chips, pieces), set "portionCount" to the integer count (0 if not on plate). Omit "portionOz" or set it to 0.
+- For oz-based items (entrees, sides, rice, etc.), set "portionOz" to the estimated oz visible in the image (0 if not visible). Omit "portionCount" or set it to 0.
+- For count-based items (cookies, chips, pieces), set "portionCount" to the integer count (0 if not visible). Omit "portionOz" or set it to 0.
 - For "baseServingOz":
   - If the serving is explicit (oz, grams, cups, tbsp/tsp), convert that serving to oz and copy it as "baseServingOz" without changing it.
   - If the serving is ambiguous ("1 each", "1 serving", etc.), infer oz per serving from calories and food type (dense protein ~50–60 cal/oz, rice/grains ~35–40 cal/oz, sauces/veg ~15–25 cal/oz).
@@ -377,6 +380,50 @@ type PlateJsonItem = {
   baseServingOz?: unknown;
 };
 
+function parsePlateJsonTextFallback(
+  text: string,
+  foodNames: string[]
+): { ozByFoodName: Record<string, number>; countByFoodName: Record<string, number>; baseOzByFoodName: Record<string, number> } | null {
+  const ozByFoodName: Record<string, number> = {};
+  const countByFoodName: Record<string, number> = {};
+  const baseOzByFoodName: Record<string, number> = {};
+  let matchedAny = false;
+
+  const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const readNum = (snippet: string, key: string): number | null => {
+    const re = new RegExp(`"${key}"\\s*:\\s*(-?\\d+(?:\\.\\d+)?)`, "i");
+    const m = snippet.match(re);
+    if (!m?.[1]) return null;
+    const n = parseFloat(m[1]);
+    if (!Number.isFinite(n)) return null;
+    return n;
+  };
+
+  for (const foodName of foodNames) {
+    const nameRe = new RegExp(`"name"\\s*:\\s*"[^"]*${escapeRe(foodName)}[^"]*"([\\s\\S]{0,600})`, "i");
+    const match = text.match(nameRe);
+    if (!match?.[1]) {
+      ozByFoodName[foodName] = 0;
+      countByFoodName[foodName] = 0;
+      continue;
+    }
+
+    matchedAny = true;
+    const snippet = match[1];
+    const oz = readNum(snippet, "portionOz");
+    const count = readNum(snippet, "portionCount");
+    const base = readNum(snippet, "baseServingOz");
+
+    ozByFoodName[foodName] = oz !== null && oz > 0 ? Math.min(Math.max(oz, 0), 100) : 0;
+    countByFoodName[foodName] = count !== null && count > 0 ? Math.max(0, Math.floor(count)) : 0;
+    if (base !== null && base > 0) {
+      baseOzByFoodName[foodName] = Math.min(Math.max(base, 0.25), 100);
+    }
+  }
+
+  return matchedAny ? { ozByFoodName, countByFoodName, baseOzByFoodName } : null;
+}
+
 function parsePlateJsonResponse(
   text: string,
   foodNames: string[]
@@ -385,7 +432,7 @@ function parsePlateJsonResponse(
   try {
     parsed = JSON.parse(text);
   } catch {
-    return null;
+    return parsePlateJsonTextFallback(text, foodNames);
   }
   if (!parsed || typeof parsed !== "object" || !Array.isArray((parsed as any).items)) {
     return null;
@@ -524,6 +571,60 @@ function baseServingOzFromFoodContext(f: FoodItemContext): number {
   return inferBaseOzFromCalories(f.name, f.calories);
 }
 
+function isExplicitServingUnit(unitRaw: string): boolean {
+  const unit = unitRaw.trim().toLowerCase();
+  return unit.includes("oz")
+    || unit === "g"
+    || unit === "gram"
+    || unit === "grams"
+    || unit.includes("cup")
+    || unit.includes("tbsp")
+    || unit.includes("tablespoon")
+    || unit.includes("tsp")
+    || unit.includes("teaspoon");
+}
+
+function isCountBasedFoodItem(f: FoodItemContext): boolean {
+  const unit = (f.servingUnit || "").trim().toLowerCase();
+  const name = f.name.trim().toLowerCase();
+  if (["piece", "pieces", "slice", "slices"].includes(unit)) return true;
+  if (name.includes("cookie") || name.includes("chips") || name.endsWith(" chip")) return true;
+  return false;
+}
+
+function normalizePlateEstimates(
+  foodItems: FoodItemContext[],
+  ozByFoodName: Record<string, number>,
+  countByFoodName: Record<string, number>,
+  baseOzByFoodName: Record<string, number>
+): void {
+  for (const f of foodItems) {
+    const name = f.name;
+    const countBased = isCountBasedFoodItem(f);
+    const count = Math.max(0, Math.floor(countByFoodName[name] ?? 0));
+    const oz = Math.max(0, ozByFoodName[name] ?? 0);
+    const baseOz = baseOzByFoodName[name] ?? baseServingOzFromFoodContext(f);
+    const explicitUnit = isExplicitServingUnit(f.servingUnit || "");
+
+    // Client consumes `countByFoodName` only for count-based foods. Convert count -> oz for the rest.
+    if (!countBased && count > 0 && oz === 0) {
+      ozByFoodName[name] = Math.min(Math.max(baseOz * count, 0), 100);
+      countByFoodName[name] = 0;
+    }
+
+    // Keep explicit menu base servings authoritative (e.g. 4 oz steak, 0.5 cup rice).
+    if (explicitUnit) {
+      delete baseOzByFoodName[name];
+      continue;
+    }
+
+    // If base serving wasn't provided for ambiguous units, infer from calories/context.
+    if (baseOzByFoodName[name] === undefined) {
+      baseOzByFoodName[name] = Math.min(Math.max(baseOz, 0.25), 100);
+    }
+  }
+}
+
 function parsePlateResponse(
   text: string,
   foodNames: string[],
@@ -594,10 +695,6 @@ function parsePlateResponse(
     const baseOz = baseOzByFoodName[f.name] ?? inferBaseOzFromCalories(f.name, f.calories);
     if (count >= 1 && oz === 0) {
       ozByFoodName[f.name] = baseOz * count;
-    } else if (count === 0 && oz === 0) {
-      // Gemini returned nothing parseable (e.g. name only, or "0 oz" when item is on plate).
-      // Default to 1 serving on plate so user can adjust.
-      ozByFoodName[f.name] = baseOz;
     }
   }
 
@@ -613,11 +710,28 @@ type AIVisionFoodItem = {
   estimatedServings?: unknown;
   calories?: unknown;
   protein?: unknown;
+  sourceType?: unknown;
   nutrients?: unknown;
 };
 
 type AIVisionResponse = {
   mode?: unknown;
+  items?: unknown;
+};
+
+type AITextFoodItem = {
+  name?: unknown;
+  brand?: unknown;
+  servingAmount?: unknown;
+  servingUnit?: unknown;
+  estimatedServings?: unknown;
+  calories?: unknown;
+  protein?: unknown;
+  sourceType?: unknown;
+  nutrients?: unknown;
+};
+
+type AITextResponse = {
   items?: unknown;
 };
 
@@ -660,9 +774,28 @@ ${foodList}`;
       ]
     }],
     generationConfig: {
-      temperature: 2.0,
-      maxOutputTokens: 2048,
-      responseMimeType: "application/json"
+      temperature: 0.2,
+      maxOutputTokens: 8192,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "OBJECT",
+        properties: {
+          items: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                name: { type: "STRING" },
+                portionOz: { type: "NUMBER" },
+                portionCount: { type: "NUMBER" },
+                baseServingOz: { type: "NUMBER" }
+              },
+              required: ["name"]
+            }
+          }
+        },
+        required: ["items"]
+      }
     }
   };
 
@@ -734,8 +867,6 @@ ${foodList}`;
       const r1 = parsePlateResponse(text1, foodNames, foodItems, b1);
       const r2 = parsePlateResponse(text2, foodNames, foodItems, b2);
 
-      const eachServingUnits = ["each", "ea", "serving", "servings", "item"];
-
       for (const name of foodNames) {
         ozByFoodName[name] = (r1.ozByFoodName[name] + r2.ozByFoodName[name]) / 2;
         countByFoodName[name] = Math.round((r1.countByFoodName[name] + r2.countByFoodName[name]) / 2);
@@ -754,27 +885,21 @@ ${foodList}`;
       // Also: do NOT override explicit serving units (oz, g/grams, cups, tbsp, tsp) — for those we keep the menu base.
       for (const f of foodItems) {
         const unitRaw = (f.servingUnit || "").trim().toLowerCase();
-        const explicitUnit =
-          unitRaw.includes("oz") ||
-          unitRaw === "g" ||
-          unitRaw === "gram" ||
-          unitRaw === "grams" ||
-          unitRaw.includes("cup") ||
-          unitRaw.includes("tbsp") ||
-          unitRaw.includes("tablespoon") ||
-          unitRaw.includes("tsp") ||
-          unitRaw.includes("teaspoon");
+        const explicitUnit = isExplicitServingUnit(unitRaw);
         if (explicitUnit) {
           // Never let Gemini change explicit base servings like "0.5 cups" rice or "4 oz".
           delete baseOzByFoodName[f.name];
           continue;
         }
+        const eachServingUnits = ["each", "ea", "serving", "servings", "item"];
         const unit = unitRaw;
         if (eachServingUnits.includes(unit) && baseOzByFoodName[f.name] === undefined) {
           baseOzByFoodName[f.name] = inferBaseOzFromCalories(f.name, f.calories);
         }
       }
     }
+
+    normalizePlateEstimates(foodItems, ozByFoodName, countByFoodName, baseOzByFoodName);
 
     const rawText = `--- Run 1 ---\n${text1}\n\n--- Run 2 ---\n${text2}`;
     return { status: 200, body: { ozByFoodName, countByFoodName, baseOzByFoodName, rawText } };
@@ -803,6 +928,7 @@ Use exactly this JSON shape:
       "estimatedServings": 1,
       "calories": 0,
       "protein": 0,
+      "sourceType": "real" | "estimated",
       "nutrients": {
         "g_protein": 0
       }
@@ -813,13 +939,15 @@ Use exactly this JSON shape:
 Rules for food_photo mode:
 - Detect one or more foods in the image.
 - Return one item per distinct food.
-- Estimate ONLY calories and protein per base serving.
-- In "nutrients", include ONLY "g_protein".
+- Use web lookup for every detected food (including basic foods) to find the most accurate per-serving nutrition available.
+- Prefer official nutrition pages, restaurant nutrition PDFs/pages, USDA/FoodData Central, Open Food Facts, and major manufacturer pages.
+- Include as many reliable nutrients as available in "nutrients" using normalized keys.
 - Use "estimatedServings" for how much food is shown in the photo relative to the base serving.
 - Choose a practical base serving that a user can adjust later, such as 1 sandwich, 1 slice, 1 cup, 4 oz, 1 bowl, 1 taco, etc.
 - Keep servingAmount numeric and servingUnit short.
 - If there are multiple foods, include all clearly visible foods.
 - If confidence is poor, make the best reasonable estimate anyway.
+- sourceType must be "real" when nutrition was found from a reliable web source, and "estimated" only when no reliable web source exists.
 
 Rules for nutrition_label mode:
 - Read the visible nutrition facts from the label as accurately as possible.
@@ -833,12 +961,287 @@ Rules for nutrition_label mode:
 - Do not invent nutrients that are not visible.
 - If a value is unreadable, omit that nutrient.
 - Parse servingAmount and servingUnit from the label when possible.
+- Set sourceType to "real" unless the label cannot be read and you must estimate.
 
 General rules:
 - JSON only.
 - All numeric fields must be numbers, not strings.
 - Do not include nulls.
 - Do not include keys outside the required shape.`;
+
+const AI_TEXT_SYSTEM_PROMPT = `You are a nutrition lookup assistant for a calorie tracker.
+
+You will receive a short text describing what the user ate.
+Goal:
+- Use web lookup for every food in the text (branded, restaurant, and basic/generic foods) to find the most accurate nutrition facts per serving.
+- Prefer official nutrition pages, restaurant nutrition PDFs/pages, USDA/FoodData Central, Open Food Facts, and major manufacturer pages.
+- Only fall back to estimated values if reliable web data cannot be found.
+
+Return ONLY valid JSON in this exact shape:
+{
+  "items": [
+    {
+      "name": "string",
+      "brand": "string",
+      "servingAmount": 1,
+      "servingUnit": "serving",
+      "estimatedServings": 1,
+      "calories": 0,
+      "protein": 0,
+      "sourceType": "real" | "estimated",
+      "nutrients": {
+        "g_protein": 0,
+        "g_carbs": 0,
+        "g_fat": 0,
+        "g_saturated_fat": 0,
+        "g_trans_fat": 0,
+        "g_fiber": 0,
+        "g_sugar": 0,
+        "g_added_sugar": 0,
+        "mg_sodium": 0,
+        "mg_cholesterol": 0,
+        "mg_potassium": 0,
+        "mg_calcium": 0,
+        "mg_iron": 0,
+        "mg_vitamin_c": 0,
+        "iu_vitamin_a": 0,
+        "mcg_vitamin_a": 0,
+        "mcg_vitamin_d": 0
+      }
+    }
+  ]
+}
+
+Rules:
+- JSON only. No markdown.
+- Include one item per distinct food in the text.
+- Use numbers (not strings) for numeric fields.
+- sourceType must be "real" when values are web-sourced (including basic foods), and "estimated" only when no reliable web source is found.
+- If sourceType is "real", include as many known nutrients as available in nutrients.
+- If sourceType is "estimated", include at least calories, protein, carbs, and fat when reasonable.
+- Omit nutrients you truly do not know; do not invent precision.
+- If no foods can be parsed, return {"items":[]}.`;
+
+function normalizeNutrientKey(key: string): string | null {
+  const normalized = key
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  const direct = new Set([
+    "calories",
+    "g_protein",
+    "g_carbs",
+    "g_fat",
+    "g_saturated_fat",
+    "g_trans_fat",
+    "g_fiber",
+    "g_sugar",
+    "g_added_sugar",
+    "mg_sodium",
+    "mg_cholesterol",
+    "mg_potassium",
+    "mg_calcium",
+    "mg_iron",
+    "mg_vitamin_c",
+    "iu_vitamin_a",
+    "mcg_vitamin_a",
+    "mcg_vitamin_d"
+  ]);
+  if (direct.has(normalized)) return normalized;
+
+  const aliases: Record<string, string> = {
+    protein: "g_protein",
+    carbohydrates: "g_carbs",
+    carbohydrate: "g_carbs",
+    carbs: "g_carbs",
+    fat: "g_fat",
+    total_fat: "g_fat",
+    saturated_fat: "g_saturated_fat",
+    trans_fat: "g_trans_fat",
+    fiber: "g_fiber",
+    sugar: "g_sugar",
+    added_sugar: "g_added_sugar",
+    sodium: "mg_sodium",
+    cholesterol: "mg_cholesterol",
+    potassium: "mg_potassium",
+    calcium: "mg_calcium",
+    iron: "mg_iron",
+    vitamin_c: "mg_vitamin_c",
+    vitamin_a_iu: "iu_vitamin_a",
+    vitamin_a_mcg: "mcg_vitamin_a",
+    vitamin_d: "mcg_vitamin_d"
+  };
+  return aliases[normalized] ?? null;
+}
+
+const COUNT_SERVING_UNITS = new Set([
+  "piece",
+  "pieces",
+  "slice",
+  "slices",
+  "nugget",
+  "nuggets",
+  "sandwich",
+  "sandwiches",
+  "burger",
+  "burgers",
+  "taco",
+  "tacos",
+  "burrito",
+  "burritos",
+  "wrap",
+  "wraps",
+  "cookie",
+  "cookies",
+  "chip",
+  "chips"
+]);
+
+function isLikelyCountServing(name: string, servingUnit: string): boolean {
+  const unit = servingUnit.trim().toLowerCase();
+  const normalizedName = name.trim().toLowerCase();
+  if (COUNT_SERVING_UNITS.has(unit)) return true;
+  return normalizedName.includes("nugget")
+    || normalizedName.includes("sandwich")
+    || normalizedName.includes("burger")
+    || normalizedName.includes("taco")
+    || normalizedName.includes("burrito")
+    || normalizedName.includes("wrap")
+    || normalizedName.includes("cookie")
+    || normalizedName.includes("chips")
+    || normalizedName.endsWith(" chip");
+}
+
+function normalizeEstimatedServingsForCountItems(
+  name: string,
+  servingAmount: number,
+  servingUnit: string,
+  estimatedServings: number
+): number {
+  const safeEstimated = Number.isFinite(estimatedServings) && estimatedServings > 0
+    ? Math.min(Math.max(estimatedServings, 0.01), 100)
+    : 1;
+  const safeServingAmount = Number.isFinite(servingAmount) && servingAmount > 0 ? servingAmount : 1;
+  if (safeServingAmount <= 1) return safeEstimated;
+  if (!isLikelyCountServing(name, servingUnit)) return safeEstimated;
+
+  // Guard against AI returning piece-count (e.g. "5 nuggets") as estimated servings.
+  const roundedEstimated = Math.round(safeEstimated);
+  const looksIntegerCount = Math.abs(safeEstimated - roundedEstimated) <= 0.05;
+  if (looksIntegerCount && safeEstimated + 0.05 >= safeServingAmount) {
+    return Math.max(safeEstimated / safeServingAmount, 0.01);
+  }
+  return safeEstimated;
+}
+
+function parseAITextResponse(text: string): {
+  items: Array<{
+    name: string;
+    brand: string | null;
+    servingAmount: number;
+    servingUnit: string;
+    estimatedServings: number;
+    calories: number;
+    protein: number;
+    sourceType: "real" | "estimated";
+    nutrients: Record<string, number>;
+  }>;
+} | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return null;
+  }
+
+  if (!parsed || typeof parsed !== "object") return null;
+  const response = parsed as AITextResponse;
+  if (!Array.isArray(response.items)) return null;
+
+  const items = response.items
+    .map((raw) => {
+      if (!raw || typeof raw !== "object") return null;
+      const item = raw as AITextFoodItem;
+      const name = typeof item.name === "string" ? item.name.trim() : "";
+      if (!name) return null;
+
+      const brand = typeof item.brand === "string" ? item.brand.trim() : "";
+      const servingAmount = typeof item.servingAmount === "number" && Number.isFinite(item.servingAmount) && item.servingAmount > 0
+        ? item.servingAmount
+        : 1;
+      const servingUnit = typeof item.servingUnit === "string" && item.servingUnit.trim().length > 0
+        ? item.servingUnit.trim()
+        : "serving";
+      const estimatedServings = typeof item.estimatedServings === "number" && Number.isFinite(item.estimatedServings) && item.estimatedServings > 0
+        ? item.estimatedServings
+        : 1;
+      const normalizedEstimatedServings = normalizeEstimatedServingsForCountItems(
+        name,
+        servingAmount,
+        servingUnit,
+        estimatedServings
+      );
+      const calories = typeof item.calories === "number" && Number.isFinite(item.calories) && item.calories >= 0
+        ? Math.round(item.calories)
+        : 0;
+      const protein = typeof item.protein === "number" && Number.isFinite(item.protein) && item.protein >= 0
+        ? Math.round(item.protein)
+        : 0;
+      const sourceType = item.sourceType === "real" ? "real" : "estimated";
+
+      const nutrientsSource = item.nutrients && typeof item.nutrients === "object" ? item.nutrients as Record<string, unknown> : {};
+      const nutrients: Record<string, number> = {};
+      for (const [rawKey, value] of Object.entries(nutrientsSource)) {
+        if (typeof value !== "number" || !Number.isFinite(value) || value < 0) continue;
+        const key = normalizeNutrientKey(rawKey);
+        if (!key) continue;
+        nutrients[key] = Math.round(value);
+      }
+      if (calories > 0 && nutrients.calories === undefined) nutrients.calories = calories;
+      if (protein > 0 && nutrients.g_protein === undefined) nutrients.g_protein = protein;
+
+      const hasUsefulNutrition = calories > 0 || Object.values(nutrients).some((v) => v > 0);
+      if (!hasUsefulNutrition) return null;
+
+      return {
+        name,
+        brand: brand || null,
+        servingAmount,
+        servingUnit,
+        estimatedServings: normalizedEstimatedServings,
+        calories,
+        protein,
+        sourceType,
+        nutrients
+      };
+    })
+    .filter((item): item is {
+      name: string;
+      brand: string | null;
+      servingAmount: number;
+      servingUnit: string;
+      estimatedServings: number;
+      calories: number;
+      protein: number;
+      sourceType: "real" | "estimated";
+      nutrients: Record<string, number>;
+    } => item !== null);
+
+  return { items };
+}
+
+function extractFirstJsonObject(text: string): string {
+  const fenced = text.match(/```json\s*([\s\S]*?)```/i) ?? text.match(/```\s*([\s\S]*?)```/i);
+  if (fenced?.[1]) return fenced[1].trim();
+
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    return text.slice(start, end + 1).trim();
+  }
+  return text.trim();
+}
 
 function parseAIVisionJsonResponse(text: string): {
   mode: "food_photo" | "nutrition_label"; items: Array<{
@@ -848,6 +1251,7 @@ function parseAIVisionJsonResponse(text: string): {
     estimatedServings: number;
     calories: number;
     protein: number;
+    sourceType: "real" | "estimated";
     nutrients: Record<string, number>;
   }>
 } | null {
@@ -871,6 +1275,7 @@ function parseAIVisionJsonResponse(text: string): {
       estimatedServings: number;
       calories: number;
       protein: number;
+      sourceType: "real" | "estimated";
       nutrients: Record<string, number>;
     } | null => {
       if (!raw || typeof raw !== "object") return null;
@@ -887,12 +1292,19 @@ function parseAIVisionJsonResponse(text: string): {
       const estimatedServings = typeof item.estimatedServings === "number" && Number.isFinite(item.estimatedServings) && item.estimatedServings > 0
         ? item.estimatedServings
         : 1;
+      const normalizedEstimatedServings = normalizeEstimatedServingsForCountItems(
+        name,
+        servingAmount,
+        servingUnit,
+        estimatedServings
+      );
       const calories = typeof item.calories === "number" && Number.isFinite(item.calories) && item.calories >= 0
         ? Math.round(item.calories)
         : 0;
       const protein = typeof item.protein === "number" && Number.isFinite(item.protein) && item.protein >= 0
         ? Math.round(item.protein)
         : 0;
+      const sourceType = item.sourceType === "real" ? "real" : "estimated";
 
       const nutrientsSource = item.nutrients && typeof item.nutrients === "object" ? item.nutrients as Record<string, unknown> : {};
       const nutrients: Record<string, number> = {};
@@ -908,9 +1320,10 @@ function parseAIVisionJsonResponse(text: string): {
         name,
         servingAmount,
         servingUnit,
-        estimatedServings,
+        estimatedServings: normalizedEstimatedServings,
         calories,
         protein,
+        sourceType,
         nutrients
       };
     })
@@ -921,6 +1334,7 @@ function parseAIVisionJsonResponse(text: string): {
       estimatedServings: number;
       calories: number;
       protein: number;
+      sourceType: "real" | "estimated";
       nutrients: Record<string, number>;
     } => item !== null);
 
@@ -943,6 +1357,7 @@ async function performAIVisionAnalysis(
       estimatedServings: number;
       calories: number;
       protein: number;
+      sourceType: "real" | "estimated";
       nutrients: Record<string, number>;
     }>;
     rawJson?: string;
@@ -964,10 +1379,10 @@ async function performAIVisionAnalysis(
         { text: AI_VISION_SYSTEM_PROMPT }
       ]
     }],
+    tools: [{ googleSearch: {} }],
     generationConfig: {
       temperature: 0.2,
-      maxOutputTokens: 4096,
-      responseMimeType: "application/json"
+      maxOutputTokens: 4096
     }
   };
 
@@ -995,7 +1410,8 @@ async function performAIVisionAnalysis(
       candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
     };
     const text = (data?.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? "").join("").trim();
-    const parsed = parseAIVisionJsonResponse(text);
+    const jsonText = extractFirstJsonObject(text);
+    const parsed = parseAIVisionJsonResponse(jsonText);
     if (!parsed) {
       logger.error("AI vision returned invalid JSON", { rawText: text });
       return { status: 502, body: { error: "AI returned an invalid response.", rawJson: text } };
@@ -1006,12 +1422,104 @@ async function performAIVisionAnalysis(
       body: {
         mode: parsed.mode,
         items: parsed.items,
-        rawJson: text
+        rawJson: jsonText
       }
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     logger.error("AI vision analysis failed", error);
+    return { status: 502, body: { error: message } };
+  }
+}
+
+async function performAITextAnalysis(
+  apiKey: string,
+  mealText: string
+): Promise<{
+  status: number;
+  body: {
+    items?: Array<{
+      name: string;
+      brand: string | null;
+      servingAmount: number;
+      servingUnit: string;
+      estimatedServings: number;
+      calories: number;
+      protein: number;
+      sourceType: "real" | "estimated";
+      nutrients: Record<string, number>;
+    }>;
+    rawJson?: string;
+    error?: string;
+  };
+}> {
+  const trimmedKey = apiKey.trim();
+  if (!trimmedKey) {
+    logger.error("AI text analysis requested without GEMINI_API_KEY configured.");
+    return { status: 500, body: { error: "AI text analysis is not configured on the server." } };
+  }
+
+  const trimmedMealText = mealText.trim();
+  if (!trimmedMealText) {
+    return { status: 400, body: { error: "Enter what you ate." } };
+  }
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(trimmedKey)}`;
+  const body = {
+    systemInstruction: {
+      parts: [{ text: AI_TEXT_SYSTEM_PROMPT }]
+    },
+    contents: [{
+      parts: [{ text: `User meal text: ${trimmedMealText}` }]
+    }],
+    tools: [{ googleSearch: {} }],
+    generationConfig: {
+      temperature: 0.2,
+      maxOutputTokens: 4096
+    }
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      logger.error("Gemini AI text upstream failed", { status: response.status, body: errText });
+      let message = `Upstream error (HTTP ${response.status}).`;
+      try {
+        const errJson = JSON.parse(errText) as { error?: { message?: string } };
+        if (errJson?.error?.message) message = errJson.error.message;
+      } catch {
+        // ignore
+      }
+      return { status: 502, body: { error: message } };
+    }
+
+    const data = (await response.json()) as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    };
+    const text = (data?.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? "").join("").trim();
+    const jsonText = extractFirstJsonObject(text);
+    const parsed = parseAITextResponse(jsonText);
+    if (!parsed) {
+      logger.error("AI text analysis returned invalid JSON", { rawText: text });
+      return { status: 502, body: { error: "AI returned an invalid response.", rawJson: text } };
+    }
+
+    return {
+      status: 200,
+      body: {
+        items: parsed.items,
+        rawJson: jsonText
+      }
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    logger.error("AI text analysis failed", error);
     return { status: 502, body: { error: message } };
   }
 }
@@ -1114,6 +1622,43 @@ export const analyzeFoodPhoto = onRequest(
       res.status(result.status).json(result.body);
     } catch (error) {
       logger.error("AI food photo analysis failed", error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  }
+);
+
+export const analyzeFoodText = onRequest(
+  { region: "us-central1", secrets: [geminiApiKeySecret] },
+  async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type");
+
+    if (req.method === "OPTIONS") {
+      res.status(204).send("");
+      return;
+    }
+
+    if (req.method !== "POST") {
+      res.status(405).json({ error: "Method not allowed." });
+      return;
+    }
+
+    try {
+      const body = req.body as { mealText?: string };
+      const mealText = typeof body.mealText === "string" ? body.mealText : "";
+      if (!mealText.trim()) {
+        res.status(400).json({ error: "Missing mealText." });
+        return;
+      }
+
+      const apiKey = geminiApiKeySecret.value();
+      const result = await performAITextAnalysis(apiKey, mealText);
+      res.status(result.status).json(result.body);
+    } catch (error) {
+      logger.error("AI food text analysis failed", error);
       res.status(500).json({
         error: error instanceof Error ? error.message : "Unknown error"
       });

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>10 Food Collage</title>
+<style>
+  :root { --bg: #f5f7fb; --card: #ffffff; --ink: #0f172a; --muted: #475569; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: linear-gradient(135deg, #eef2ff, #f8fafc); color: var(--ink); }
+  .wrap { max-width: 1500px; margin: 0 auto; padding: 28px; }
+  h1 { margin: 0 0 8px; font-size: 34px; letter-spacing: 0.2px; }
+  p { margin: 0 0 22px; color: var(--muted); font-size: 18px; }
+  .grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 18px; }
+  .card { background: var(--card); border-radius: 14px; overflow: hidden; box-shadow: 0 8px 22px rgba(15, 23, 42, 0.12); border: 1px solid rgba(148, 163, 184, 0.25); }
+  .card img { width: 100%; height: 220px; object-fit: cover; display: block; }
+  .label { padding: 10px 12px 12px; font-weight: 700; font-size: 20px; text-align: center; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Food Recognition Stress Test</h1>
+    <p>Exactly 10 foods are shown: Apple, Banana, Broccoli, Pizza, Hamburger, Sushi, French Fries, Salad, Doughnut, Steak.</p>
+    <div class="grid">
+      <figure class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a6/Pink_lady_and_cross_section.jpg/960px-Pink_lady_and_cross_section.jpg" alt="Apple"><figcaption class="label">Apple</figcaption></figure>
+      <figure class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/d/de/Bananavarieties.jpg" alt="Banana"><figcaption class="label">Banana</figcaption></figure>
+      <figure class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/03/Broccoli_and_cross_section_edit.jpg/960px-Broccoli_and_cross_section_edit.jpg" alt="Broccoli"><figcaption class="label">Broccoli</figcaption></figure>
+      <figure class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Pizza-3007395.jpg/960px-Pizza-3007395.jpg" alt="Pizza"><figcaption class="label">Pizza</figcaption></figure>
+      <figure class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/RedDot_Burger.jpg/960px-RedDot_Burger.jpg" alt="Hamburger"><figcaption class="label">Hamburger</figcaption></figure>
+      <figure class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/60/Sushi_platter.jpg/960px-Sushi_platter.jpg" alt="Sushi"><figcaption class="label">Sushi</figcaption></figure>
+      <figure class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/8/83/French_Fries.JPG" alt="French Fries"><figcaption class="label">French Fries</figcaption></figure>
+      <figure class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/94/Salad_platter.jpg/960px-Salad_platter.jpg" alt="Salad"><figcaption class="label">Salad</figcaption></figure>
+      <figure class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Glazed-Donut.jpg/960px-Glazed-Donut.jpg" alt="Doughnut"><figcaption class="label">Doughnut</figcaption></figure>
+      <figure class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2b/Beef_fillet_steak_with_mushrooms.jpg/960px-Beef_fillet_steak_with_mushrooms.jpg" alt="Steak"><figcaption class="label">Steak</figcaption></figure>
+    </div>
+  </div>
+</body>
+</html>

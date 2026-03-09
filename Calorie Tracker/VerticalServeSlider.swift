@@ -10,7 +10,7 @@ struct VerticalServeSlider: View {
         var result: [Double] = []
         var current = range.lowerBound
         while current <= range.upperBound + 0.0001 {
-            result.append(current)
+            result.append(roundToServingSelectorIncrement(current))
             current += step
         }
         return result
@@ -66,7 +66,13 @@ struct VerticalServeSlider: View {
 
     private func snap(_ raw: Double) -> Double {
         let clamped = min(max(raw, range.lowerBound), range.upperBound)
+        guard step > 0 else {
+            let rounded = roundToServingSelectorIncrement(clamped)
+            return min(max(rounded, range.lowerBound), range.upperBound)
+        }
         let steps = (clamped / step).rounded()
-        return min(max(steps * step, range.lowerBound), range.upperBound)
+        let stepped = steps * step
+        let rounded = roundToServingSelectorIncrement(stepped)
+        return min(max(rounded, range.lowerBound), range.upperBound)
     }
 }

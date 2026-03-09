@@ -1,0 +1,26 @@
+[
+  {
+    "name": "searchUSDAFoods-empty-query",
+    "status": 400,
+    "ok": true,
+    "bodySample": "{\"error\":\"Enter a food name to search.\"}"
+  },
+  {
+    "name": "analyzeFoodText-empty-body",
+    "status": 400,
+    "ok": true,
+    "bodySample": "{\"error\":\"Missing mealText.\"}"
+  },
+  {
+    "name": "estimatePlatePortions-invalid-body",
+    "status": 400,
+    "ok": true,
+    "bodySample": "{\"error\":\"Missing imageBase64 or foodItems/foodNames.\"}"
+  },
+  {
+    "name": "proxyNutrislice-invalid-url",
+    "status": 405,
+    "ok": true,
+    "bodySample": "{\"error\":\"Method not allowed.\"}"
+  }
+]

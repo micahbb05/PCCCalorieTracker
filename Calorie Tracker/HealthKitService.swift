@@ -64,6 +64,7 @@ final class HealthKitService: ObservableObject {
 
     /// Today's workouts from Health, mapped to ExerciseEntry for calorie integration.
     @Published private(set) var todayWorkouts: [ExerciseEntry] = []
+    @Published private(set) var reducedBodyMassHistory: [HealthWeighInDay] = []
 
     private let healthStore = HKHealthStore()
     private let calendar: Calendar
@@ -151,12 +152,86 @@ final class HealthKitService: ObservableObject {
     private func loadHealthData() async {
         profile = await fetchProfile()
         todayWorkouts = await fetchTodayWorkouts()
+        reducedBodyMassHistory = await fetchReducedBodyMassHistory(days: 21)
         lastErrorMessage = nil
     }
 
     func refreshWorkouts() async {
         guard authorizationState == .connected else { return }
         todayWorkouts = await fetchTodayWorkouts()
+    }
+
+    func fetchReducedBodyMassHistory(days: Int = 21) async -> [HealthWeighInDay] {
+        guard authorizationState == .connected || profile != nil else {
+            return []
+        }
+        guard
+            let bodyMassType = HKObjectType.quantityType(forIdentifier: .bodyMass),
+            days > 0
+        else {
+            return []
+        }
+
+        let startOfToday = calendar.startOfDay(for: Date())
+        let startDate = calendar.date(byAdding: .day, value: -(days - 1), to: startOfToday) ?? startOfToday
+        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: Date(), options: .strictStartDate)
+        let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+
+        let samples: [HKQuantitySample] = await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(sampleType: bodyMassType, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: [sortDescriptor]) { _, querySamples, _ in
+                continuation.resume(returning: (querySamples as? [HKQuantitySample]) ?? [])
+            }
+            healthStore.execute(query)
+        }
+
+        let grouped = Dictionary(grouping: samples) { sample in
+            centralDayIdentifier(for: sample.startDate)
+        }
+
+        let orderedDayIDs = grouped.keys.sorted()
+        return orderedDayIDs.compactMap { dayID in
+            guard let daySamples = grouped[dayID], !daySamples.isEmpty else { return nil }
+
+            let sortedByTime = daySamples.sorted { $0.startDate < $1.startDate }
+            let metadata = sortedByTime.map {
+                HealthWeighInSampleMetadata(
+                    timestamp: $0.startDate,
+                    pounds: $0.quantity.doubleValue(for: .pound())
+                )
+            }
+
+            let morningSamples = sortedByTime.filter { isMorningWindow(date: $0.startDate) }
+            if let selected = morningSamples.first {
+                return HealthWeighInDay(
+                    dayIdentifier: dayID,
+                    representativePounds: selected.quantity.doubleValue(for: .pound()),
+                    selectedSampleDate: selected.startDate,
+                    selectionMethod: .morningEarliest,
+                    sampleCount: sortedByTime.count,
+                    samples: metadata
+                )
+            }
+
+            guard let selected = sortedByTime.min(by: { lhs, rhs in
+                let left = lhs.quantity.doubleValue(for: .pound())
+                let right = rhs.quantity.doubleValue(for: .pound())
+                if left == right {
+                    return lhs.startDate < rhs.startDate
+                }
+                return left < right
+            }) else {
+                return nil
+            }
+
+            return HealthWeighInDay(
+                dayIdentifier: dayID,
+                representativePounds: selected.quantity.doubleValue(for: .pound()),
+                selectedSampleDate: selected.startDate,
+                selectionMethod: .dayMinimum,
+                sampleCount: sortedByTime.count,
+                samples: metadata
+            )
+        }
     }
 
     private func fetchTodayWorkouts() async -> [ExerciseEntry] {
@@ -187,11 +262,17 @@ final class HealthKitService: ObservableObject {
             guard let distance = workout.totalDistance?.doubleValue(for: .mile()), distance > 0 else { return nil }
             return distance
         }()
+        let paceMinutesPerMile: Double? = {
+            guard let miles = distanceMiles, miles > 0, workout.duration > 0 else { return nil }
+            return (workout.duration / 60.0) / miles
+        }()
         let calories = ExerciseCalorieService.fullCalories(
             type: type,
             durationMinutes: durationMinutes,
             distanceMiles: distanceMiles,
-            weightPounds: weight
+            weightPounds: weight,
+            paceMinutesPerMile: paceMinutesPerMile,
+            durationSeconds: workout.duration
         )
         let reclassifiedWalkingCalories: Int
         if type == .running {
@@ -199,7 +280,9 @@ final class HealthKitService: ObservableObject {
                 type: type,
                 durationMinutes: durationMinutes,
                 distanceMiles: distanceMiles,
-                weightPounds: weight
+                weightPounds: weight,
+                paceMinutesPerMile: paceMinutesPerMile,
+                durationSeconds: workout.duration
             )
         } else {
             reclassifiedWalkingCalories = 0
@@ -293,6 +376,20 @@ final class HealthKitService: ObservableObject {
         default:
             return nil
         }
+    }
+
+    private func centralDayIdentifier(for date: Date) -> String {
+        let startOfDay = calendar.startOfDay(for: date)
+        let components = calendar.dateComponents([.year, .month, .day], from: startOfDay)
+        return String(format: "%04d-%02d-%02d", components.year ?? 0, components.month ?? 1, components.day ?? 1)
+    }
+
+    private func isMorningWindow(date: Date) -> Bool {
+        let components = calendar.dateComponents([.hour, .minute], from: date)
+        let hour = components.hour ?? 0
+        let minute = components.minute ?? 0
+        let minutes = hour * 60 + minute
+        return minutes >= 180 && minutes <= 720
     }
 
     private static var readTypes: Set<HKObjectType> {

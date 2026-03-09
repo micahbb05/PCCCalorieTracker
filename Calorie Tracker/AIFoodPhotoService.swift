@@ -1,6 +1,11 @@
 import Foundation
 
 struct AIFoodPhotoAnalysisResult: Decodable {
+    enum SourceType: String, Decodable {
+        case real
+        case estimated
+    }
+
     enum Mode: String, Decodable {
         case foodPhoto = "food_photo"
         case nutritionLabel = "nutrition_label"
@@ -14,6 +19,7 @@ struct AIFoodPhotoAnalysisResult: Decodable {
         let estimatedServings: Double
         let calories: Int
         let protein: Int
+        let sourceType: SourceType
         let nutrients: [String: Int]
 
         enum CodingKeys: String, CodingKey {
@@ -23,7 +29,20 @@ struct AIFoodPhotoAnalysisResult: Decodable {
             case estimatedServings
             case calories
             case protein
+            case sourceType
             case nutrients
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            name = try container.decode(String.self, forKey: .name)
+            servingAmount = try container.decode(Double.self, forKey: .servingAmount)
+            servingUnit = try container.decode(String.self, forKey: .servingUnit)
+            estimatedServings = try container.decode(Double.self, forKey: .estimatedServings)
+            calories = try container.decode(Int.self, forKey: .calories)
+            protein = try container.decode(Int.self, forKey: .protein)
+            sourceType = try container.decodeIfPresent(SourceType.self, forKey: .sourceType) ?? .estimated
+            nutrients = try container.decode([String: Int].self, forKey: .nutrients)
         }
     }
 

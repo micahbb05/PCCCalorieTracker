@@ -1,3 +1,5 @@
+// Calorie Tracker 2026
+
 import SwiftUI
 import Charts
 import UIKit

@@ -19,12 +19,12 @@ export class MenuComponent {
       <div class="card interactive" data-venue="varsity">
         <h2 class="outfit">Varsity</h2>
         <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem; margin-bottom: 1rem;">Breakfast, Lunch & Dinner</p>
-        <button class="glass-btn" style="width: 100%; pointer-events: none;">Browse Menu</button>
+        <button class="glass-btn primary" style="width: 100%; pointer-events: none;">Browse Menu</button>
       </div>
       <div class="card interactive" data-venue="grab-n-go">
         <h2 class="outfit">Grab N Go</h2>
         <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem; margin-bottom: 1rem;">Quick items all day</p>
-        <button class="glass-btn" style="width: 100%; pointer-events: none;">Browse Menu</button>
+        <button class="glass-btn primary" style="width: 100%; pointer-events: none;">Browse Menu</button>
       </div>
     `;
 
@@ -58,7 +58,7 @@ export class MenuComponent {
       }
 
       for (const [index, line] of menu.lines.entries()) {
-        const isOpen = index === 0; // Open the first section by default
+        const isOpen = false; // By default, all sections are closed
         html += `
           <div class="accordion-item" style="margin-top: 1rem;">
             <button class="accordion-header flex-between" style="width: 100%; padding: 1.25rem 1rem; background: ${isOpen ? 'var(--surface-hover)' : 'var(--surface)'}; border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; color: var(--text-main); font-family: 'Outfit', sans-serif; font-size: 1.15rem; transition: all 0.2s;" data-accordion-index="${index}">
@@ -68,15 +68,27 @@ export class MenuComponent {
             <div class="accordion-content stack" id="content-${index}" style="display: ${isOpen ? 'flex' : 'none'}; padding-top: 0.75rem; padding-left: 0.5rem; padding-right: 0.5rem;">
         `;
         for (const item of line.items) {
+          // Attempt to map full macros if they exist on the object, assuming nutrientValues might hold them if the Nutrislice API is extended natively,
+          // but for now we'll just mock / parse based on what might be present or default to 0.
+          const carbs = item.nutrientValues?.carbonhydrates || item.nutrientValues?.carbs || 0;
+          const fat = item.nutrientValues?.totalFat || item.nutrientValues?.fat || 0;
+
           html += `
-            <div class="card interactive flex-between" style="padding: 1rem; margin-bottom: 0;" data-item-id="${item.id}">
+            <div class="card flex-between" style="padding: 1rem; margin-bottom: 0;" data-item-id="${item.id}">
               <div style="flex: 1; padding-right: 1rem;">
                 <div style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.25rem;">${item.name}</div>
-                <div style="font-size: 0.8rem; color: var(--text-muted);">${item.servingAmount} ${item.servingUnit}</div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">${item.servingAmount} ${item.servingUnit}</div>
+                <div style="display: flex; gap: 0.75rem; font-size: 0.75rem; color: var(--text-muted);">
+                  <span><strong style="color: var(--text-main);">${item.protein}g</strong> P</span>
+                  <span><strong style="color: var(--text-main);">${carbs}g</strong> C</span>
+                  <span><strong style="color: var(--text-main);">${fat}g</strong> F</span>
+                </div>
               </div>
-              <div class="stack-sm" style="text-align: right;">
-                <div class="badge" style="width:fit-content; margin-left: auto;">${item.calories} kcal</div>
-                <div style="font-size: 0.75rem; color: var(--text-muted);">${item.protein}g protein</div>
+              <div class="flex-center" style="gap: 1rem;">
+                <div class="badge" style="width:fit-content; border: none; background: #e0f2fe; color: #0284c7;">${item.calories} kcal</div>
+                <button class="icon-btn add-btn btn-add-item" aria-label="Add item">
+                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                </button>
               </div>
             </div>
           `;
@@ -100,7 +112,7 @@ export class MenuComponent {
             content.style.display = 'flex';
             chevron.style.transform = 'rotate(180deg)';
             btn.style.background = 'var(--surface-hover)';
-            btn.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+            btn.style.borderColor = 'var(--border)';
           } else {
             content.style.display = 'none';
             chevron.style.transform = 'rotate(0deg)';
@@ -120,27 +132,27 @@ export class MenuComponent {
       });
 
       // Add to tracking
-      this.container.querySelectorAll('.card[data-item-id]').forEach(card => {
-        card.addEventListener('click', () => {
+      this.container.querySelectorAll('.btn-add-item').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const card = (e.currentTarget as HTMLElement).closest('.card');
+          if (!card) return;
           const itemId = card.getAttribute('data-item-id');
           const foundLine = menu.lines.find(l => l.items.some(i => i.id === itemId));
           const foundItem = foundLine?.items.find(i => i.id === itemId);
+
           if (foundItem) {
+            const carbs = foundItem.nutrientValues?.carbonhydrates || foundItem.nutrientValues?.carbs || 0;
+            const fat = foundItem.nutrientValues?.totalFat || foundItem.nutrientValues?.fat || 0;
+
             TrackingService.addEntry({
               name: foundItem.name,
               calories: foundItem.calories,
-              protein: foundItem.protein
+              protein: foundItem.protein,
+              carbs: carbs,
+              fat: fat
             });
 
-            // Visual feedback
-            const el = card as HTMLElement;
-            const originalBg = el.style.background;
-            el.style.background = 'rgba(16, 185, 129, 0.2)';
-            el.style.transform = 'scale(0.98)';
-            setTimeout(() => {
-              el.style.background = originalBg;
-              el.style.transform = '';
-            }, 300);
+            this.showToast(`Added ${foundItem.name}`);
           }
         });
       });
@@ -148,9 +160,27 @@ export class MenuComponent {
     } catch (e) {
       this.container.innerHTML = `
         <button class="glass-btn" id="btn-back" style="margin-bottom: 1rem;">← Back</button>
-        <div class="card" style="border-color: #ef4444; background: rgba(239, 68, 68, 0.1);"><span style="color: #fca5a5;">Failed to load dietary menu data. The backend API might be unreachable.</span></div>
+        <div class="card" style="border-color: #ef4444; background: #fef2f2;"><span style="color: #b91c1c;">Failed to load dietary menu data. The backend API might be unreachable.</span></div>
       `;
       document.getElementById('btn-back')?.addEventListener('click', () => this.renderIndex());
     }
+  }
+
+  private showToast(message: string) {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = message;
+
+    container.appendChild(toast);
+
+    setTimeout(() => {
+      toast.classList.add('fade-out');
+      toast.addEventListener('animationend', () => {
+        toast.remove();
+      });
+    }, 2500);
   }
 }

@@ -1,0 +1,29 @@
+{
+  "suite": "e2e_scenarios",
+  "tier": "pr",
+  "passed": true,
+  "metrics": {
+    "scenarioPassRate": 1
+  },
+  "scenarios": [
+    {
+      "name": "usda_path",
+      "ok": true,
+      "status": 200,
+      "selectedFood": "BANANA",
+      "calories": 312
+    },
+    {
+      "name": "menu_import_path",
+      "ok": true,
+      "status": 404,
+      "note": "proxy reachable; upstream path unavailable in direct function mode"
+    },
+    {
+      "name": "ai_text_path",
+      "ok": true,
+      "status": 200,
+      "itemCount": 1
+    }
+  ]
+}

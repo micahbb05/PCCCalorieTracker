@@ -6,6 +6,8 @@ export interface MenuItem {
     name: string;
     calories: number;
     protein: number;
+    carbs: number;
+    fat: number;
     nutrientValues: Record<string, number>;
     servingAmount: number;
     servingUnit: string;
@@ -26,5 +28,14 @@ export interface MealEntry {
     name: string;
     calories: number;
     protein: number;
+    carbs: number;
+    fat: number;
     createdAt: string; // ISO string for easy storage
+}
+
+export interface UserGoals {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
 }

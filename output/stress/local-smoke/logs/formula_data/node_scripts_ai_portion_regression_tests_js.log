@@ -1,0 +1,25 @@
+AI Portion Regression Tests
+==========================
+PASS: count-based sanity: nuggets should be count-based
+FAIL: Chicken Sandwich should remain count-based by serving unit
+  -> Expected sandwich unit to be treated as count-based
+
+false !== true
+
+FAIL: Chicken Sandwich portion summary should be 1 sandwich, not 8.4 sandwiches
+  -> Expected values to be strictly equal:
++ actual - expected
+
++ '8.4 sandwiches'
+- '1 sandwich'
+
+FAIL: Adjuster should not briefly show 50 cal before stabilizing at 420
+  -> First frame 50cal != settled 420cal
+
+50 !== 420
+
+
+Live AI sample: name="Chicken Sandwich", unit="sandwich", servingAmount=1, estimatedServings=1, calories=420
+
+Summary: 1 passed, 3 failed
+

@@ -291,3 +291,107 @@ struct NutrientDefinition: Identifiable, Hashable {
 
     var id: String { key }
 }
+
+enum CalibrationRunStatus: String, Codable, Equatable {
+    case never
+    case applied
+    case skipped
+}
+
+struct CalibrationState: Codable, Equatable {
+    var isEnabled: Bool
+    var calibrationOffsetCalories: Int
+    var recentDailyErrors: [Double]
+    var appliedWeekCount: Int
+    var lastAppliedWeekID: String?
+    var lastRunDate: Date?
+    var lastRunStatus: CalibrationRunStatus
+    var lastSkipReason: String?
+    var dataQualityPasses: Int
+    var dataQualityChecks: Int
+
+    static let `default` = CalibrationState(
+        isEnabled: true,
+        calibrationOffsetCalories: 0,
+        recentDailyErrors: [],
+        appliedWeekCount: 0,
+        lastAppliedWeekID: nil,
+        lastRunDate: nil,
+        lastRunStatus: .never,
+        lastSkipReason: nil,
+        dataQualityPasses: 0,
+        dataQualityChecks: 0
+    )
+
+    enum CodingKeys: String, CodingKey {
+        case isEnabled
+        case calibrationOffsetCalories
+        case recentDailyErrors
+        case appliedWeekCount
+        case lastAppliedWeekID
+        case lastRunDate
+        case lastRunStatus
+        case lastSkipReason
+        case dataQualityPasses
+        case dataQualityChecks
+    }
+
+    init(
+        isEnabled: Bool,
+        calibrationOffsetCalories: Int,
+        recentDailyErrors: [Double],
+        appliedWeekCount: Int,
+        lastAppliedWeekID: String?,
+        lastRunDate: Date?,
+        lastRunStatus: CalibrationRunStatus,
+        lastSkipReason: String?,
+        dataQualityPasses: Int,
+        dataQualityChecks: Int
+    ) {
+        self.isEnabled = isEnabled
+        self.calibrationOffsetCalories = calibrationOffsetCalories
+        self.recentDailyErrors = recentDailyErrors
+        self.appliedWeekCount = appliedWeekCount
+        self.lastAppliedWeekID = lastAppliedWeekID
+        self.lastRunDate = lastRunDate
+        self.lastRunStatus = lastRunStatus
+        self.lastSkipReason = lastSkipReason
+        self.dataQualityPasses = dataQualityPasses
+        self.dataQualityChecks = dataQualityChecks
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
+        self.calibrationOffsetCalories = try container.decode(Int.self, forKey: .calibrationOffsetCalories)
+        self.recentDailyErrors = try container.decode([Double].self, forKey: .recentDailyErrors)
+        self.appliedWeekCount = try container.decode(Int.self, forKey: .appliedWeekCount)
+        self.lastAppliedWeekID = try container.decodeIfPresent(String.self, forKey: .lastAppliedWeekID)
+        self.lastRunDate = try container.decodeIfPresent(Date.self, forKey: .lastRunDate)
+        self.lastRunStatus = try container.decode(CalibrationRunStatus.self, forKey: .lastRunStatus)
+        self.lastSkipReason = try container.decodeIfPresent(String.self, forKey: .lastSkipReason)
+        self.dataQualityPasses = try container.decode(Int.self, forKey: .dataQualityPasses)
+        self.dataQualityChecks = try container.decode(Int.self, forKey: .dataQualityChecks)
+    }
+}
+
+enum HealthWeighInSelectionMethod: String, Codable, Equatable {
+    case morningEarliest
+    case dayMinimum
+}
+
+struct HealthWeighInSampleMetadata: Codable, Equatable {
+    let timestamp: Date
+    let pounds: Double
+}
+
+struct HealthWeighInDay: Codable, Equatable, Identifiable {
+    let dayIdentifier: String
+    let representativePounds: Double
+    let selectedSampleDate: Date
+    let selectionMethod: HealthWeighInSelectionMethod
+    let sampleCount: Int
+    let samples: [HealthWeighInSampleMetadata]
+
+    var id: String { dayIdentifier }
+}

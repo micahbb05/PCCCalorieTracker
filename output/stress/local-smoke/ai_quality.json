@@ -1,0 +1,56 @@
+{
+  "suite": "ai_quality",
+  "tier": "pr",
+  "passed": true,
+  "metrics": {
+    "aiParseValidity": 1,
+    "aiMalformedRate": 0,
+    "aiTextMAPE": 0,
+    "aiImageMAPE": 0,
+    "aiHallucinationRate": 0
+  },
+  "cases": [
+    {
+      "id": "text-cfa-sandwich",
+      "kind": "text",
+      "status": 200,
+      "latencyMs": 3422,
+      "ok": true,
+      "parseValid": true,
+      "malformed": false,
+      "calorieErrorPct": 0,
+      "hallucination": false,
+      "totalCalories": 420,
+      "expectedRange": [
+        350,
+        650
+      ],
+      "matchedKeywords": [
+        "sandwich",
+        "chicken"
+      ],
+      "itemCount": 1
+    },
+    {
+      "id": "text-rice-chicken",
+      "kind": "text",
+      "status": 200,
+      "latencyMs": 10167,
+      "ok": true,
+      "parseValid": true,
+      "malformed": false,
+      "calorieErrorPct": 0,
+      "hallucination": false,
+      "totalCalories": 472,
+      "expectedRange": [
+        350,
+        700
+      ],
+      "matchedKeywords": [
+        "rice",
+        "chicken"
+      ],
+      "itemCount": 2
+    }
+  ]
+}

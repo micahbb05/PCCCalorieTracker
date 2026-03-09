@@ -1,0 +1,20 @@
+{
+  "release_gate": {
+    "crash_free_required": true,
+    "api_success_rate_min": 0.995,
+    "api_non_ai_p95_latency_ms_max": 1200,
+    "api_ai_p95_latency_ms_max": 4500,
+    "contract_validity_min": 1.0,
+    "ai_parse_validity_min": 0.99,
+    "ai_malformed_rate_max": 0.01,
+    "ai_text_mape_max": 20,
+    "ai_image_mape_max": 25,
+    "math_invariant_pass_rate_min": 1.0,
+    "deterministic_formula_deviation_pct_max": 2,
+    "data_integrity_negative_values_max": 0,
+    "data_integrity_unit_normalization_errors_max": 0,
+    "data_integrity_archive_reconciliation_min": 1.0,
+    "ui_critical_dead_ends_max": 0,
+    "ui_action_success_rate_min": 0.99
+  }
+}

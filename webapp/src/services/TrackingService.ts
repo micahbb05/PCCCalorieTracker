@@ -32,6 +32,13 @@ export class TrackingService {
         this.saveEntries(entries);
     }
 
+    public static clearTodayEntries(): void {
+        let entries = this.getEntries();
+        const today = new Date().toDateString();
+        entries = entries.filter(e => new Date(e.createdAt).toDateString() !== today);
+        this.saveEntries(entries);
+    }
+
     public static getTodayEntries(): MealEntry[] {
         const entries = this.getEntries();
         const today = new Date().toDateString();
@@ -40,5 +47,19 @@ export class TrackingService {
 
     private static saveEntries(entries: MealEntry[]): void {
         localStorage.setItem(this.STORAGE_KEY, JSON.stringify(entries));
+    }
+
+    public static getGoals(): { calories: number; protein: number; carbs: number; fat: number } {
+        try {
+            const raw = localStorage.getItem('pcc_user_goals');
+            if (raw) return JSON.parse(raw);
+        } catch (e) {
+            console.error('Failed to parse goals', e);
+        }
+        return { calories: 2000, protein: 150, carbs: 250, fat: 65 }; // default
+    }
+
+    public static saveGoals(goals: { calories: number; protein: number; carbs: number; fat: number }): void {
+        localStorage.setItem('pcc_user_goals', JSON.stringify(goals));
     }
 }

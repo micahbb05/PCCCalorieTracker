@@ -1,0 +1,71 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - heading "Serving Selector Concepts" [level=1] [ref=e3]
+    - paragraph [ref=e4]: 3 Improved Variants + 3 Fresh Directions
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - generic [ref=e7]: "Improved #1"
+      - heading "Labeled Vertical + Fine Controls" [level=3] [ref=e8]
+      - paragraph [ref=e9]: Keeps your current vertical gesture, adds explicit labels and +/- nudges.
+      - generic [ref=e17]:
+        - generic [ref=e18]:
+          - generic [ref=e19]: Current
+          - strong [ref=e20]: 1.25x
+        - generic [ref=e21]:
+          - generic [ref=e22]: Serving
+          - strong [ref=e23]: 7.5 oz
+        - generic [ref=e24]:
+          - generic [ref=e25]: "-0.25"
+          - generic [ref=e26]: "+0.25"
+    - generic [ref=e27]:
+      - generic [ref=e28]: "Improved #2"
+      - heading "Slider + Preset Chips" [level=3] [ref=e29]
+      - paragraph [ref=e30]: Fast taps for common servings, drag only for edge cases.
+      - generic [ref=e31]:
+        - generic [ref=e32]: 0.5x
+        - generic [ref=e33]: 1.0x
+        - generic [ref=e34]: 1.25x
+        - generic [ref=e35]: 1.5x
+      - generic [ref=e38]:
+        - generic [ref=e39]: Output
+        - strong [ref=e40]: 6.0 oz · 320 cal
+    - generic [ref=e41]:
+      - generic [ref=e42]: "Improved #3"
+      - heading "Dual-Mode Input Row" [level=3] [ref=e43]
+      - paragraph [ref=e44]: Switch cleanly between oz and multiplier, keeps exact numeric edits visible.
+      - generic [ref=e45]:
+        - generic [ref=e46]: Ounces
+        - generic [ref=e47]: Multiplier
+      - generic [ref=e48]:
+        - generic [ref=e49]: Portion
+        - strong [ref=e50]: 8.2 oz
+      - generic [ref=e53]:
+        - generic [ref=e54]: Nutrition
+        - strong [ref=e55]: 430 cal · 23g protein
+    - generic [ref=e56]:
+      - generic [ref=e57]: "Fresh #1"
+      - heading "Radial Dial Selector" [level=3] [ref=e58]
+      - paragraph [ref=e59]: A thumb-friendly dial with stronger sense of precision and momentum.
+      - generic [ref=e62]:
+        - generic [ref=e63]: Selected
+        - strong [ref=e64]: 1.35x
+    - generic [ref=e65]:
+      - generic [ref=e66]: "Fresh #2"
+      - heading "Bottom-Sheet Quick Portions" [level=3] [ref=e67]
+      - paragraph [ref=e68]: List of human-readable choices ("small", "regular", "large") + calories.
+      - generic [ref=e69]:
+        - generic [ref=e70]: Small plate
+        - strong [ref=e71]: 0.75x · 210 cal
+      - generic [ref=e72]:
+        - generic [ref=e73]: Regular plate
+        - strong [ref=e74]: 1.0x · 280 cal
+      - generic [ref=e75]:
+        - generic [ref=e76]: Large plate
+        - strong [ref=e77]: 1.5x · 420 cal
+    - generic [ref=e78]:
+      - generic [ref=e79]: "Fresh #3"
+      - heading "Plate-Visual Adjuster" [level=3] [ref=e80]
+      - paragraph [ref=e81]: Directly resize food blobs on a mini plate preview instead of abstract numbers first.
+      - generic [ref=e85]:
+        - generic [ref=e86]: Total
+        - strong [ref=e87]: 11.2 oz · 610 cal

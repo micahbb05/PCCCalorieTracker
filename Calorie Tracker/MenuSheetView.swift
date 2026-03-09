@@ -52,12 +52,27 @@ struct MenuSheetView: View {
     @State private var searchText = ""
     @State private var multiplierSheetContext: MultiplierSheetContext?
     @State private var selectedMultiplierValue = 1.0
+    @State private var selectedServingBaselineAmount = 1.0
+    @State private var servingSliderBaselineByItemId: [String: Double] = [:]
+    @State private var servingSliderValueByItemId: [String: Double] = [:]
+    @State private var selectedServingAmountText = ""
+    @State private var isUpdatingServingTextFromSlider = false
+    @State private var isMultiplierKeyboardVisible = false
     @State private var bottomCTAHeight: CGFloat = 0
     @FocusState private var isSearchFieldFocused: Bool
+    @FocusState private var isServingAmountFieldFocused: Bool
     private let minMultiplier = 0.25
-    private let maxMultiplier = 2.0
+    private let maxMultiplier = 1.75
     private let multiplierStep = 0.25
     private let minimumBottomLineClearance: CGFloat = 96
+
+    private var selectedServingEffectiveMultiplier: Double {
+        guard let item = multiplierSheetContext?.item else { return 1.0 }
+        let baseAmount = convertedServingAmount(item.servingAmount, unit: item.servingUnit)
+        guard baseAmount > 0 else { return 1.0 }
+        let selectedAmount = roundToServingSelectorIncrement(selectedServingBaselineAmount * selectedMultiplierValue)
+        return max(selectedAmount / baseAmount, 0)
+    }
 
     private var surfacePrimary: Color {
         colorScheme == .dark ? Color(red: 0.13, green: 0.15, blue: 0.20) : Color.white
@@ -213,6 +228,7 @@ struct MenuSheetView: View {
                     items: items,
                     ozByItemId: $plateEstimateOzByItemId,
                     baseOzByItemId: plateEstimateBaseOzByItemId,
+                    trackedNutrientKeys: trackedNutrientKeys,
                     mealGroup: mealGroup,
                     onConfirm: onPlateEstimateConfirm,
                     onDismiss: onPlateEstimateDismiss
@@ -922,7 +938,17 @@ struct MenuSheetView: View {
     }
 
     private func openMultiplierSheet(for item: MenuItem) {
-        selectedMultiplierValue = snappedMultiplier(multiplier(for: item.id))
+        let baseAmount = convertedServingAmount(item.servingAmount, unit: item.servingUnit)
+        if let savedBaseline = servingSliderBaselineByItemId[item.id],
+           let savedSlider = servingSliderValueByItemId[item.id] {
+            selectedServingBaselineAmount = max(roundToServingSelectorIncrement(savedBaseline), 0)
+            selectedMultiplierValue = min(max(savedSlider, minMultiplier), maxMultiplier)
+        } else {
+            let absoluteMultiplier = multiplier(for: item.id)
+            selectedServingBaselineAmount = max(roundToServingSelectorIncrement(baseAmount * absoluteMultiplier), 0)
+            selectedMultiplierValue = 1.0
+        }
+        syncSelectedServingAmountText()
         dismissKeyboard()
         multiplierSheetContext = nil
         Haptics.impact(.light)
@@ -933,7 +959,17 @@ struct MenuSheetView: View {
 
     private func applySelectedMultiplier() {
         guard let item = multiplierSheetContext?.item else { return }
-        selectedItemMultipliers[item.id] = snappedMultiplier(selectedMultiplierValue)
+        let baseAmount = convertedServingAmount(item.servingAmount, unit: item.servingUnit)
+        let selectedAmount = roundToServingSelectorIncrement(selectedServingBaselineAmount * selectedMultiplierValue)
+        let effectiveMultiplier: Double
+        if baseAmount > 0 {
+            effectiveMultiplier = max(selectedAmount / baseAmount, 0)
+        } else {
+            effectiveMultiplier = 1.0
+        }
+        selectedItemMultipliers[item.id] = effectiveMultiplier
+        servingSliderBaselineByItemId[item.id] = max(roundToServingSelectorIncrement(selectedServingBaselineAmount), 0)
+        servingSliderValueByItemId[item.id] = min(max(selectedMultiplierValue, minMultiplier), maxMultiplier)
         if quantity(for: item.id) == 0 {
             selectedItemQuantities[item.id] = 1
         }
@@ -979,15 +1015,19 @@ struct MenuSheetView: View {
     }
 
     private func menuItemRow(_ item: MenuItem) -> some View {
-        HStack {
+        let currentMultiplier = multiplier(for: item.id)
+        let displayedCalories = displayedCalories(for: item, multiplier: currentMultiplier)
+        let displayedProtein = displayedProtein(for: item, multiplier: currentMultiplier)
+
+        return HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.name)
                     .font(.body.weight(.semibold))
                     .foregroundStyle(textPrimary)
                 HStack(spacing: 6) {
-                    Text("\(item.calories) cal • \(item.protein)g protein")
-                    if multiplier(for: item.id) != 1 {
-                        Text("\(formattedDisplayServingAmount(item.servingAmount * multiplier(for: item.id), unit: item.servingUnit)) \(displayServingUnit(for: item.servingUnit)) (\(multiplier(for: item.id), specifier: "%.2f")x)")
+                    Text("\(displayedCalories) cal • \(displayedProtein)g protein")
+                    if abs(currentMultiplier - 1.0) > 0.001 {
+                        Text(formattedDisplayServingWithUnit(item.servingAmount * currentMultiplier, unit: item.servingUnit))
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(.cyan)
                             .padding(.horizontal, 6)
@@ -1083,45 +1123,70 @@ struct MenuSheetView: View {
                                 .lineLimit(3)
                                 .fixedSize(horizontal: false, vertical: true)
 
-                            Text("Base serve: \(formattedDisplayServingAmount(item.servingAmount, unit: item.servingUnit)) \(displayServingUnit(for: item.servingUnit))")
+                            Text("Base serve: \(formattedDisplayServingWithUnit(item.servingAmount, unit: item.servingUnit))")
                                 .font(.subheadline)
                                 .foregroundStyle(textSecondary)
                         }
 
-                        HStack(alignment: .center, spacing: 22) {
-                            VerticalServeSlider(
+                        VStack(alignment: .leading, spacing: 14) {
+                            let minServingAmount = formattedServingAmount(selectedServingBaselineAmount * minMultiplier)
+                            let maxServingAmount = formattedServingAmount(selectedServingBaselineAmount * maxMultiplier)
+                            let minServingUnit = inflectedUnit(displayServingUnit(for: item.servingUnit), quantity: selectedServingBaselineAmount * minMultiplier)
+                            let maxServingUnit = inflectedUnit(displayServingUnit(for: item.servingUnit), quantity: selectedServingBaselineAmount * maxMultiplier)
+                            HStack {
+                                Text("\(minServingAmount) \(minServingUnit)")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(textSecondary)
+                                Spacer()
+                                Text("\(maxServingAmount) \(maxServingUnit)")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(textSecondary)
+                            }
+
+                            HorizontalServeSlider(
                                 value: $selectedMultiplierValue,
                                 range: minMultiplier...maxMultiplier,
                                 step: multiplierStep
                             ) {
                                 Haptics.selection()
                             }
-                            .frame(width: 104, height: 336)
+                            .frame(height: 52)
 
-                            VStack(alignment: .leading, spacing: 14) {
-                                multiplierStatCard(
-                                    title: "Serve",
-                                    value: "\(formattedDisplayServingAmount(item.servingAmount * selectedMultiplierValue, unit: item.servingUnit)) \(displayServingUnit(for: item.servingUnit))"
-                                )
-
-                                multiplierStatCard(
-                                    title: "Multiplier",
-                                    value: String(format: "%.2fx", selectedMultiplierValue)
-                                )
-
-                                Text("Move up for more, down for less")
-                                    .font(.caption)
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Serve")
+                                    .font(.caption.weight(.semibold))
                                     .foregroundStyle(textSecondary)
-                                    .padding(.top, 2)
+
+                                TextField("", text: $selectedServingAmountText)
+                                    .keyboardType(.decimalPad)
+                                    .focused($isServingAmountFieldFocused)
+                                    .padding(.trailing, 52)
+                                    .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
+                                    .overlay(alignment: .trailing) {
+                                        Text(inflectedTextFieldUnit(for: item.servingUnit, amountText: selectedServingAmountText))
+                                            .font(.headline.weight(.semibold))
+                                            .foregroundStyle(textSecondary)
+                                            .padding(.trailing, 14)
+                                            .allowsHitTesting(false)
+                                    }
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(14)
+                            .background(
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .fill(surfacePrimary.opacity(0.94))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .stroke(textSecondary.opacity(0.12), lineWidth: 1)
+                            )
                         }
 
                         ServingNutrientGridCard(
-                            title: "Nutrients Per Selected Serving",
+                            title: "Nutrition Info",
                             calories: item.calories,
                             nutrientValues: item.nutrientValues,
-                            multiplier: selectedMultiplierValue,
+                            multiplier: selectedServingEffectiveMultiplier,
                             trackedNutrientKeys: trackedNutrientKeys,
                             displayedNutrientKeys: nil,
                             surface: surfacePrimary.opacity(0.95),
@@ -1135,7 +1200,10 @@ struct MenuSheetView: View {
                     .padding(.top, 24)
                     .padding(.bottom, 120)
                 }
+                .scrollBounceBehavior(.always)
+                .scrollDismissesKeyboard(.interactively)
                 .scrollIndicators(.hidden)
+
             }
             .safeAreaInset(edge: .bottom) {
                 Button {
@@ -1174,57 +1242,109 @@ struct MenuSheetView: View {
                     .foregroundStyle(textPrimary)
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { notification in
+                let endFrame = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect) ?? .zero
+                let visibleHeight = max(0, UIScreen.main.bounds.maxY - endFrame.minY)
+                isMultiplierKeyboardVisible = visibleHeight > 20
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+                isMultiplierKeyboardVisible = false
+            }
+            .onAppear {
+                isMultiplierKeyboardVisible = false
+                syncSelectedServingAmountText()
+            }
+            .onDisappear {
+                isMultiplierKeyboardVisible = false
+            }
+            .onChange(of: selectedMultiplierValue) { _, _ in
+                if !isServingAmountFieldFocused {
+                    syncSelectedServingAmountText()
+                }
+            }
+            .onChange(of: selectedServingAmountText) { _, newValue in
+                applyTypedServingAmountIfPossible(for: item, text: newValue)
+            }
+            .interactiveDismissDisabled(isMultiplierKeyboardVisible)
         }
-    }
-
-    private func multiplierStatCard(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(textSecondary)
-            Text(value)
-                .font(.title3.weight(.bold))
-                .monospacedDigit()
-                .foregroundStyle(textPrimary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(surfacePrimary.opacity(0.94))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(textSecondary.opacity(0.12), lineWidth: 1)
-        )
     }
 
     private func dismissKeyboard() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 
-    private func snappedMultiplier(_ value: Double) -> Double {
-        let clamped = min(max(value, minMultiplier), maxMultiplier)
-        let steps = (clamped / multiplierStep).rounded()
-        return min(max(steps * multiplierStep, minMultiplier), maxMultiplier)
+    private func syncSelectedServingAmountText() {
+        let amount = formattedServingAmount(selectedServingBaselineAmount * selectedMultiplierValue)
+        if selectedServingAmountText != amount {
+            isUpdatingServingTextFromSlider = true
+            selectedServingAmountText = amount
+        }
+    }
+
+    private func applyTypedServingAmountIfPossible(for item: MenuItem, text: String) {
+        if isUpdatingServingTextFromSlider {
+            isUpdatingServingTextFromSlider = false
+            return
+        }
+        guard let typedAmount = parsedDecimalAmount(text), typedAmount >= 0 else { return }
+        let roundedTypedAmount = roundToServingSelectorIncrement(typedAmount)
+        let currentAmount = roundToServingSelectorIncrement(selectedServingBaselineAmount * selectedMultiplierValue)
+        if abs(roundedTypedAmount - currentAmount) > 0.0005 {
+            selectedServingBaselineAmount = roundedTypedAmount
+            selectedMultiplierValue = 1.0
+        }
+    }
+
+    private func parsedDecimalAmount(_ text: String) -> Double? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let normalized = trimmed.replacingOccurrences(of: ",", with: ".")
+        return Double(normalized)
     }
 
     private func formattedServingAmount(_ amount: Double) -> String {
-        if abs(amount.rounded() - amount) < 0.001 {
-            return String(format: "%.0f", amount)
-        }
-        if abs((amount * 10).rounded() - (amount * 10)) < 0.001 {
-            return String(format: "%.1f", amount)
-        }
-        return String(format: "%.2f", amount)
+        formatServingSelectorAmount(amount)
     }
 
     private func formattedDisplayServingAmount(_ amount: Double, unit: String) -> String {
         formattedServingAmount(convertedServingAmount(amount, unit: unit))
     }
 
+    private func formattedDisplayServingWithUnit(_ amount: Double, unit: String) -> String {
+        let convertedAmount = convertedServingAmount(amount, unit: unit)
+        let formattedAmount = formattedServingAmount(convertedAmount)
+        let unitText = inflectedUnit(displayServingUnit(for: unit), quantity: convertedAmount)
+        return "\(formattedAmount) \(unitText)"
+    }
+
     private func displayServingUnit(for unit: String) -> String {
         isGramUnit(unit) ? "oz" : unit
+    }
+
+    private func inflectedTextFieldUnit(for unit: String, amountText: String) -> String {
+        let displayUnit = displayServingUnit(for: unit)
+        guard let amount = parsedDecimalAmount(amountText) else { return displayUnit }
+        return inflectedUnit(displayUnit, quantity: amount)
+    }
+
+    private func inflectedUnit(_ unit: String, quantity: Double) -> String {
+        let trimmed = unit.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return quantity == 1 ? "serving" : "servings" }
+        let lower = trimmed.lowercased()
+        let invariant = ["oz", "fl oz", "g", "mg", "kg", "lb", "lbs", "ml", "l", "tbsp", "tsp"]
+        if invariant.contains(lower) { return lower }
+        if quantity == 1 {
+            if lower.hasSuffix("ies"), lower.count > 3 { return String(lower.dropLast(3) + "y") }
+            if lower.hasSuffix("ses"), lower.count > 3 { return String(lower.dropLast(2)) }
+            if lower.hasSuffix("s"), lower.count > 1 { return String(lower.dropLast()) }
+            return lower
+        }
+        if lower.hasSuffix("s") { return lower }
+        if lower.hasSuffix("y"), lower.count > 1 { return String(lower.dropLast() + "ies") }
+        if lower.hasSuffix("ch") || lower.hasSuffix("sh") || lower.hasSuffix("x") || lower.hasSuffix("z") {
+            return lower + "es"
+        }
+        return lower + "s"
     }
 
     private func convertedServingAmount(_ amount: Double, unit: String) -> Double {
@@ -1232,6 +1352,17 @@ struct MenuSheetView: View {
             return amount / 28.3495
         }
         return amount
+    }
+
+    private func displayedCalories(for item: MenuItem, multiplier: Double) -> Int {
+        let scaledCaloriesFromNutrients = item.nutrientValues["calories"].map { Int((Double($0) * multiplier).rounded()) }
+        let scaledCaloriesFromItem = Int((Double(item.calories) * multiplier).rounded())
+        return max(0, scaledCaloriesFromNutrients ?? scaledCaloriesFromItem)
+    }
+
+    private func displayedProtein(for item: MenuItem, multiplier: Double) -> Int {
+        let baseProtein = item.nutrientValues["g_protein"] ?? item.protein
+        return max(0, Int((Double(baseProtein) * multiplier).rounded()))
     }
 
     private func isGramUnit(_ unit: String) -> Bool {

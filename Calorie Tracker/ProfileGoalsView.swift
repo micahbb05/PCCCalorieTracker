@@ -14,11 +14,29 @@ struct ProfileGoalsView: View {
     let burnedCaloriesToday: Int
     let activeBurnedCaloriesToday: Int
     let isUsingAutomatedCalories: Bool
+    @Binding var isCalibrationEnabled: Bool
+    let calibrationOffsetCalories: Int
+    let calibrationStatusText: String
+    let calibrationSkipReason: String?
+    let calibrationLastRunText: String
+    let calibrationNextRunText: String
+    let calibrationConfidenceText: String
     let onRequestHealthAccess: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
 
     private var cardBackground: some View {
         RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .fill(Color(uiColor: .secondarySystemBackground).opacity(0.55))
+            .fill(Color(uiColor: .secondarySystemBackground).opacity(colorScheme == .dark ? 0.82 : 0.55))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(Color.white.opacity(colorScheme == .dark ? 0.08 : 0.14), lineWidth: 1)
+            )
+            .shadow(
+                color: Color.black.opacity(colorScheme == .dark ? 0.20 : 0.08),
+                radius: colorScheme == .dark ? 10 : 6,
+                x: 0,
+                y: 2
+            )
     }
 
     var body: some View {
@@ -34,14 +52,57 @@ struct ProfileGoalsView: View {
             sectionCard(title: "Body Profile") {
                 bodyProfileSection
             }
+
+            if isCalibrationEnabled {
+                sectionCard(
+                    title: "Smart Adjustment",
+                    trailing: {
+                        Toggle("", isOn: $isCalibrationEnabled)
+                            .labelsHidden()
+                            .accessibilityLabel("Enable smart adjustment")
+                            .tint(Color(red: 0.19, green: 0.52, blue: 1.0))
+                    }
+                ) {
+                    smartAdjustmentSection
+                }
+            } else {
+                sectionCard(
+                    title: "Smart Adjustment",
+                    trailing: {
+                        Toggle("", isOn: $isCalibrationEnabled)
+                            .labelsHidden()
+                            .accessibilityLabel("Enable smart adjustment")
+                            .tint(Color(red: 0.19, green: 0.52, blue: 1.0))
+                    }
+                ) {
+                    Text("Auto-adjusts burned calories from your weekly Health weigh-ins.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
         }
     }
 
     private func sectionCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        sectionCard(title: title, trailing: { EmptyView() }, content: content)
+    }
+
+    private func sectionCard<Content: View, Trailing: View>(
+        title: String,
+        @ViewBuilder trailing: () -> Trailing,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(title)
-                .font(.headline.weight(.semibold))
-                .foregroundStyle(.primary)
+            HStack(spacing: 12) {
+                Text(title)
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(.primary)
+
+                Spacer(minLength: 0)
+
+                trailing()
+            }
 
             content()
         }
@@ -73,7 +134,7 @@ struct ProfileGoalsView: View {
                     healthValueChip(title: "Height", value: healthProfile.heightDisplay)
                     healthValueChip(title: "Weight", value: healthProfile.weightDisplay)
                 }
-            } else {
+            } else if healthAuthorizationState != .connected {
                 Text(healthAuthorizationState.detail)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -159,6 +220,28 @@ struct ProfileGoalsView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    private var smartAdjustmentSection: some View {
+        Text(smartAdjustmentSummaryText)
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var smartAdjustmentSummaryText: String {
+        if let calibrationSkipReason, !calibrationSkipReason.isEmpty {
+            return "Smart adjustment pending: \(calibrationSkipReason)"
+        }
+
+        if calibrationStatusText.localizedCaseInsensitiveContains("applied") {
+            if calibrationOffsetCalories == 0 {
+                return "No adjustment needed this week."
+            }
+            return "Adjusted by \(String(format: "%+d", calibrationOffsetCalories)) cal/day this week."
+        }
+
+        return "Smart adjustment pending: no adjustment applied yet."
     }
 
     private var nutrientGoalsSection: some View {

@@ -1,0 +1,58 @@
+
+scripts/algorithmic_stress_test.swift:3:1: error: 'main' attribute cannot be used in a module that contains top-level code
+  1 | import Foundation
+    | |- note: top-level code defined in this source file
+    | `- note: pass '-parse-as-library' to compiler invocation if this is intentional
+  2 | 
+  3 | @main
+    | `- error: 'main' attribute cannot be used in a module that contains top-level code
+  4 | struct AlgorithmicStressTest {
+  5 |     static var failureCount = 0
+
+scripts/algorithmic_stress_test.swift:59:15: error: cannot find type 'ExerciseType' in scope
+ 57 | 
+ 58 |     static func testCombination(
+ 59 |         type: ExerciseType,
+    |               `- error: cannot find type 'ExerciseType' in scope
+ 60 |         durationMinutes: Int,
+ 61 |         distanceMiles: Double?,
+
+scripts/algorithmic_stress_test.swift:11:29: error: cannot find type 'ExerciseType' in scope
+  9 |         print("Starting Algorithmic Stress Test for ExerciseCalorieService...")
+ 10 | 
+ 11 |         let exerciseTypes: [ExerciseType] = [.running, .cycling, .swimming, .weightLifting, .directCalories]
+    |                             `- error: cannot find type 'ExerciseType' in scope
+ 12 |         
+ 13 |         let durationsMinutes = [-100, -1, 0, 1, 30, 60, 1440, 10000, 100000]
+
+scripts/algorithmic_stress_test.swift:21:13: error: the compiler is unable to type-check this expression in reasonable time; try breaking up the expression into distinct sub-expressions
+ 19 |         // Fuzz loop
+ 20 |         var iterations = 0
+ 21 |         let totalEstimated = exerciseTypes.count * durationsMinutes.count * distanceMiles.count * weightsPounds.count * durationsSeconds.count * pacesMinutesPerMile.count
+    |             `- error: the compiler is unable to type-check this expression in reasonable time; try breaking up the expression into distinct sub-expressions
+ 22 | 
+ 23 |         for type in exerciseTypes {
+
+scripts/algorithmic_stress_test.swift:70:20: error: cannot find 'ExerciseCalorieService' in scope
+ 68 |         
+ 69 |         // Let's call the public interfaces of ExerciseCalorieService
+ 70 |         let full = ExerciseCalorieService.fullCalories(
+    |                    `- error: cannot find 'ExerciseCalorieService' in scope
+ 71 |             type: type,
+ 72 |             durationMinutes: durationMinutes,
+
+scripts/algorithmic_stress_test.swift:79:28: error: cannot find 'ExerciseCalorieService' in scope
+ 77 |         )
+ 78 | 
+ 79 |         let walkingEquiv = ExerciseCalorieService.walkingEquivalentCalories(
+    |                            `- error: cannot find 'ExerciseCalorieService' in scope
+ 80 |             type: type,
+ 81 |             durationMinutes: durationMinutes,
+
+scripts/algorithmic_stress_test.swift:88:24: error: cannot find 'ExerciseCalorieService' in scope
+ 86 |         )
+ 87 |         
+ 88 |         let standard = ExerciseCalorieService.calories(
+    |                        `- error: cannot find 'ExerciseCalorieService' in scope
+ 89 |             type: type, 
+ 90 |             durationMinutes: durationMinutes, 

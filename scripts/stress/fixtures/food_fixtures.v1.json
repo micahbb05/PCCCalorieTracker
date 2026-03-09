@@ -1,0 +1,62 @@
+[
+  {
+    "id": "usda-banana-raw",
+    "name": "Banana, raw",
+    "brand": null,
+    "servingAmount": 100,
+    "servingUnit": "g",
+    "calories": 89,
+    "nutrientValues": {
+      "g_protein": 1,
+      "g_carbs": 23,
+      "g_fat": 0,
+      "g_fiber": 3,
+      "g_sugar": 12,
+      "mg_potassium": 358
+    },
+    "source": "USDA"
+  },
+  {
+    "id": "off-coca-cola-can",
+    "name": "Coca-Cola",
+    "brand": "Coca-Cola",
+    "servingAmount": 12,
+    "servingUnit": "fl oz",
+    "calories": 140,
+    "nutrientValues": {
+      "g_carbs": 39,
+      "g_sugar": 39,
+      "mg_sodium": 45
+    },
+    "source": "OpenFoodFacts"
+  },
+  {
+    "id": "menu-steamed-rice",
+    "name": "Steamed White Rice",
+    "brand": null,
+    "servingAmount": 0.5,
+    "servingUnit": "cup",
+    "calories": 103,
+    "nutrientValues": {
+      "g_protein": 2,
+      "g_carbs": 23,
+      "g_fat": 0
+    },
+    "source": "Nutrislice"
+  },
+  {
+    "id": "menu-grilled-chicken",
+    "name": "Grilled Chicken Bowl",
+    "brand": null,
+    "servingAmount": 1,
+    "servingUnit": "each",
+    "calories": 420,
+    "nutrientValues": {
+      "g_protein": 35,
+      "g_carbs": 40,
+      "g_fat": 14,
+      "mg_sodium": 620
+    },
+    "source": "Nutrislice"
+  }
+]

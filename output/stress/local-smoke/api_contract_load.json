@@ -1,0 +1,110 @@
+{
+  "suite": "api_contract_load",
+  "tier": "pr",
+  "passed": true,
+  "metrics": {
+    "apiSuccessRate": 0.78,
+    "contractValidity": 0.9800000000000001,
+    "apiNonAiP95LatencyMs": 783,
+    "apiAiP95LatencyMs": 21939
+  },
+  "endpoints": [
+    {
+      "id": "search-usda-banana",
+      "endpoint": "searchUSDAFoods",
+      "ai": false,
+      "samples": 10,
+      "successRate": 0.9,
+      "contractRate": 0.9,
+      "p95LatencyMs": 783,
+      "avgLatencyMs": 686.1111111111111,
+      "errors": [
+        {
+          "ok": false,
+          "status": 0,
+          "durationMs": 0,
+          "contractValid": false,
+          "error": "This operation was aborted"
+        }
+      ]
+    },
+    {
+      "id": "proxy-nutrislice-fourwinds",
+      "endpoint": "proxyNutrislice",
+      "ai": false,
+      "samples": 20,
+      "successRate": 1,
+      "contractRate": 1,
+      "p95LatencyMs": 355,
+      "avgLatencyMs": 216.95,
+      "errors": []
+    },
+    {
+      "id": "analyze-food-text",
+      "endpoint": "analyzeFoodText",
+      "ai": true,
+      "samples": 1,
+      "successRate": 1,
+      "contractRate": 1,
+      "p95LatencyMs": 10997,
+      "avgLatencyMs": 10997,
+      "errors": []
+    },
+    {
+      "id": "estimate-plate-portions",
+      "endpoint": "estimatePlatePortions",
+      "ai": true,
+      "samples": 1,
+      "successRate": 1,
+      "contractRate": 1,
+      "p95LatencyMs": 13197,
+      "avgLatencyMs": 13197,
+      "errors": []
+    },
+    {
+      "id": "analyze-food-photo",
+      "endpoint": "analyzeFoodPhoto",
+      "ai": true,
+      "samples": 1,
+      "successRate": 0,
+      "contractRate": 1,
+      "p95LatencyMs": 21939,
+      "avgLatencyMs": 21939,
+      "errors": [
+        {
+          "ok": false,
+          "status": 502,
+          "durationMs": 21939,
+          "contractValid": true,
+          "textSample": "{\"error\":\"AI returned an invalid response.\",\"rawJson\":\"```json\\n{\\n  \\\"mode\\\": \\\"food_photo\\\",\\n  \\\"items\\\": [\\n    {\\n      \\\"name\\\": \\\"Apple\\\",\\n      \\\"servingAmount\\\": 1,\\n      \\\"servingUnit\\\": \\"
+        }
+      ]
+    }
+  ],
+  "failureInjection": [
+    {
+      "name": "searchUSDAFoods-empty-query",
+      "status": 400,
+      "ok": true,
+      "bodySample": "{\"error\":\"Enter a food name to search.\"}"
+    },
+    {
+      "name": "analyzeFoodText-empty-body",
+      "status": 400,
+      "ok": true,
+      "bodySample": "{\"error\":\"Missing mealText.\"}"
+    },
+    {
+      "name": "estimatePlatePortions-invalid-body",
+      "status": 400,
+      "ok": true,
+      "bodySample": "{\"error\":\"Missing imageBase64 or foodItems/foodNames.\"}"
+    },
+    {
+      "name": "proxyNutrislice-invalid-url",
+      "status": 405,
+      "ok": true,
+      "bodySample": "{\"error\":\"Method not allowed.\"}"
+    }
+  ]
+}

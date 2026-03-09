@@ -3,6 +3,7 @@ import Foundation
 struct OpenFoodFactsProduct {
     let barcode: String
     let name: String
+    let brand: String?
     let calories: Int
     let nutrientValues: [String: Int]
     let servingAmount: Double
@@ -41,61 +42,67 @@ enum OpenFoodFactsError: LocalizedError {
 }
 
 final class OpenFoodFactsService {
-    private struct ProductResponse: Decodable {
-        struct Product: Decodable {
-            struct Nutriments: Decodable {
-                struct DynamicCodingKeys: CodingKey {
-                    let stringValue: String
-                    init?(stringValue: String) { self.stringValue = stringValue }
-                    let intValue: Int? = nil
-                    init?(intValue: Int) { return nil }
-                }
+    private let userAgent = "CalorieTracker/1.0 (micahbb05@icloud.com)"
 
-                let values: [String: Double]
-
-                init(from decoder: Decoder) throws {
-                    let container = try decoder.container(keyedBy: DynamicCodingKeys.self)
-                    var values: [String: Double] = [:]
-
-                    for key in container.allKeys {
-                        if let value = try? container.decode(Double.self, forKey: key) {
-                            values[key.stringValue] = value
-                        } else if let intValue = try? container.decode(Int.self, forKey: key) {
-                            values[key.stringValue] = Double(intValue)
-                        } else if let stringValue = try? container.decode(String.self, forKey: key),
-                                  let numeric = Double(stringValue) {
-                            values[key.stringValue] = numeric
-                        }
-                    }
-
-                    self.values = values
-                }
-            }
-
-            let productName: String?
-            let genericName: String?
-            let nutriments: Nutriments?
-            let servingQuantity: Double?
-            let servingQuantityUnit: String?
-            let servingSize: String?
-            let imageFrontSmallURL: String?
-            let imageFrontURL: String?
-
-            enum CodingKeys: String, CodingKey {
-                case productName = "product_name"
-                case genericName = "generic_name"
-                case nutriments
-                case servingQuantity = "serving_quantity"
-                case servingQuantityUnit = "serving_quantity_unit"
-                case servingSize = "serving_size"
-                case imageFrontSmallURL = "image_front_small_url"
-                case imageFrontURL = "image_front_url"
-            }
+    private struct DynamicNutriments: Decodable {
+        struct DynamicCodingKeys: CodingKey {
+            let stringValue: String
+            init?(stringValue: String) { self.stringValue = stringValue }
+            let intValue: Int? = nil
+            init?(intValue: Int) { return nil }
         }
 
+        let values: [String: Double]
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: DynamicCodingKeys.self)
+            var values: [String: Double] = [:]
+
+            for key in container.allKeys {
+                if let value = try? container.decode(Double.self, forKey: key) {
+                    values[key.stringValue] = value
+                } else if let intValue = try? container.decode(Int.self, forKey: key) {
+                    values[key.stringValue] = Double(intValue)
+                } else if let stringValue = try? container.decode(String.self, forKey: key),
+                          let numeric = Double(stringValue) {
+                    values[key.stringValue] = numeric
+                }
+            }
+
+            self.values = values
+        }
+    }
+
+    private struct OFFProduct: Decodable {
+        let code: String?
+        let productName: String?
+        let genericName: String?
+        let brands: String?
+        let nutriments: DynamicNutriments?
+        let servingQuantity: Double?
+        let servingQuantityUnit: String?
+        let servingSize: String?
+        let imageFrontSmallURL: String?
+        let imageFrontURL: String?
+
+        enum CodingKeys: String, CodingKey {
+            case code
+            case productName = "product_name"
+            case genericName = "generic_name"
+            case brands
+            case nutriments
+            case servingQuantity = "serving_quantity"
+            case servingQuantityUnit = "serving_quantity_unit"
+            case servingSize = "serving_size"
+            case imageFrontSmallURL = "image_front_small_url"
+            case imageFrontURL = "image_front_url"
+        }
+    }
+
+    private struct ProductResponse: Decodable {
         let code: String?
         let status: Int?
-        let product: Product?
+        let product: OFFProduct?
     }
 
     func fetchProduct(for barcode: String) async throws -> OpenFoodFactsProduct {
@@ -129,7 +136,7 @@ final class OpenFoodFactsService {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("CalorieTracker/1.0 (micahbb05@icloud.com)", forHTTPHeaderField: "User-Agent")
+        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
 
         let data: Data
         let response: URLResponse
@@ -157,9 +164,21 @@ final class OpenFoodFactsService {
             throw OpenFoodFactsError.productNotFound
         }
 
+        guard let mapped = mapProduct(product, fallbackBarcode: decoded.code ?? normalizedBarcode) else {
+            throw OpenFoodFactsError.productMissingNutrition
+        }
+        return mapped
+    }
+
+    private func mapProduct(_ product: OFFProduct, fallbackBarcode: String?) -> OpenFoodFactsProduct? {
+        let resolvedBarcode = product.code?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? fallbackBarcode
+        guard let barcode = resolvedBarcode?.trimmingCharacters(in: .whitespacesAndNewlines), !barcode.isEmpty else {
+            return nil
+        }
+
         let name = [product.productName, product.genericName]
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .first { !$0.isEmpty } ?? "Scanned food"
+            .first { !$0.isEmpty } ?? "Food"
 
         let servingQuantity = normalizedServingAmount(from: product.servingQuantity)
         let servingUnit = normalizedServingUnit(from: product.servingQuantityUnit)
@@ -171,14 +190,14 @@ final class OpenFoodFactsService {
             preferServingValues: servingDescription != nil || product.servingQuantity != nil
         )
         let calories = mappedNutrients["calories"] ?? 0
-
         guard calories > 0 || mappedNutrients.contains(where: { $0.key != "calories" && $0.value > 0 }) else {
-            throw OpenFoodFactsError.productMissingNutrition
+            return nil
         }
 
         return OpenFoodFactsProduct(
-            barcode: decoded.code ?? normalizedBarcode,
+            barcode: barcode,
             name: name,
+            brand: product.brands?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
             calories: calories,
             nutrientValues: mappedNutrients.filter { $0.key != "calories" },
             servingAmount: servingQuantity,

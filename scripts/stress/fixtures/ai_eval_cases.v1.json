@@ -1,0 +1,38 @@
+[
+  {
+    "id": "text-cfa-sandwich",
+    "kind": "text",
+    "input": { "mealText": "Chick-fil-A chicken sandwich" },
+    "expected": {
+      "expectedFoodKeywords": ["sandwich", "chicken"],
+      "totalCaloriesMin": 350,
+      "totalCaloriesMax": 650,
+      "allowExtraItems": false
+    }
+  },
+  {
+    "id": "text-rice-chicken",
+    "kind": "text",
+    "input": { "mealText": "1 cup rice and 6 oz grilled chicken" },
+    "expected": {
+      "expectedFoodKeywords": ["rice", "chicken"],
+      "totalCaloriesMin": 350,
+      "totalCaloriesMax": 700,
+      "allowExtraItems": true
+    }
+  },
+  {
+    "id": "image-ten-food-collage",
+    "kind": "image",
+    "input": {
+      "imagePath": "output/ai-stress/ten-food-collage.png",
+      "mimeType": "image/png"
+    },
+    "expected": {
+      "expectedFoodKeywords": ["apple", "banana", "pizza", "steak"],
+      "totalCaloriesMin": 400,
+      "totalCaloriesMax": 3500,
+      "allowExtraItems": true
+    }
+  }
+]

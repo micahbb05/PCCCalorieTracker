@@ -1,5 +1,20 @@
 import SwiftUI
 
+func roundToServingSelectorIncrement(_ value: Double) -> Double {
+    ((value * 20).rounded()) / 20
+}
+
+func formatServingSelectorAmount(_ amount: Double) -> String {
+    let rounded = roundToServingSelectorIncrement(amount)
+    if abs(rounded.rounded() - rounded) < 0.001 {
+        return String(format: "%.0f", rounded)
+    }
+    if abs((rounded * 10).rounded() - (rounded * 10)) < 0.001 {
+        return String(format: "%.1f", rounded)
+    }
+    return String(format: "%.2f", rounded)
+}
+
 /// Horizontal slider for oz (or other numeric range), similar to VerticalServeSlider.
 struct HorizontalServeSlider: View {
     @Binding var value: Double
@@ -11,7 +26,7 @@ struct HorizontalServeSlider: View {
         var result: [Double] = []
         var current = range.lowerBound
         while current <= range.upperBound + 0.0001 {
-            result.append(current)
+            result.append(roundToServingSelectorIncrement(current))
             current += step
         }
         return result
@@ -47,10 +62,6 @@ struct HorizontalServeSlider: View {
                     .fill(Color.white)
                     .frame(width: 30, height: 30)
                     .shadow(color: Color.cyan.opacity(0.45), radius: 12, x: 0, y: 4)
-                    .overlay(
-                        Circle()
-                            .stroke(Color.blue.opacity(0.55), lineWidth: 3)
-                    )
                     .position(x: knobX, y: proxy.size.height / 2)
             }
             .contentShape(Rectangle())
@@ -70,7 +81,13 @@ struct HorizontalServeSlider: View {
 
     private func snap(_ raw: Double) -> Double {
         let clamped = min(max(raw, range.lowerBound), range.upperBound)
+        guard step > 0 else {
+            let rounded = roundToServingSelectorIncrement(clamped)
+            return min(max(rounded, range.lowerBound), range.upperBound)
+        }
         let steps = (clamped / step).rounded()
-        return min(max(steps * step, range.lowerBound), range.upperBound)
+        let stepped = steps * step
+        let rounded = roundToServingSelectorIncrement(stepped)
+        return min(max(rounded, range.lowerBound), range.upperBound)
     }
 }

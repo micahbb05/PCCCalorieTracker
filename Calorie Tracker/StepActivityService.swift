@@ -7,8 +7,8 @@ final class StepActivityService: ObservableObject {
     private static let defaultWeightPounds = 170.0
     private static let defaultHeightInches = 68.0
     // Net walking-energy approximation used because BMR is already counted separately.
-    // Calibrated slightly lower to avoid mild overestimation for typical daily walking.
-    private static let netWalkingCaloriesPerKgPerKm = 0.75
+    // Set to ACSM-style baseline for better average accuracy across users.
+    private static let netWalkingCaloriesPerKgPerKm = 0.50
     private static let strideMultiplier = 0.415
 
     enum AuthorizationState: Equatable {

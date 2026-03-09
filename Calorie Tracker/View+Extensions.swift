@@ -30,10 +30,11 @@ extension View {
 }
 
 struct ServingNutrientGridCard: View {
-    private struct NutrientTile: Identifiable {
+    private struct NutrientRow: Identifiable {
         let id: String
-        let title: String
-        let value: String
+        let label: String
+        let value: String?
+        let unit: String
     }
 
     let title: String
@@ -42,73 +43,124 @@ struct ServingNutrientGridCard: View {
     let multiplier: Double
     let trackedNutrientKeys: [String]
     let displayedNutrientKeys: [String]?
+    let showNAForMissingNutrients: Bool
     let surface: Color
     let stroke: Color
     let titleColor: Color
     let labelColor: Color
     let valueColor: Color
 
-    private var nutrientTiles: [NutrientTile] {
-        let sourceKeys = displayedNutrientKeys ?? trackedNutrientKeys
-        let trackedKeys = Array(NSOrderedSet(array: sourceKeys.map { $0.lowercased() })) as? [String] ?? sourceKeys.map { $0.lowercased() }
+    private var nutrientRows: [NutrientRow] {
+        let trackedKeys = trackedNutrientKeys.map { $0.lowercased() }
+        let trackedSet = Set(trackedKeys)
+        let sourceKeys = (displayedNutrientKeys ?? trackedNutrientKeys).map { $0.lowercased() }
+        let orderedUniqueKeys = Array(NSOrderedSet(array: sourceKeys)) as? [String] ?? sourceKeys
 
-        let tracked = trackedKeys
+        let trackedRows = orderedUniqueKeys
             .filter { key in
-                let normalized = key.lowercased()
-                return normalized != "calories" && !NutrientCatalog.nonTrackableKeys.contains(normalized)
+                key != "calories" &&
+                trackedSet.contains(key) &&
+                !NutrientCatalog.nonTrackableKeys.contains(key)
             }
-            .map { key -> NutrientTile in
+            .compactMap { key -> NutrientRow? in
                 let definition = NutrientCatalog.definition(for: key)
-                let scaledValue = Int((Double(nutrientValues[key] ?? 0) * multiplier).rounded())
-                return NutrientTile(
+                let scaledValue: String?
+                if let rawValue = nutrientValues[key] {
+                    scaledValue = "\(Int((Double(rawValue) * multiplier).rounded()))"
+                } else {
+                    if showNAForMissingNutrients {
+                        return nil
+                    }
+                    scaledValue = "0"
+                }
+                return NutrientRow(
                     id: key,
-                    title: definition.name,
-                    value: "\(scaledValue) \(definition.unit)"
+                    label: definition.name,
+                    value: scaledValue,
+                    unit: definition.unit
                 )
             }
 
         return [
-            NutrientTile(
+            NutrientRow(
                 id: "calories",
-                title: "Calories",
-                value: "\(Int((Double(calories) * multiplier).rounded()))"
+                label: "Calories",
+                value: "\(Int((Double(calories) * multiplier).rounded()))",
+                unit: "cal"
             )
-        ] + tracked
+        ] + trackedRows
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             Text(title)
                 .font(.headline.weight(.semibold))
                 .foregroundStyle(titleColor)
 
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                ForEach(nutrientTiles) { tile in
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(tile.title)
-                            .font(.caption.weight(.semibold))
+            VStack(spacing: 0) {
+                ForEach(Array(nutrientRows.enumerated()), id: \.element.id) { index, row in
+                    HStack(spacing: 12) {
+                        Text(row.label)
+                            .font(.headline.weight(.semibold))
                             .foregroundStyle(labelColor)
-
-                        Text(tile.value)
-                            .font(.title3.weight(.bold))
+                        Spacer(minLength: 8)
+                        Text(row.value.map { "\($0) \(row.unit)" } ?? "")
+                            .font(.headline.weight(.bold))
+                            .monospacedDigit()
                             .foregroundStyle(valueColor)
-                            .minimumScaleFactor(0.75)
-                            .lineLimit(1)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(14)
-                    .background(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(surface.opacity(0.72))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(stroke.opacity(0.6), lineWidth: 1)
-                    )
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+
+                    if index < nutrientRows.count - 1 {
+                        Divider()
+                            .overlay(stroke.opacity(0.8))
+                            .padding(.horizontal, 14)
+                    }
                 }
             }
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(surface.opacity(0.55))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(stroke.opacity(0.7), lineWidth: 1)
+            )
         }
         .padding(18)
         .cardStyle(surface: surface, stroke: stroke)
+        .accessibilityLabel(title)
+    }
+}
+
+extension ServingNutrientGridCard {
+    init(
+        title: String,
+        calories: Int,
+        nutrientValues: [String: Int],
+        multiplier: Double,
+        trackedNutrientKeys: [String],
+        displayedNutrientKeys: [String]?,
+        surface: Color,
+        stroke: Color,
+        titleColor: Color,
+        labelColor: Color,
+        valueColor: Color
+    ) {
+        self.init(
+            title: title,
+            calories: calories,
+            nutrientValues: nutrientValues,
+            multiplier: multiplier,
+            trackedNutrientKeys: trackedNutrientKeys,
+            displayedNutrientKeys: displayedNutrientKeys,
+            showNAForMissingNutrients: false,
+            surface: surface,
+            stroke: stroke,
+            titleColor: titleColor,
+            labelColor: labelColor,
+            valueColor: valueColor
+        )
     }
 }

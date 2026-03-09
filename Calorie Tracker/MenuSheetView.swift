@@ -53,6 +53,8 @@ struct MenuSheetView: View {
     @State private var multiplierSheetContext: MultiplierSheetContext?
     @State private var selectedMultiplierValue = 1.0
     @State private var selectedServingBaselineAmount = 1.0
+    @State private var servingSliderBaselineByItemId: [String: Double] = [:]
+    @State private var servingSliderValueByItemId: [String: Double] = [:]
     @State private var selectedServingAmountText = ""
     @State private var isUpdatingServingTextFromSlider = false
     @State private var isMultiplierKeyboardVisible = false
@@ -937,9 +939,15 @@ struct MenuSheetView: View {
 
     private func openMultiplierSheet(for item: MenuItem) {
         let baseAmount = convertedServingAmount(item.servingAmount, unit: item.servingUnit)
-        let absoluteMultiplier = multiplier(for: item.id)
-        selectedServingBaselineAmount = max(roundToServingSelectorIncrement(baseAmount * absoluteMultiplier), 0)
-        selectedMultiplierValue = 1.0
+        if let savedBaseline = servingSliderBaselineByItemId[item.id],
+           let savedSlider = servingSliderValueByItemId[item.id] {
+            selectedServingBaselineAmount = max(roundToServingSelectorIncrement(savedBaseline), 0)
+            selectedMultiplierValue = min(max(savedSlider, minMultiplier), maxMultiplier)
+        } else {
+            let absoluteMultiplier = multiplier(for: item.id)
+            selectedServingBaselineAmount = max(roundToServingSelectorIncrement(baseAmount * absoluteMultiplier), 0)
+            selectedMultiplierValue = 1.0
+        }
         syncSelectedServingAmountText()
         dismissKeyboard()
         multiplierSheetContext = nil
@@ -960,6 +968,8 @@ struct MenuSheetView: View {
             effectiveMultiplier = 1.0
         }
         selectedItemMultipliers[item.id] = effectiveMultiplier
+        servingSliderBaselineByItemId[item.id] = max(roundToServingSelectorIncrement(selectedServingBaselineAmount), 0)
+        servingSliderValueByItemId[item.id] = min(max(selectedMultiplierValue, minMultiplier), maxMultiplier)
         if quantity(for: item.id) == 0 {
             selectedItemQuantities[item.id] = 1
         }

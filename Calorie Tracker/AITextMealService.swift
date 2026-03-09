@@ -7,7 +7,9 @@ struct AITextMealAnalysisResult: Decodable {
         let brand: String?
         let servingAmount: Double
         let servingUnit: String
+        let servingItemsCount: Double?
         let estimatedServings: Double
+        let estimatedItemCount: Double?
         let calories: Int
         let protein: Int
         let sourceType: String
@@ -18,7 +20,9 @@ struct AITextMealAnalysisResult: Decodable {
             case brand
             case servingAmount
             case servingUnit
+            case servingItemsCount
             case estimatedServings
+            case estimatedItemCount
             case calories
             case protein
             case sourceType

@@ -98,9 +98,11 @@ struct MenuItem: Identifiable, Hashable, Codable {
             "burger", "burgers",
             "taco", "tacos",
             "burrito", "burritos",
-            "wrap", "wraps"
+            "wrap", "wraps",
+            "quesadilla", "quesadillas"
         ].contains(u) { return true }
         if n.contains("nugget") { return true }
+        if n.contains("quesadilla") { return true }
         if n.contains("cookie") || n.contains("chips") || n.hasSuffix(" chip") { return true }
         if n.contains("sandwich") || n.contains("burger") || n.contains("burrito") || n.contains("taco") || n.contains("wrap") {
             return true

@@ -15,6 +15,8 @@ struct PlateEstimateResultView: View {
     @State private var selectedAdjustItem: MenuItem?
     @State private var adjusterBaselineAmount: Double = 1.0
     @State private var adjusterMultiplier: Double = 1.0
+    @State private var adjusterBaselineByItemId: [String: Double] = [:]
+    @State private var adjusterSliderValueByItemId: [String: Double] = [:]
     @State private var adjusterAmountText: String = ""
     @State private var adjusterQuantity: Double = 1
     @State private var adjusterCountText: String = "1"
@@ -227,6 +229,8 @@ struct PlateEstimateResultView: View {
         updated[item.id] = 0
         ozByItemId = updated
         adjusterQuantityByItemId[item.id] = nil
+        adjusterBaselineByItemId[item.id] = nil
+        adjusterSliderValueByItemId[item.id] = nil
         if selectedAdjustItem?.id == item.id {
             selectedAdjustItem = nil
         }
@@ -528,8 +532,14 @@ struct PlateEstimateResultView: View {
             adjusterQuantityByItemId[item.id] = quantity
         } else {
             adjusterQuantity = 1.0
-            adjusterBaselineAmount = roundToServingSelectorIncrement(currentTotal)
-            adjusterMultiplier = 1.0
+            if let savedBaseline = adjusterBaselineByItemId[item.id],
+               let savedSliderValue = adjusterSliderValueByItemId[item.id] {
+                adjusterBaselineAmount = max(roundToServingSelectorIncrement(savedBaseline), 0)
+                adjusterMultiplier = min(max(savedSliderValue, 0.25), 1.75)
+            } else {
+                adjusterBaselineAmount = roundToServingSelectorIncrement(currentTotal)
+                adjusterMultiplier = 1.0
+            }
             adjusterAmountText = formattedServingAmount(currentAdjusterAmount())
         }
         preparedAdjusterItemId = item.id
@@ -600,6 +610,9 @@ struct PlateEstimateResultView: View {
         ozByItemId = updated
         if item.isCountBased {
             adjusterQuantityByItemId[item.id] = adjusterQuantity
+        } else {
+            adjusterBaselineByItemId[item.id] = max(roundToServingSelectorIncrement(adjusterBaselineAmount), 0)
+            adjusterSliderValueByItemId[item.id] = min(max(adjusterMultiplier, 0.25), 1.75)
         }
     }
 

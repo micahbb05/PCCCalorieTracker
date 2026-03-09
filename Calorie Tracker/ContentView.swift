@@ -428,7 +428,7 @@ struct ContentView: View {
             case .usdaSearch: return "Search USDA foods."
             case .barcode: return "Use your camera to scan packaged foods."
             case .quickAdd: return "Add one of your saved foods."
-            case .aiPhoto: return "Use AI for photos or typed meals."
+            case .aiPhoto: return "Use AI to estimate nutrition information."
             case .manualEntry: return "Type food and macro details yourself."
             }
         }
@@ -613,6 +613,8 @@ struct ContentView: View {
     @State private var foodReviewNameText = ""
     @State private var selectedFoodReviewMultiplier = 1.0
     @State private var selectedFoodReviewBaselineAmount = 1.0
+    @State private var foodReviewSliderBaselineBySignature: [String: Double] = [:]
+    @State private var foodReviewSliderValueBySignature: [String: Double] = [:]
     @State private var selectedFoodReviewAmountText = ""
     @State private var isUpdatingFoodReviewTextFromSlider = false
     @State private var isFoodReviewKeyboardVisible = false
@@ -2853,55 +2855,22 @@ struct ContentView: View {
 
     private var manualEntryTabView: some View {
         ScrollViewReader { proxy in
-            GeometryReader { outerGeometry in
-                VStack(alignment: .leading, spacing: 0) {
-                    addWorkspaceHeader(
-                        title: AddDestination.manualEntry.title,
-                        subtitle: AddDestination.manualEntry.subtitle
-                    )
-                    .frame(maxWidth: Self.manualEntryContentMaxWidth, alignment: .leading)
-                    .frame(maxWidth: .infinity, alignment: .center)
+            VStack(alignment: .leading, spacing: 0) {
+                addWorkspaceHeader(
+                    title: AddDestination.manualEntry.title,
+                    subtitle: AddDestination.manualEntry.subtitle
+                )
 
-                    GeometryReader { contentGeometry in
-                        let closedSpacerHeight = manualEntryClosedSpacerHeight(in: contentGeometry)
-                        let topSpacerHeight: CGFloat = isManualEntryEditing ? 12 : closedSpacerHeight
-                        let bottomSpacerHeight: CGFloat = isManualEntryEditing
-                            ? manualEntryEditingBottomPadding(in: outerGeometry)
-                            : closedSpacerHeight + Self.embeddedMenuBottomClearance
-
-                        ScrollView {
-                            VStack(spacing: 0) {
-                                Color.clear
-                                    .frame(height: topSpacerHeight)
-
-                                VStack(alignment: .leading, spacing: 18) {
-                                    manualEntryFormCard
-                                }
-                                .background(
-                                    GeometryReader { proxy in
-                                        Color.clear.preference(
-                                            key: ManualEntryFormHeightPreferenceKey.self,
-                                            value: proxy.size.height
-                                        )
-                                    }
-                                )
-
-                                Color.clear
-                                    .frame(height: bottomSpacerHeight)
-                            }
-                            .frame(maxWidth: Self.manualEntryContentMaxWidth, alignment: .leading)
-                            .frame(maxWidth: .infinity)
-                            .frame(minHeight: contentGeometry.size.height, alignment: .top)
-                            .padding(.horizontal, 16)
-                        }
-                        .scrollIndicators(.hidden)
-                        .scrollDismissesKeyboard(.interactively)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        manualEntryFormCard
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .padding(.bottom, manualEntryBottomPadding)
                 }
-            }
-            .onPreferenceChange(ManualEntryFormHeightPreferenceKey.self) { newHeight in
-                guard newHeight > 0 else { return }
-                manualEntryFormHeight = newHeight
+                .scrollIndicators(.hidden)
+                .scrollDismissesKeyboard(.interactively)
             }
             .onChange(of: focusedField) { _, newValue in
                 guard newValue != nil else { return }
@@ -3306,6 +3275,10 @@ struct ContentView: View {
             Text("Describe Your Meal")
                 .font(.headline.weight(.semibold))
                 .foregroundStyle(textPrimary)
+
+            Text("Type what you ate and AI will estimate calories and macros, using web lookup when needed for more accurate nutrient info.")
+                .font(.caption)
+                .foregroundStyle(textSecondary)
 
             TextEditor(text: $aiMealTextInput)
                 .frame(minHeight: 108)
@@ -5748,11 +5721,13 @@ struct ContentView: View {
             "taco", "tacos",
             "burrito", "burritos",
             "wrap", "wraps",
+            "quesadilla", "quesadillas",
             "cookie", "cookies",
             "chip", "chips"
         ]
         if countUnits.contains(normalizedUnit) { return true }
         return normalizedName.contains("nugget")
+            || normalizedName.contains("quesadilla")
             || normalizedName.contains("sandwich")
             || normalizedName.contains("burger")
             || normalizedName.contains("taco")
@@ -5761,6 +5736,76 @@ struct ContentView: View {
             || normalizedName.contains("cookie")
             || normalizedName.contains("chips")
             || normalizedName.hasSuffix(" chip")
+    }
+
+    private struct AICountServingNormalization {
+        let servingAmount: Double
+        let servingUnit: String
+        let estimatedServings: Double
+        let consumedItemCount: Double?
+    }
+
+    private func inferredCountUnitFromName(_ name: String) -> String? {
+        let normalizedName = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if normalizedName.contains("nugget") { return "nuggets" }
+        if normalizedName.contains("quesadilla") { return "quesadillas" }
+        if normalizedName.contains("sandwich") { return "sandwiches" }
+        if normalizedName.contains("burger") { return "burgers" }
+        if normalizedName.contains("taco") { return "tacos" }
+        if normalizedName.contains("burrito") { return "burritos" }
+        if normalizedName.contains("wrap") { return "wraps" }
+        if normalizedName.contains("slice") { return "slices" }
+        if normalizedName.contains("cookie") { return "cookies" }
+        if normalizedName.contains("chip") || normalizedName.contains("chips") { return "chips" }
+        return nil
+    }
+
+    private func normalizedCountServingForAIItem(
+        name: String,
+        servingAmount: Double,
+        servingUnit: String,
+        servingItemsCount: Double?,
+        estimatedServings: Double,
+        estimatedItemCount: Double?
+    ) -> AICountServingNormalization {
+        let safeServingAmount = max(servingAmount, 1)
+        let safeEstimatedServings = max(min(estimatedServings, 100), 0.01)
+        let safeServingItemsCount = (servingItemsCount ?? 0) > 0 ? servingItemsCount : nil
+        let safeEstimatedItemCount = (estimatedItemCount ?? 0) > 0 ? estimatedItemCount : nil
+        let likelyCountBased = isLikelyCountServingUnit(name: name, unit: servingUnit)
+
+        guard likelyCountBased else {
+            return AICountServingNormalization(
+                servingAmount: safeServingAmount,
+                servingUnit: servingUnit,
+                estimatedServings: safeEstimatedServings,
+                consumedItemCount: nil
+            )
+        }
+
+        var normalizedServingAmount = safeServingItemsCount ?? safeServingAmount
+        var normalizedServingUnit = servingUnit
+        if isAmbiguousAIServingUnit(normalizedServingUnit), let inferredUnit = inferredCountUnitFromName(name) {
+            normalizedServingUnit = inferredUnit
+        }
+
+        let consumedCount: Double
+        if let explicitConsumedCount = safeEstimatedItemCount {
+            consumedCount = explicitConsumedCount
+        } else {
+            consumedCount = max(normalizedServingAmount * safeEstimatedServings, 0.01)
+        }
+
+        if normalizedServingAmount <= 0 {
+            normalizedServingAmount = 1
+        }
+
+        return AICountServingNormalization(
+            servingAmount: normalizedServingAmount,
+            servingUnit: normalizedServingUnit,
+            estimatedServings: safeEstimatedServings,
+            consumedItemCount: consumedCount
+        )
     }
 
     private func normalizedEstimatedServingsForCountItems(
@@ -5786,7 +5831,20 @@ struct ContentView: View {
     private func presentAITextPlateResults() {
         guard !aiTextMealResults.isEmpty else { return }
 
-        let menuItems = aiTextMealResults.enumerated().map { index, item -> MenuItem in
+        let normalizedItems = aiTextMealResults.map {
+            normalizedCountServingForAIItem(
+                name: $0.name,
+                servingAmount: $0.servingAmount,
+                servingUnit: $0.servingUnit,
+                servingItemsCount: $0.servingItemsCount,
+                estimatedServings: $0.estimatedServings,
+                estimatedItemCount: $0.estimatedItemCount
+            )
+        }
+
+        let menuItems = zip(aiTextMealResults.enumerated(), normalizedItems).map { pair -> MenuItem in
+            let (indexedItem, normalized) = pair
+            let (index, item) = indexedItem
             let cleanedNutrients = NutrientCatalog.acceptedImportedNutrientValues(item.nutrients)
             let calories = max(item.calories, cleanedNutrients["calories"] ?? 0)
             let protein = max(item.protein, cleanedNutrients["g_protein"] ?? 0)
@@ -5800,24 +5858,24 @@ struct ContentView: View {
                 name: item.name,
                 calories: calories,
                 nutrientValues: nutrientValues,
-                servingAmount: item.servingAmount,
-                servingUnit: item.servingUnit,
+                servingAmount: normalized.servingAmount,
+                servingUnit: normalized.servingUnit,
                 calorieSource: item.sourceType == "real" ? .web : .estimated
             )
         }
 
         var ozById: [String: Double] = [:]
         var baseOzById: [String: Double] = [:]
-        for (menuItem, aiItem) in zip(menuItems, aiTextMealResults) {
+        for ((menuItem, aiItem), normalized) in zip(zip(menuItems, aiTextMealResults), normalizedItems) {
             let estimatedServings = normalizedEstimatedServingsForCountItems(
                 name: aiItem.name,
-                servingAmount: aiItem.servingAmount,
-                servingUnit: aiItem.servingUnit,
-                estimatedServings: aiItem.estimatedServings
+                servingAmount: normalized.servingAmount,
+                servingUnit: normalized.servingUnit,
+                estimatedServings: normalized.estimatedServings
             )
             if menuItem.isCountBased {
-                let baseCount = max(menuItem.servingAmount, 1)
-                ozById[menuItem.id] = max(baseCount * estimatedServings, 0.25)
+                let consumedCount = normalized.consumedItemCount ?? max(normalized.servingAmount * estimatedServings, 0.01)
+                ozById[menuItem.id] = max(consumedCount, 0.25)
             } else if isAmbiguousAIServingUnit(menuItem.servingUnit) {
                 // For ambiguous AI units (serving/each/item), treat estimatedServings as direct serving count.
                 baseOzById[menuItem.id] = 1.0
@@ -5836,6 +5894,30 @@ struct ContentView: View {
 
     @MainActor
     private func handleAIFoodPhotoResult(_ result: AIFoodPhotoAnalysisResult) {
+        func makeAIPhotoMenuItem(
+            _ item: AIFoodPhotoAnalysisResult.Item,
+            normalized: AICountServingNormalization,
+            index: Int
+        ) -> MenuItem {
+            let cleanedNutrients = NutrientCatalog.acceptedImportedNutrientValues(item.nutrients)
+            let calories = max(item.calories, cleanedNutrients["calories"] ?? 0)
+            let protein = max(item.protein, cleanedNutrients["g_protein"] ?? 0)
+            var nutrientValues = cleanedNutrients
+            nutrientValues.removeValue(forKey: "calories")
+            if protein > 0, nutrientValues["g_protein"] == nil {
+                nutrientValues["g_protein"] = protein
+            }
+            return MenuItem(
+                id: "ai-photo-\(index)-\(UUID().uuidString)",
+                name: item.name,
+                calories: calories,
+                nutrientValues: nutrientValues,
+                servingAmount: normalized.servingAmount,
+                servingUnit: normalized.servingUnit,
+                calorieSource: item.sourceType == .real ? .web : .estimated
+            )
+        }
+
         switch result.mode {
         case .foodPhoto:
             guard let firstItem = result.items.first else {
@@ -5844,27 +5926,27 @@ struct ContentView: View {
             }
 
             if result.items.count == 1 {
-                let menuItem = MenuItem(
-                    id: "ai-photo-0-\(UUID().uuidString)",
+                let normalized = normalizedCountServingForAIItem(
                     name: firstItem.name,
-                    calories: firstItem.calories,
-                    nutrientValues: firstItem.protein > 0 ? ["g_protein": firstItem.protein] : [:],
                     servingAmount: firstItem.servingAmount,
                     servingUnit: firstItem.servingUnit,
-                    calorieSource: firstItem.sourceType == .real ? .web : .estimated
+                    servingItemsCount: firstItem.servingItemsCount,
+                    estimatedServings: firstItem.estimatedServings,
+                    estimatedItemCount: firstItem.estimatedItemCount
                 )
+                let menuItem = makeAIPhotoMenuItem(firstItem, normalized: normalized, index: 0)
 
                 aiPhotoOzByItemId = [:]
                 aiPhotoBaseOzByItemId = [:]
                 let estimatedServings = normalizedEstimatedServingsForCountItems(
                     name: firstItem.name,
-                    servingAmount: firstItem.servingAmount,
-                    servingUnit: firstItem.servingUnit,
-                    estimatedServings: firstItem.estimatedServings
+                    servingAmount: normalized.servingAmount,
+                    servingUnit: normalized.servingUnit,
+                    estimatedServings: normalized.estimatedServings
                 )
                 if menuItem.isCountBased {
-                    let baseCount = max(menuItem.servingAmount, 1)
-                    aiPhotoOzByItemId[menuItem.id] = max(baseCount * estimatedServings, 0.25)
+                    let consumedCount = normalized.consumedItemCount ?? max(normalized.servingAmount * estimatedServings, 0.01)
+                    aiPhotoOzByItemId[menuItem.id] = max(consumedCount, 0.25)
                 } else if isAmbiguousAIServingUnit(menuItem.servingUnit) {
                     aiPhotoBaseOzByItemId[menuItem.id] = 1.0
                     aiPhotoOzByItemId[menuItem.id] = max(estimatedServings, 0.01)
@@ -5877,30 +5959,35 @@ struct ContentView: View {
                 return
             }
 
-            let menuItems = result.items.enumerated().map { index, item in
-                MenuItem(
-                    id: "ai-photo-\(index)-\(UUID().uuidString)",
-                    name: item.name,
-                    calories: item.calories,
-                    nutrientValues: item.protein > 0 ? ["g_protein": item.protein] : [:],
-                    servingAmount: item.servingAmount,
-                    servingUnit: item.servingUnit,
-                    calorieSource: item.sourceType == .real ? .web : .estimated
+            let normalizedItems = result.items.map {
+                normalizedCountServingForAIItem(
+                    name: $0.name,
+                    servingAmount: $0.servingAmount,
+                    servingUnit: $0.servingUnit,
+                    servingItemsCount: $0.servingItemsCount,
+                    estimatedServings: $0.estimatedServings,
+                    estimatedItemCount: $0.estimatedItemCount
                 )
+            }
+
+            let menuItems = zip(result.items.enumerated(), normalizedItems).map { pair in
+                let (indexedItem, normalized) = pair
+                let (index, item) = indexedItem
+                return makeAIPhotoMenuItem(item, normalized: normalized, index: index)
             }
 
             var ozById: [String: Double] = [:]
             var baseOzById: [String: Double] = [:]
-            for (menuItem, aiItem) in zip(menuItems, result.items) {
+            for ((menuItem, aiItem), normalized) in zip(zip(menuItems, result.items), normalizedItems) {
                 let estimatedServings = normalizedEstimatedServingsForCountItems(
                     name: aiItem.name,
-                    servingAmount: aiItem.servingAmount,
-                    servingUnit: aiItem.servingUnit,
-                    estimatedServings: aiItem.estimatedServings
+                    servingAmount: normalized.servingAmount,
+                    servingUnit: normalized.servingUnit,
+                    estimatedServings: normalized.estimatedServings
                 )
                 if menuItem.isCountBased {
-                    let baseCount = max(menuItem.servingAmount, 1)
-                    ozById[menuItem.id] = max(baseCount * estimatedServings, 0.25)
+                    let consumedCount = normalized.consumedItemCount ?? max(normalized.servingAmount * estimatedServings, 0.01)
+                    ozById[menuItem.id] = max(consumedCount, 0.25)
                 } else if isAmbiguousAIServingUnit(menuItem.servingUnit) {
                     baseOzById[menuItem.id] = 1.0
                     ozById[menuItem.id] = max(estimatedServings, 0.01)
@@ -6328,6 +6415,7 @@ struct ContentView: View {
 
     private func addReviewedFood(_ item: FoodReviewItem) {
         let multiplier = selectedFoodReviewEffectiveMultiplier
+        let signature = foodReviewSliderSignature(for: item)
         let quantity = max(1, selectedFoodReviewQuantity)
         let editedName = MealEntry.normalizedName(foodReviewNameText)
         var scaledNutrients: [String: Int] = [:]
@@ -6355,6 +6443,8 @@ struct ContentView: View {
 
         foodReviewItem = nil
         foodReviewNameText = ""
+        foodReviewSliderBaselineBySignature[signature] = max(roundToServingSelectorIncrement(selectedFoodReviewBaselineAmount), 0)
+        foodReviewSliderValueBySignature[signature] = min(max(selectedFoodReviewMultiplier, 0.25), 1.75)
         selectedFoodReviewMultiplier = 1.0
         selectedFoodReviewBaselineAmount = 1.0
         selectedFoodReviewAmountText = ""
@@ -7174,12 +7264,47 @@ struct ContentView: View {
 
     private func presentFoodReview(_ item: FoodReviewItem, initialMultiplier: Double = 1.0) {
         let baseAmount = convertedServingAmount(item.servingAmount, unit: item.servingUnit)
-        selectedFoodReviewBaselineAmount = max(roundToServingSelectorIncrement(baseAmount * initialMultiplier), 0)
-        selectedFoodReviewMultiplier = 1.0
-        selectedFoodReviewAmountText = formattedServingAmount(selectedFoodReviewBaselineAmount)
+        let signature = foodReviewSliderSignature(for: item)
+        if let savedBaseline = foodReviewSliderBaselineBySignature[signature],
+           let savedSliderValue = foodReviewSliderValueBySignature[signature] {
+            selectedFoodReviewBaselineAmount = max(roundToServingSelectorIncrement(savedBaseline), 0)
+            selectedFoodReviewMultiplier = min(max(savedSliderValue, 0.25), 1.75)
+        } else {
+            selectedFoodReviewBaselineAmount = max(roundToServingSelectorIncrement(baseAmount * initialMultiplier), 0)
+            selectedFoodReviewMultiplier = 1.0
+        }
+        selectedFoodReviewAmountText = formattedServingAmount(selectedFoodReviewBaselineAmount * selectedFoodReviewMultiplier)
         selectedFoodReviewQuantity = 1
         foodReviewNameText = item.name
         foodReviewItem = item
+    }
+
+    private func foodReviewSliderSignature(for item: FoodReviewItem) -> String {
+        let normalizedName = MealEntry.normalizedName(item.name).lowercased()
+        let normalizedSubtitle = MealEntry.normalizedName(item.subtitle ?? "").lowercased()
+        let unit = item.servingUnit.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let sourceKey: String
+        switch item.entrySource {
+        case .manual:
+            sourceKey = "manual"
+        case .quickAdd:
+            sourceKey = "quickAdd"
+        case .barcode:
+            sourceKey = "barcode"
+        case .usda:
+            sourceKey = "usda"
+        case .aiFoodPhoto:
+            sourceKey = "aiFoodPhoto"
+        case .aiNutritionLabel:
+            sourceKey = "aiNutritionLabel"
+        case .aiText:
+            sourceKey = "aiText"
+        case .pccMenu(let menuType):
+            sourceKey = "pccMenu:\(menuType.rawValue)"
+        }
+        let roundedServing = roundToServingSelectorIncrement(convertedServingAmount(item.servingAmount, unit: item.servingUnit))
+        let servingKey = String(format: "%.4f", roundedServing)
+        return "\(sourceKey)|\(normalizedName)|\(normalizedSubtitle)|\(servingKey)|\(unit)"
     }
 
     private func syncFoodReviewAmountText() {
@@ -7272,6 +7397,14 @@ struct ContentView: View {
     }
 
     private func openFoodReview(for item: AITextMealAnalysisResult.Item) {
+        let normalizedCountServing = normalizedCountServingForAIItem(
+            name: item.name,
+            servingAmount: item.servingAmount,
+            servingUnit: item.servingUnit,
+            servingItemsCount: item.servingItemsCount,
+            estimatedServings: item.estimatedServings,
+            estimatedItemCount: item.estimatedItemCount
+        )
         let cleanedNutrients = NutrientCatalog.acceptedImportedNutrientValues(item.nutrients)
         let calories = max(item.calories, cleanedNutrients["calories"] ?? 0)
         let protein = max(item.protein, cleanedNutrients["g_protein"] ?? 0)
@@ -7290,17 +7423,23 @@ struct ContentView: View {
                 subtitle: subtitle,
                 calories: calories,
                 nutrientValues: nutrientValues,
-                servingAmount: item.servingAmount,
-                servingUnit: item.servingUnit,
+                servingAmount: normalizedCountServing.servingAmount,
+                servingUnit: normalizedCountServing.servingUnit,
                 entrySource: .aiText,
                 displayedNutrientKeys: nil
             ),
-            initialMultiplier: normalizedEstimatedServingsForCountItems(
-                name: item.name,
-                servingAmount: item.servingAmount,
-                servingUnit: item.servingUnit,
-                estimatedServings: item.estimatedServings
-            )
+            initialMultiplier: {
+                let estimatedServings = normalizedEstimatedServingsForCountItems(
+                    name: item.name,
+                    servingAmount: normalizedCountServing.servingAmount,
+                    servingUnit: normalizedCountServing.servingUnit,
+                    estimatedServings: normalizedCountServing.estimatedServings
+                )
+                if let consumedCount = normalizedCountServing.consumedItemCount {
+                    return max(consumedCount / max(normalizedCountServing.servingAmount, 1), 0.01)
+                }
+                return estimatedServings
+            }()
         )
     }
 

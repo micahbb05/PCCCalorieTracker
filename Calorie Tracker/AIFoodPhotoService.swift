@@ -16,7 +16,9 @@ struct AIFoodPhotoAnalysisResult: Decodable {
         let name: String
         let servingAmount: Double
         let servingUnit: String
+        let servingItemsCount: Double?
         let estimatedServings: Double
+        let estimatedItemCount: Double?
         let calories: Int
         let protein: Int
         let sourceType: SourceType
@@ -26,7 +28,9 @@ struct AIFoodPhotoAnalysisResult: Decodable {
             case name
             case servingAmount
             case servingUnit
+            case servingItemsCount
             case estimatedServings
+            case estimatedItemCount
             case calories
             case protein
             case sourceType
@@ -38,7 +42,9 @@ struct AIFoodPhotoAnalysisResult: Decodable {
             name = try container.decode(String.self, forKey: .name)
             servingAmount = try container.decode(Double.self, forKey: .servingAmount)
             servingUnit = try container.decode(String.self, forKey: .servingUnit)
+            servingItemsCount = try container.decodeIfPresent(Double.self, forKey: .servingItemsCount)
             estimatedServings = try container.decode(Double.self, forKey: .estimatedServings)
+            estimatedItemCount = try container.decodeIfPresent(Double.self, forKey: .estimatedItemCount)
             calories = try container.decode(Int.self, forKey: .calories)
             protein = try container.decode(Int.self, forKey: .protein)
             sourceType = try container.decodeIfPresent(SourceType.self, forKey: .sourceType) ?? .estimated

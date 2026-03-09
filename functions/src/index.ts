@@ -707,7 +707,10 @@ type AIVisionFoodItem = {
   name?: unknown;
   servingAmount?: unknown;
   servingUnit?: unknown;
+  servingItemsCount?: unknown;
   estimatedServings?: unknown;
+  estimatedItemCount?: unknown;
+  nutritionForServings?: unknown;
   calories?: unknown;
   protein?: unknown;
   sourceType?: unknown;
@@ -724,7 +727,10 @@ type AITextFoodItem = {
   brand?: unknown;
   servingAmount?: unknown;
   servingUnit?: unknown;
+  servingItemsCount?: unknown;
   estimatedServings?: unknown;
+  estimatedItemCount?: unknown;
+  nutritionForServings?: unknown;
   calories?: unknown;
   protein?: unknown;
   sourceType?: unknown;
@@ -925,7 +931,10 @@ Use exactly this JSON shape:
       "name": "string",
       "servingAmount": 1,
       "servingUnit": "serving",
+      "servingItemsCount": 1,
       "estimatedServings": 1,
+      "estimatedItemCount": 1,
+      "nutritionForServings": 1,
       "calories": 0,
       "protein": 0,
       "sourceType": "real" | "estimated",
@@ -945,6 +954,12 @@ Rules for food_photo mode:
 - Use "estimatedServings" for how much food is shown in the photo relative to the base serving.
 - Choose a practical base serving that a user can adjust later, such as 1 sandwich, 1 slice, 1 cup, 4 oz, 1 bowl, 1 taco, etc.
 - Keep servingAmount numeric and servingUnit short.
+- For count-based foods (nuggets, tacos, slices, quesadillas, cookies, sandwiches, etc.), do NOT use "serving" as servingUnit. Use the edible count unit.
+- For count-based foods, include:
+  - servingItemsCount: how many edible units are in one nutrition serving (e.g., 5 for "5 nuggets per serving"; otherwise 1).
+  - estimatedItemCount: how many edible units are shown/eaten in the image.
+  - nutritionForServings: how many nutrition servings the returned calories/protein/nutrients represent. Usually 1.
+- For non-count foods (oz/g/cup/tbsp/tsp), omit servingItemsCount and estimatedItemCount.
 - If there are multiple foods, include all clearly visible foods.
 - If confidence is poor, make the best reasonable estimate anyway.
 - sourceType must be "real" when nutrition was found from a reliable web source, and "estimated" only when no reliable web source exists.
@@ -985,7 +1000,10 @@ Return ONLY valid JSON in this exact shape:
       "brand": "string",
       "servingAmount": 1,
       "servingUnit": "serving",
+      "servingItemsCount": 1,
       "estimatedServings": 1,
+      "estimatedItemCount": 1,
+      "nutritionForServings": 1,
       "calories": 0,
       "protein": 0,
       "sourceType": "real" | "estimated",
@@ -1016,6 +1034,11 @@ Rules:
 - JSON only. No markdown.
 - Include one item per distinct food in the text.
 - Use numbers (not strings) for numeric fields.
+- For count-based foods, do NOT use "serving" as servingUnit. Use the edible unit and include:
+  - servingItemsCount: edible units in one nutrition serving.
+  - estimatedItemCount: edible units consumed.
+  - nutritionForServings: how many nutrition servings the returned calories/protein/nutrients represent. Usually 1.
+- For non-count foods (oz/g/cup/tbsp/tsp), omit servingItemsCount and estimatedItemCount.
 - sourceType must be "real" when values are web-sourced (including basic foods), and "estimated" only when no reliable web source is found.
 - If sourceType is "real", include as many known nutrients as available in nutrients.
 - If sourceType is "estimated", include at least calories, protein, carbs, and fat when reasonable.
@@ -1075,6 +1098,118 @@ function normalizeNutrientKey(key: string): string | null {
   return aliases[normalized] ?? null;
 }
 
+function parsePositiveNumberLike(value: unknown): number | null {
+  if (typeof value === "number") {
+    return Number.isFinite(value) && value > 0 ? value : null;
+  }
+  if (typeof value !== "string") return null;
+
+  const trimmed = value.trim().replace(/,/g, ".");
+  if (!trimmed) return null;
+
+  const mixedFraction = trimmed.match(/^(\d+(?:\.\d+)?)\s+(\d+)\s*\/\s*(\d+)\b/);
+  if (mixedFraction) {
+    const whole = Number(mixedFraction[1]);
+    const numerator = Number(mixedFraction[2]);
+    const denominator = Number(mixedFraction[3]);
+    if (Number.isFinite(whole) && Number.isFinite(numerator) && Number.isFinite(denominator) && denominator > 0) {
+      const value = whole + (numerator / denominator);
+      return value > 0 ? value : null;
+    }
+  }
+
+  const fraction = trimmed.match(/^(\d+)\s*\/\s*(\d+)\b/);
+  if (fraction) {
+    const numerator = Number(fraction[1]);
+    const denominator = Number(fraction[2]);
+    if (Number.isFinite(numerator) && Number.isFinite(denominator) && denominator > 0) {
+      const value = numerator / denominator;
+      return value > 0 ? value : null;
+    }
+  }
+
+  const leading = trimmed.match(/^(\d+(?:\.\d+)?|\.\d+)\b/);
+  if (leading) {
+    const value = Number(leading[1]);
+    return Number.isFinite(value) && value > 0 ? value : null;
+  }
+  return null;
+}
+
+function splitLeadingAmount(text: string): { amount: number; unit: string } | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+
+  const mixedFraction = trimmed.match(/^(\d+(?:\.\d+)?)\s+(\d+)\s*\/\s*(\d+)\s*(.*)$/);
+  if (mixedFraction) {
+    const whole = Number(mixedFraction[1]);
+    const numerator = Number(mixedFraction[2]);
+    const denominator = Number(mixedFraction[3]);
+    if (Number.isFinite(whole) && Number.isFinite(numerator) && Number.isFinite(denominator) && denominator > 0) {
+      const amount = whole + (numerator / denominator);
+      if (amount > 0) {
+        return { amount, unit: mixedFraction[4].trim() };
+      }
+    }
+  }
+
+  const fraction = trimmed.match(/^(\d+)\s*\/\s*(\d+)\s*(.*)$/);
+  if (fraction) {
+    const numerator = Number(fraction[1]);
+    const denominator = Number(fraction[2]);
+    if (Number.isFinite(numerator) && Number.isFinite(denominator) && denominator > 0) {
+      const amount = numerator / denominator;
+      if (amount > 0) {
+        return { amount, unit: fraction[3].trim() };
+      }
+    }
+  }
+
+  const decimal = trimmed.match(/^(\d+(?:\.\d+)?|\.\d+)\s*(.*)$/);
+  if (decimal) {
+    const amount = Number(decimal[1]);
+    if (Number.isFinite(amount) && amount > 0) {
+      return { amount, unit: decimal[2].trim() };
+    }
+  }
+
+  return null;
+}
+
+function parseServingAmountAndUnit(rawAmount: unknown, rawUnit: unknown): { servingAmount: number; servingUnit: string } {
+  let servingAmount = parsePositiveNumberLike(rawAmount);
+  let servingUnit = typeof rawUnit === "string" ? rawUnit.trim() : "";
+
+  if (typeof rawAmount === "string") {
+    const amountWithUnit = splitLeadingAmount(rawAmount);
+    if (amountWithUnit) {
+      if (servingAmount === null) {
+        servingAmount = amountWithUnit.amount;
+      }
+      if (!servingUnit && amountWithUnit.unit) {
+        servingUnit = amountWithUnit.unit;
+      }
+    }
+  }
+
+  if (typeof rawUnit === "string") {
+    const unitWithAmount = splitLeadingAmount(rawUnit);
+    if (unitWithAmount) {
+      if (servingAmount === null) {
+        servingAmount = unitWithAmount.amount;
+      }
+      if (unitWithAmount.unit) {
+        servingUnit = unitWithAmount.unit;
+      }
+    }
+  }
+
+  return {
+    servingAmount: servingAmount ?? 1,
+    servingUnit: servingUnit || "serving"
+  };
+}
+
 const COUNT_SERVING_UNITS = new Set([
   "piece",
   "pieces",
@@ -1095,7 +1230,9 @@ const COUNT_SERVING_UNITS = new Set([
   "cookie",
   "cookies",
   "chip",
-  "chips"
+  "chips",
+  "quesadilla",
+  "quesadillas"
 ]);
 
 function isLikelyCountServing(name: string, servingUnit: string): boolean {
@@ -1103,6 +1240,7 @@ function isLikelyCountServing(name: string, servingUnit: string): boolean {
   const normalizedName = name.trim().toLowerCase();
   if (COUNT_SERVING_UNITS.has(unit)) return true;
   return normalizedName.includes("nugget")
+    || normalizedName.includes("quesadilla")
     || normalizedName.includes("sandwich")
     || normalizedName.includes("burger")
     || normalizedName.includes("taco")
@@ -1135,13 +1273,50 @@ function normalizeEstimatedServingsForCountItems(
   return safeEstimated;
 }
 
+function nutritionBasisServingsForItem(
+  name: string,
+  servingAmount: number,
+  servingUnit: string,
+  servingItemsCount: number | undefined,
+  estimatedServings: number,
+  estimatedItemCount: number | undefined,
+  explicitNutritionForServings: number | undefined,
+  caloriesRaw: number
+): number {
+  if (explicitNutritionForServings && explicitNutritionForServings > 0) {
+    return explicitNutritionForServings;
+  }
+  if (!isLikelyCountServing(name, servingUnit)) return 1;
+
+  const baseItemsPerNutritionServing =
+    (servingItemsCount && servingItemsCount > 0)
+      ? servingItemsCount
+      : (servingAmount > 0 ? servingAmount : 1);
+  if (baseItemsPerNutritionServing <= 0) return 1;
+
+  const consumedItems = estimatedItemCount && estimatedItemCount > 0
+    ? estimatedItemCount
+    : (estimatedServings > 0 ? estimatedServings * baseItemsPerNutritionServing : 0);
+  if (consumedItems <= 0) return 1;
+
+  const inferredServingsFromCount = consumedItems / baseItemsPerNutritionServing;
+  // If calories are clearly meal-level for multi-item counts, normalize back to per-serving.
+  if (inferredServingsFromCount > 1.5 && caloriesRaw > 1200) {
+    return inferredServingsFromCount;
+  }
+
+  return 1;
+}
+
 function parseAITextResponse(text: string): {
   items: Array<{
     name: string;
     brand: string | null;
     servingAmount: number;
     servingUnit: string;
+    servingItemsCount?: number;
     estimatedServings: number;
+    estimatedItemCount?: number;
     calories: number;
     protein: number;
     sourceType: "real" | "estimated";
@@ -1167,27 +1342,35 @@ function parseAITextResponse(text: string): {
       if (!name) return null;
 
       const brand = typeof item.brand === "string" ? item.brand.trim() : "";
-      const servingAmount = typeof item.servingAmount === "number" && Number.isFinite(item.servingAmount) && item.servingAmount > 0
-        ? item.servingAmount
-        : 1;
-      const servingUnit = typeof item.servingUnit === "string" && item.servingUnit.trim().length > 0
-        ? item.servingUnit.trim()
-        : "serving";
-      const estimatedServings = typeof item.estimatedServings === "number" && Number.isFinite(item.estimatedServings) && item.estimatedServings > 0
-        ? item.estimatedServings
-        : 1;
+      const { servingAmount, servingUnit } = parseServingAmountAndUnit(item.servingAmount, item.servingUnit);
+      const servingItemsCount = parsePositiveNumberLike(item.servingItemsCount) ?? undefined;
+      const estimatedServings = parsePositiveNumberLike(item.estimatedServings) ?? 1;
+      const estimatedItemCount = parsePositiveNumberLike(item.estimatedItemCount) ?? undefined;
+      const explicitNutritionForServings = parsePositiveNumberLike(item.nutritionForServings) ?? undefined;
       const normalizedEstimatedServings = normalizeEstimatedServingsForCountItems(
         name,
         servingAmount,
         servingUnit,
         estimatedServings
       );
-      const calories = typeof item.calories === "number" && Number.isFinite(item.calories) && item.calories >= 0
-        ? Math.round(item.calories)
+      const caloriesRaw = typeof item.calories === "number" && Number.isFinite(item.calories) && item.calories >= 0
+        ? item.calories
         : 0;
-      const protein = typeof item.protein === "number" && Number.isFinite(item.protein) && item.protein >= 0
-        ? Math.round(item.protein)
+      const proteinRaw = typeof item.protein === "number" && Number.isFinite(item.protein) && item.protein >= 0
+        ? item.protein
         : 0;
+      const nutritionForServings = nutritionBasisServingsForItem(
+        name,
+        servingAmount,
+        servingUnit,
+        servingItemsCount,
+        normalizedEstimatedServings,
+        estimatedItemCount,
+        explicitNutritionForServings,
+        caloriesRaw
+      );
+      const calories = Math.round(caloriesRaw / nutritionForServings);
+      const protein = Math.round(proteinRaw / nutritionForServings);
       const sourceType = item.sourceType === "real" ? "real" : "estimated";
 
       const nutrientsSource = item.nutrients && typeof item.nutrients === "object" ? item.nutrients as Record<string, unknown> : {};
@@ -1196,7 +1379,7 @@ function parseAITextResponse(text: string): {
         if (typeof value !== "number" || !Number.isFinite(value) || value < 0) continue;
         const key = normalizeNutrientKey(rawKey);
         if (!key) continue;
-        nutrients[key] = Math.round(value);
+        nutrients[key] = Math.round(value / nutritionForServings);
       }
       if (calories > 0 && nutrients.calories === undefined) nutrients.calories = calories;
       if (protein > 0 && nutrients.g_protein === undefined) nutrients.g_protein = protein;
@@ -1209,7 +1392,9 @@ function parseAITextResponse(text: string): {
         brand: brand || null,
         servingAmount,
         servingUnit,
+        ...(servingItemsCount ? { servingItemsCount } : {}),
         estimatedServings: normalizedEstimatedServings,
+        ...(estimatedItemCount ? { estimatedItemCount } : {}),
         calories,
         protein,
         sourceType,
@@ -1221,7 +1406,9 @@ function parseAITextResponse(text: string): {
       brand: string | null;
       servingAmount: number;
       servingUnit: string;
+      servingItemsCount?: number;
       estimatedServings: number;
+      estimatedItemCount?: number;
       calories: number;
       protein: number;
       sourceType: "real" | "estimated";
@@ -1248,7 +1435,9 @@ function parseAIVisionJsonResponse(text: string): {
     name: string;
     servingAmount: number;
     servingUnit: string;
+    servingItemsCount?: number;
     estimatedServings: number;
+    estimatedItemCount?: number;
     calories: number;
     protein: number;
     sourceType: "real" | "estimated";
@@ -1272,7 +1461,9 @@ function parseAIVisionJsonResponse(text: string): {
       name: string;
       servingAmount: number;
       servingUnit: string;
+      servingItemsCount?: number;
       estimatedServings: number;
+      estimatedItemCount?: number;
       calories: number;
       protein: number;
       sourceType: "real" | "estimated";
@@ -1283,34 +1474,47 @@ function parseAIVisionJsonResponse(text: string): {
       const name = typeof item.name === "string" ? item.name.trim() : "";
       if (!name) return null;
 
-      const servingAmount = typeof item.servingAmount === "number" && Number.isFinite(item.servingAmount) && item.servingAmount > 0
-        ? item.servingAmount
-        : 1;
-      const servingUnit = typeof item.servingUnit === "string" && item.servingUnit.trim().length > 0
-        ? item.servingUnit.trim()
-        : "serving";
-      const estimatedServings = typeof item.estimatedServings === "number" && Number.isFinite(item.estimatedServings) && item.estimatedServings > 0
-        ? item.estimatedServings
-        : 1;
+      const { servingAmount, servingUnit } = parseServingAmountAndUnit(item.servingAmount, item.servingUnit);
+      const servingItemsCount = parsePositiveNumberLike(item.servingItemsCount) ?? undefined;
+      const estimatedServings = parsePositiveNumberLike(item.estimatedServings) ?? 1;
+      const estimatedItemCount = parsePositiveNumberLike(item.estimatedItemCount) ?? undefined;
+      const explicitNutritionForServings = parsePositiveNumberLike(item.nutritionForServings) ?? undefined;
       const normalizedEstimatedServings = normalizeEstimatedServingsForCountItems(
         name,
         servingAmount,
         servingUnit,
         estimatedServings
       );
-      const calories = typeof item.calories === "number" && Number.isFinite(item.calories) && item.calories >= 0
-        ? Math.round(item.calories)
+      const caloriesRaw = typeof item.calories === "number" && Number.isFinite(item.calories) && item.calories >= 0
+        ? item.calories
         : 0;
-      const protein = typeof item.protein === "number" && Number.isFinite(item.protein) && item.protein >= 0
-        ? Math.round(item.protein)
+      const proteinRaw = typeof item.protein === "number" && Number.isFinite(item.protein) && item.protein >= 0
+        ? item.protein
         : 0;
+      const nutritionForServings = nutritionBasisServingsForItem(
+        name,
+        servingAmount,
+        servingUnit,
+        servingItemsCount,
+        normalizedEstimatedServings,
+        estimatedItemCount,
+        explicitNutritionForServings,
+        caloriesRaw
+      );
+      const calories = Math.round(caloriesRaw / nutritionForServings);
+      const protein = Math.round(proteinRaw / nutritionForServings);
       const sourceType = item.sourceType === "real" ? "real" : "estimated";
 
       const nutrientsSource = item.nutrients && typeof item.nutrients === "object" ? item.nutrients as Record<string, unknown> : {};
       const nutrients: Record<string, number> = {};
-      for (const [key, value] of Object.entries(nutrientsSource)) {
+      for (const [rawKey, value] of Object.entries(nutrientsSource)) {
         if (typeof value !== "number" || !Number.isFinite(value) || value < 0) continue;
-        nutrients[key.toLowerCase()] = Math.round(value);
+        const key = normalizeNutrientKey(rawKey);
+        if (!key) continue;
+        nutrients[key] = Math.round(value / nutritionForServings);
+      }
+      if (calories > 0 && nutrients.calories === undefined) {
+        nutrients.calories = calories;
       }
       if (protein > 0 && nutrients.g_protein === undefined) {
         nutrients.g_protein = protein;
@@ -1320,7 +1524,9 @@ function parseAIVisionJsonResponse(text: string): {
         name,
         servingAmount,
         servingUnit,
+        ...(servingItemsCount ? { servingItemsCount } : {}),
         estimatedServings: normalizedEstimatedServings,
+        ...(estimatedItemCount ? { estimatedItemCount } : {}),
         calories,
         protein,
         sourceType,
@@ -1331,7 +1537,9 @@ function parseAIVisionJsonResponse(text: string): {
       name: string;
       servingAmount: number;
       servingUnit: string;
+      servingItemsCount?: number;
       estimatedServings: number;
+      estimatedItemCount?: number;
       calories: number;
       protein: number;
       sourceType: "real" | "estimated";
@@ -1354,7 +1562,9 @@ async function performAIVisionAnalysis(
       name: string;
       servingAmount: number;
       servingUnit: string;
+      servingItemsCount?: number;
       estimatedServings: number;
+      estimatedItemCount?: number;
       calories: number;
       protein: number;
       sourceType: "real" | "estimated";
@@ -1443,7 +1653,9 @@ async function performAITextAnalysis(
       brand: string | null;
       servingAmount: number;
       servingUnit: string;
+      servingItemsCount?: number;
       estimatedServings: number;
+      estimatedItemCount?: number;
       calories: number;
       protein: number;
       sourceType: "real" | "estimated";

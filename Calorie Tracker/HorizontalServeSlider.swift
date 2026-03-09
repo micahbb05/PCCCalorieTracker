@@ -15,6 +15,55 @@ func formatServingSelectorAmount(_ amount: Double) -> String {
     return String(format: "%.2f", rounded)
 }
 
+func isSingularQuantity(_ quantity: Double) -> Bool {
+    abs(quantity - 1.0) <= 0.0001
+}
+
+func inflectServingUnitToken(
+    _ unit: String,
+    quantity: Double,
+    defaultSingular: String = "serving",
+    defaultPlural: String = "servings"
+) -> String {
+    let trimmed = unit.trimmingCharacters(in: .whitespacesAndNewlines)
+    let isSingular = isSingularQuantity(quantity)
+    guard !trimmed.isEmpty else { return isSingular ? defaultSingular : defaultPlural }
+
+    let lower = trimmed.lowercased()
+    let invariant = ["oz", "fl oz", "g", "mg", "kg", "lb", "lbs", "ml", "l", "tbsp", "tsp", "each", "ea"]
+    if invariant.contains(lower) { return lower }
+
+    if isSingular {
+        if lower.hasSuffix("ies"), lower.count > 3 { return String(lower.dropLast(3) + "y") }
+        if lower.hasSuffix("ses"), lower.count > 3 { return String(lower.dropLast(2)) }
+        if lower.hasSuffix("s"), lower.count > 1 { return String(lower.dropLast()) }
+        return lower
+    }
+
+    if lower.hasSuffix("s") { return lower }
+    if lower.hasSuffix("y"), lower.count > 1 { return String(lower.dropLast() + "ies") }
+    if lower.hasSuffix("ch") || lower.hasSuffix("sh") || lower.hasSuffix("x") || lower.hasSuffix("z") {
+        return lower + "es"
+    }
+    return lower + "s"
+}
+
+func inflectCountUnitToken(_ unit: String, quantity: Double) -> String {
+    let normalized = unit.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    let isSingular = isSingularQuantity(quantity)
+
+    if normalized.isEmpty { return isSingular ? "item" : "items" }
+    if normalized == "each" || normalized == "ea" { return isSingular ? "item" : "items" }
+    if normalized == "pc" || normalized == "pcs" { return isSingular ? "piece" : "pieces" }
+
+    return inflectServingUnitToken(
+        normalized,
+        quantity: quantity,
+        defaultSingular: "item",
+        defaultPlural: "items"
+    )
+}
+
 /// Horizontal slider for oz (or other numeric range), similar to VerticalServeSlider.
 struct HorizontalServeSlider: View {
     @Binding var value: Double

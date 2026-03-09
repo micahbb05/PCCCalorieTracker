@@ -428,7 +428,7 @@ struct PlateEstimateResultView: View {
 
             HStack(spacing: 18) {
                 Button {
-                    setAdjusterQuantity(max(0.25, adjusterQuantity - 1))
+                    setAdjusterQuantity(nextDecrementQuantity(from: adjusterQuantity))
                     Haptics.selection()
                 } label: {
                     Image(systemName: "minus.circle.fill")
@@ -467,7 +467,7 @@ struct PlateEstimateResultView: View {
                     }
 
                 Button {
-                    setAdjusterQuantity(min(99, adjusterQuantity + 1))
+                    setAdjusterQuantity(nextIncrementQuantity(from: adjusterQuantity))
                     Haptics.selection()
                 } label: {
                     Image(systemName: "plus.circle.fill")
@@ -583,6 +583,22 @@ struct PlateEstimateResultView: View {
         }
     }
 
+    private func nextDecrementQuantity(from quantity: Double) -> Double {
+        let normalized = min(max(roundToServingSelectorIncrement(quantity), 0.25), 99)
+        if normalized > 1 {
+            return max(1, normalized - 1)
+        }
+        return max(0.25, normalized - 0.25)
+    }
+
+    private func nextIncrementQuantity(from quantity: Double) -> Double {
+        let normalized = min(max(roundToServingSelectorIncrement(quantity), 0.25), 99)
+        if normalized < 1 {
+            return min(1, normalized + 0.25)
+        }
+        return min(99, normalized + 1)
+    }
+
     private func applyTypedCountIfPossible(_ text: String, for item: MenuItem) {
         guard item.isCountBased else { return }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -686,23 +702,7 @@ struct PlateEstimateResultView: View {
     }
 
     private func inflectedUnit(_ unit: String, quantity: Double) -> String {
-        let trimmed = unit.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return quantity == 1 ? "serving" : "servings" }
-        let lower = trimmed.lowercased()
-        let invariant = ["oz", "fl oz", "g", "mg", "kg", "lb", "lbs", "ml", "l", "tbsp", "tsp"]
-        if invariant.contains(lower) { return lower }
-        if quantity == 1 {
-            if lower.hasSuffix("ies"), lower.count > 3 { return String(lower.dropLast(3) + "y") }
-            if lower.hasSuffix("ses"), lower.count > 3 { return String(lower.dropLast(2)) }
-            if lower.hasSuffix("s"), lower.count > 1 { return String(lower.dropLast()) }
-            return lower
-        }
-        if lower.hasSuffix("s") { return lower }
-        if lower.hasSuffix("y"), lower.count > 1 { return String(lower.dropLast() + "ies") }
-        if lower.hasSuffix("ch") || lower.hasSuffix("sh") || lower.hasSuffix("x") || lower.hasSuffix("z") {
-            return lower + "es"
-        }
-        return lower + "s"
+        inflectServingUnitToken(unit, quantity: quantity)
     }
 
     private func parsedDecimalAmount(_ text: String) -> Double? {
@@ -721,26 +721,7 @@ struct PlateEstimateResultView: View {
     }
 
     private func displayCountUnit(for item: MenuItem, quantity: Double) -> String {
-        let normalized = item.servingUnit.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !normalized.isEmpty else { return "items" }
-        let unit = normalized.lowercased()
-        let isSingular = abs(quantity - 1.0) <= 0.0001
-        if isSingular {
-            if unit.hasSuffix("ies") { return String(unit.dropLast(3) + "y") }
-            if unit.hasSuffix("ches") || unit.hasSuffix("shes") || unit.hasSuffix("xes") || unit.hasSuffix("zes") {
-                return String(unit.dropLast(2))
-            }
-            if unit.hasSuffix("s"), unit.count > 1 { return String(unit.dropLast()) }
-        }
-        if !isSingular {
-            if unit.hasSuffix("s") { return unit }
-            if unit.hasSuffix("y"), unit.count > 1 { return String(unit.dropLast() + "ies") }
-            if unit.hasSuffix("ch") || unit.hasSuffix("sh") || unit.hasSuffix("x") || unit.hasSuffix("z") {
-                return unit + "es"
-            }
-            return unit + "s"
-        }
-        return unit
+        inflectCountUnitToken(item.servingUnit, quantity: quantity)
     }
 
 }

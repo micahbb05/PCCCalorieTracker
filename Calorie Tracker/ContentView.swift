@@ -4901,19 +4901,6 @@ struct ContentView: View {
                         }
                         .foregroundStyle(textPrimary)
 
-                    Button {
-                        dismissKeyboard()
-                        hasScannedBarcodeInCurrentSheet = false
-                        barcodeLookupError = nil
-                        isUSDASearchPresented = false
-                        openAddDestination(.barcode)
-                        Haptics.selection()
-                    } label: {
-                        Image(systemName: "barcode.viewfinder")
-                            .foregroundStyle(textSecondary)
-                    }
-                    .buttonStyle(.plain)
-
                     if !usdaSearchText.isEmpty {
                         Button {
                             latestFoodSearchRequestID += 1
@@ -5137,28 +5124,10 @@ struct ContentView: View {
             openFoodReview(for: result)
         } label: {
             VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 8) {
-                    Text(result.name)
-                        .font(.headline.weight(.semibold))
-                        .foregroundStyle(textPrimary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Text({
-                        switch result.source {
-                        case .usda:
-                            return "USDA"
-                        case .openFoodFacts:
-                            return "Open Food Facts"
-                        }
-                    }())
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(textSecondary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(
-                            Capsule(style: .continuous)
-                                .fill(surfaceSecondary.opacity(0.9))
-                        )
-                }
+                Text(result.name)
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(textPrimary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                 if let brand = result.brand {
                     Text(brand)
@@ -7592,23 +7561,7 @@ struct ContentView: View {
     }
 
     private func inflectedUnit(_ unit: String, quantity: Double) -> String {
-        let trimmed = unit.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return quantity == 1 ? "serving" : "servings" }
-        let lower = trimmed.lowercased()
-        let invariant = ["oz", "fl oz", "g", "mg", "kg", "lb", "lbs", "ml", "l", "tbsp", "tsp"]
-        if invariant.contains(lower) { return lower }
-        if quantity == 1 {
-            if lower.hasSuffix("ies"), lower.count > 3 { return String(lower.dropLast(3) + "y") }
-            if lower.hasSuffix("ses"), lower.count > 3 { return String(lower.dropLast(2)) }
-            if lower.hasSuffix("s"), lower.count > 1 { return String(lower.dropLast()) }
-            return lower
-        }
-        if lower.hasSuffix("s") { return lower }
-        if lower.hasSuffix("y"), lower.count > 1 { return String(lower.dropLast() + "ies") }
-        if lower.hasSuffix("ch") || lower.hasSuffix("sh") || lower.hasSuffix("x") || lower.hasSuffix("z") {
-            return lower + "es"
-        }
-        return lower + "s"
+        inflectServingUnitToken(unit, quantity: quantity)
     }
 
     private func convertedServingAmount(_ amount: Double, unit: String) -> Double {

@@ -1128,58 +1128,62 @@ struct MenuSheetView: View {
                                 .foregroundStyle(textSecondary)
                         }
 
-                        VStack(alignment: .leading, spacing: 14) {
-                            let minServingAmount = formattedServingAmount(selectedServingBaselineAmount * minMultiplier)
-                            let maxServingAmount = formattedServingAmount(selectedServingBaselineAmount * maxMultiplier)
-                            let minServingUnit = inflectedUnit(displayServingUnit(for: item.servingUnit), quantity: selectedServingBaselineAmount * minMultiplier)
-                            let maxServingUnit = inflectedUnit(displayServingUnit(for: item.servingUnit), quantity: selectedServingBaselineAmount * maxMultiplier)
-                            HStack {
-                                Text("\(minServingAmount) \(minServingUnit)")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(textSecondary)
-                                Spacer()
-                                Text("\(maxServingAmount) \(maxServingUnit)")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(textSecondary)
-                            }
+                        if item.isCountBased {
+                            pccCountServingControl(for: item)
+                        } else {
+                            VStack(alignment: .leading, spacing: 14) {
+                                let minServingAmount = formattedServingAmount(selectedServingBaselineAmount * minMultiplier)
+                                let maxServingAmount = formattedServingAmount(selectedServingBaselineAmount * maxMultiplier)
+                                let minServingUnit = inflectedUnit(displayServingUnit(for: item.servingUnit), quantity: selectedServingBaselineAmount * minMultiplier)
+                                let maxServingUnit = inflectedUnit(displayServingUnit(for: item.servingUnit), quantity: selectedServingBaselineAmount * maxMultiplier)
+                                HStack {
+                                    Text("\(minServingAmount) \(minServingUnit)")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(textSecondary)
+                                    Spacer()
+                                    Text("\(maxServingAmount) \(maxServingUnit)")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(textSecondary)
+                                }
 
-                            HorizontalServeSlider(
-                                value: $selectedMultiplierValue,
-                                range: minMultiplier...maxMultiplier,
-                                step: multiplierStep
-                            ) {
-                                Haptics.selection()
-                            }
-                            .frame(height: 52)
+                                HorizontalServeSlider(
+                                    value: $selectedMultiplierValue,
+                                    range: minMultiplier...maxMultiplier,
+                                    step: multiplierStep
+                                ) {
+                                    Haptics.selection()
+                                }
+                                .frame(height: 52)
 
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Serve")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(textSecondary)
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Serve")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(textSecondary)
 
-                                TextField("", text: $selectedServingAmountText)
-                                    .keyboardType(.decimalPad)
-                                    .focused($isServingAmountFieldFocused)
-                                    .padding(.trailing, 52)
-                                    .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
-                                    .overlay(alignment: .trailing) {
-                                        Text(inflectedTextFieldUnit(for: item.servingUnit, amountText: selectedServingAmountText))
-                                            .font(.headline.weight(.semibold))
-                                            .foregroundStyle(textSecondary)
-                                            .padding(.trailing, 14)
-                                            .allowsHitTesting(false)
-                                    }
+                                    TextField("", text: $selectedServingAmountText)
+                                        .keyboardType(.decimalPad)
+                                        .focused($isServingAmountFieldFocused)
+                                        .padding(.trailing, 52)
+                                        .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
+                                        .overlay(alignment: .trailing) {
+                                            Text(inflectedTextFieldUnit(for: item.servingUnit, amountText: selectedServingAmountText))
+                                                .font(.headline.weight(.semibold))
+                                                .foregroundStyle(textSecondary)
+                                                .padding(.trailing, 14)
+                                                .allowsHitTesting(false)
+                                        }
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(14)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                        .fill(surfacePrimary.opacity(0.94))
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                        .stroke(textSecondary.opacity(0.12), lineWidth: 1)
+                                )
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(14)
-                            .background(
-                                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                    .fill(surfacePrimary.opacity(0.94))
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                    .stroke(textSecondary.opacity(0.12), lineWidth: 1)
-                            )
                         }
 
                         ServingNutrientGridCard(
@@ -1263,10 +1267,84 @@ struct MenuSheetView: View {
                 }
             }
             .onChange(of: selectedServingAmountText) { _, newValue in
-                applyTypedServingAmountIfPossible(for: item, text: newValue)
+                if item.isCountBased {
+                    applyTypedCountServingIfPossible(newValue)
+                } else {
+                    applyTypedServingAmountIfPossible(for: item, text: newValue)
+                }
             }
             .interactiveDismissDisabled(isMultiplierKeyboardVisible)
         }
+    }
+
+    private func pccCountServingControl(for item: MenuItem) -> some View {
+        let quantity = max(roundToServingSelectorIncrement(selectedServingBaselineAmount * selectedMultiplierValue), 0.25)
+        let unit = displayCountUnit(for: item, quantity: quantity)
+        return VStack(alignment: .leading, spacing: 10) {
+            Text("Quantity")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(textSecondary)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .multilineTextAlignment(.center)
+
+            HStack(spacing: 18) {
+                Button {
+                    setSelectedCountQuantity(nextDecrementCountQuantity(from: quantity))
+                    Haptics.selection()
+                } label: {
+                    Image(systemName: "minus.circle.fill")
+                        .font(.title2)
+                }
+                .foregroundStyle(quantity > 0.25 ? accent : textSecondary.opacity(0.5))
+                .disabled(quantity <= 0.25)
+
+                TextField("", text: $selectedServingAmountText)
+                    .font(.headline.weight(.semibold))
+                    .keyboardType(.decimalPad)
+                    .focused($isServingAmountFieldFocused)
+                    .multilineTextAlignment(.leading)
+                    .frame(width: 102)
+                    .padding(.leading, 10)
+                    .padding(.vertical, 8)
+                    .padding(.trailing, 56)
+                    .foregroundStyle(textPrimary)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(surfacePrimary.opacity(0.95))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(textSecondary.opacity(0.18), lineWidth: 1)
+                    )
+                    .overlay(alignment: .trailing) {
+                        Text(unit)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(textSecondary)
+                            .padding(.trailing, 10)
+                            .allowsHitTesting(false)
+                    }
+
+                Button {
+                    setSelectedCountQuantity(nextIncrementCountQuantity(from: quantity))
+                    Haptics.selection()
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title2)
+                }
+                .foregroundStyle(accent)
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .frame(maxWidth: .infinity, minHeight: 84, alignment: .leading)
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(surfacePrimary.opacity(0.94))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(textSecondary.opacity(0.12), lineWidth: 1)
+        )
     }
 
     private func dismissKeyboard() {
@@ -1292,6 +1370,49 @@ struct MenuSheetView: View {
         if abs(roundedTypedAmount - currentAmount) > 0.0005 {
             selectedServingBaselineAmount = roundedTypedAmount
             selectedMultiplierValue = 1.0
+        }
+    }
+
+    private func setSelectedCountQuantity(_ quantity: Double) {
+        let clamped = min(max(roundToServingSelectorIncrement(quantity), 0.25), 99)
+        selectedServingBaselineAmount = clamped
+        selectedMultiplierValue = 1.0
+        let amount = formattedServingAmount(clamped)
+        if selectedServingAmountText != amount {
+            isUpdatingServingTextFromSlider = true
+            selectedServingAmountText = amount
+        }
+    }
+
+    private func nextDecrementCountQuantity(from quantity: Double) -> Double {
+        let normalized = min(max(roundToServingSelectorIncrement(quantity), 0.25), 99)
+        if normalized > 1 {
+            return max(1, normalized - 1)
+        }
+        return max(0.25, normalized - 0.25)
+    }
+
+    private func nextIncrementCountQuantity(from quantity: Double) -> Double {
+        let normalized = min(max(roundToServingSelectorIncrement(quantity), 0.25), 99)
+        if normalized < 1 {
+            return min(1, normalized + 0.25)
+        }
+        return min(99, normalized + 1)
+    }
+
+    private func applyTypedCountServingIfPossible(_ text: String) {
+        if isUpdatingServingTextFromSlider {
+            isUpdatingServingTextFromSlider = false
+            return
+        }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let normalized = trimmed.replacingOccurrences(of: ",", with: ".")
+        guard let parsed = Double(normalized), parsed >= 0.25 else { return }
+        let rounded = roundToServingSelectorIncrement(parsed)
+        let currentAmount = roundToServingSelectorIncrement(selectedServingBaselineAmount * selectedMultiplierValue)
+        if abs(rounded - currentAmount) > 0.0005 {
+            setSelectedCountQuantity(rounded)
         }
     }
 
@@ -1328,23 +1449,11 @@ struct MenuSheetView: View {
     }
 
     private func inflectedUnit(_ unit: String, quantity: Double) -> String {
-        let trimmed = unit.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return quantity == 1 ? "serving" : "servings" }
-        let lower = trimmed.lowercased()
-        let invariant = ["oz", "fl oz", "g", "mg", "kg", "lb", "lbs", "ml", "l", "tbsp", "tsp"]
-        if invariant.contains(lower) { return lower }
-        if quantity == 1 {
-            if lower.hasSuffix("ies"), lower.count > 3 { return String(lower.dropLast(3) + "y") }
-            if lower.hasSuffix("ses"), lower.count > 3 { return String(lower.dropLast(2)) }
-            if lower.hasSuffix("s"), lower.count > 1 { return String(lower.dropLast()) }
-            return lower
-        }
-        if lower.hasSuffix("s") { return lower }
-        if lower.hasSuffix("y"), lower.count > 1 { return String(lower.dropLast() + "ies") }
-        if lower.hasSuffix("ch") || lower.hasSuffix("sh") || lower.hasSuffix("x") || lower.hasSuffix("z") {
-            return lower + "es"
-        }
-        return lower + "s"
+        inflectServingUnitToken(unit, quantity: quantity)
+    }
+
+    private func displayCountUnit(for item: MenuItem, quantity: Double) -> String {
+        inflectCountUnitToken(item.servingUnit, quantity: quantity)
     }
 
     private func convertedServingAmount(_ amount: Double, unit: String) -> Double {

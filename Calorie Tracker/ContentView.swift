@@ -5,6 +5,7 @@ import Charts
 import UIKit
 import Combine
 import CloudKit
+import WidgetKit
 
 extension Notification.Name {
     static let cloudKitAppStateDidChange = Notification.Name("cloudKitAppStateDidChange")
@@ -1387,6 +1388,9 @@ struct ContentView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { notification in
                 updateKeyboardState(from: notification)
+            }
+            .onOpenURL { url in
+                handleWidgetDeepLink(url)
             }
     }
 
@@ -5615,8 +5619,14 @@ struct ContentView: View {
     private func analyzeAIFoodPhoto(_ imageData: Data) {
         isAIFoodPhotoLoading = true
         aiFoodPhotoErrorMessage = nil
+        let backgroundTaskID = beginAIBackgroundTask(named: "AI Food Photo Analysis")
 
         Task {
+            defer {
+                Task { @MainActor in
+                    endAIBackgroundTask(backgroundTaskID)
+                }
+            }
             do {
                 let service = AIFoodPhotoService()
                 let result = try await service.analyze(imageData: imageData)
@@ -5644,8 +5654,14 @@ struct ContentView: View {
         isAITextLoading = true
         aiTextErrorMessage = nil
         aiTextMealResults = []
+        let backgroundTaskID = beginAIBackgroundTask(named: "AI Text Meal Analysis")
 
         Task {
+            defer {
+                Task { @MainActor in
+                    endAIBackgroundTask(backgroundTaskID)
+                }
+            }
             do {
                 let result = try await aiTextMealService.analyze(mealText: mealText)
                 await MainActor.run {
@@ -5665,6 +5681,17 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    @MainActor
+    private func beginAIBackgroundTask(named name: String) -> UIBackgroundTaskIdentifier {
+        UIApplication.shared.beginBackgroundTask(withName: name, expirationHandler: nil)
+    }
+
+    @MainActor
+    private func endAIBackgroundTask(_ identifier: UIBackgroundTaskIdentifier) {
+        guard identifier != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(identifier)
     }
 
     private func isAmbiguousAIServingUnit(_ unit: String) -> Bool {
@@ -6166,6 +6193,24 @@ struct ContentView: View {
             barcodeLookupError = nil
         case .quickAdd, .manualEntry:
             break
+        }
+    }
+
+    private func handleWidgetDeepLink(_ url: URL) {
+        guard url.scheme?.lowercased() == "calorietracker" else { return }
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return }
+        guard components.host?.lowercased() == "open" else { return }
+        let destination = components.queryItems?.first(where: { $0.name == "dest" })?.value?.lowercased()
+
+        switch destination {
+        case "pcc-menu":
+            openAddDestination(.pccMenu)
+        case "barcode":
+            openAddDestination(.barcode)
+        case "ai":
+            openAddDestination(.aiPhoto)
+        default:
+            selectedTab = .today
         }
     }
 
@@ -6734,6 +6779,7 @@ struct ContentView: View {
         saveEntries()
         saveDailyEntryArchive()
         saveDailyExerciseArchive()
+        syncWidgetSnapshot()
         syncHistorySelection()
     }
 
@@ -6887,6 +6933,39 @@ struct ContentView: View {
         saveDailyCalorieGoalArchive()
         saveDailyBurnedCalorieArchive()
         saveDailyGoalTypeArchive()
+        syncWidgetSnapshot()
+    }
+
+    private func syncWidgetSnapshot() {
+        let safeGoal = max(calorieGoal, 1)
+        let progress = min(max(Double(totalCalories) / Double(safeGoal), 0), 1)
+        let nutrientSummaries = trackedNutrientKeys
+            .filter { !NutrientCatalog.nonTrackableKeys.contains($0.lowercased()) }
+            .prefix(3)
+            .map { key -> WidgetCalorieSnapshot.TrackedNutrient in
+                let definition = NutrientCatalog.definition(for: key)
+                let total = max(totalNutrient(for: key), 0)
+                let goal = max(goalForNutrient(key), 1)
+                let nutrientProgress = min(max(Double(total) / Double(goal), 0), 9.99)
+                return WidgetCalorieSnapshot.TrackedNutrient(
+                    key: key,
+                    name: definition.name,
+                    unit: definition.unit,
+                    total: total,
+                    goal: goal,
+                    progress: nutrientProgress
+                )
+            }
+        let snapshot = WidgetCalorieSnapshot(
+            updatedAt: Date(),
+            consumedCalories: max(totalCalories, 0),
+            goalCalories: safeGoal,
+            burnedCalories: max(burnedCaloriesToday, 0),
+            caloriesLeft: max(caloriesLeft, 0),
+            progress: progress,
+            trackedNutrients: Array(nutrientSummaries)
+        )
+        WidgetSnapshotStore.save(snapshot)
     }
 
     private func scheduleCalibrationEvaluation(force: Bool = false) {

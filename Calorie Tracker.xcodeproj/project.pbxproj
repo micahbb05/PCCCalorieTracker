@@ -6,7 +6,18 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		7599AA562F62000100A8457B /* Calorie Tracker Widgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 7599AA502F62000100A8457B /* Calorie Tracker Widgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
+		7599AA572F62000100A8457B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7587F5142F5209DE00A8457B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7599AA4E2F62000100A8457B;
+			remoteInfo = "Calorie Tracker Widgets";
+		};
 		75A100072F53000100A8457B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 7587F5142F5209DE00A8457B /* Project object */;
@@ -16,8 +27,23 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		7599AA542F62000100A8457B /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				7599AA562F62000100A8457B /* Calorie Tracker Widgets.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		7587F51C2F5209DE00A8457B /* Calorie Tracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Calorie Tracker.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		7599AA502F62000100A8457B /* Calorie Tracker Widgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Calorie Tracker Widgets.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		75A100012F53000100A8457B /* Calorie TrackerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Calorie TrackerUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -25,6 +51,11 @@
 		7587F51E2F5209DE00A8457B /* Calorie Tracker */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "Calorie Tracker";
+			sourceTree = "<group>";
+		};
+		7599AA512F62000100A8457B /* Calorie Tracker Widgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "Calorie Tracker Widgets";
 			sourceTree = "<group>";
 		};
 		75A100022F53000100A8457B /* Calorie TrackerUITests */ = {
@@ -36,6 +67,13 @@
 
 /* Begin PBXFrameworksBuildPhase section */
 		7587F5192F5209DE00A8457B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7599AA532F62000100A8457B /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -56,6 +94,7 @@
 			isa = PBXGroup;
 			children = (
 				7587F51E2F5209DE00A8457B /* Calorie Tracker */,
+				7599AA512F62000100A8457B /* Calorie Tracker Widgets */,
 				75A100022F53000100A8457B /* Calorie TrackerUITests */,
 				7587F51D2F5209DE00A8457B /* Products */,
 			);
@@ -65,6 +104,7 @@
 			isa = PBXGroup;
 			children = (
 				7587F51C2F5209DE00A8457B /* Calorie Tracker.app */,
+				7599AA502F62000100A8457B /* Calorie Tracker Widgets.appex */,
 				75A100012F53000100A8457B /* Calorie TrackerUITests.xctest */,
 			);
 			name = Products;
@@ -80,10 +120,12 @@
 				7587F5182F5209DE00A8457B /* Sources */,
 				7587F5192F5209DE00A8457B /* Frameworks */,
 				7587F51A2F5209DE00A8457B /* Resources */,
+				7599AA542F62000100A8457B /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				7599AA582F62000100A8457B /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				7587F51E2F5209DE00A8457B /* Calorie Tracker */,
@@ -94,6 +136,28 @@
 			productName = "Calorie Tracker";
 			productReference = 7587F51C2F5209DE00A8457B /* Calorie Tracker.app */;
 			productType = "com.apple.product-type.application";
+		};
+		7599AA4E2F62000100A8457B /* Calorie Tracker Widgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7599AA5D2F62000100A8457B /* Build configuration list for PBXNativeTarget "Calorie Tracker Widgets" */;
+			buildPhases = (
+				7599AA522F62000100A8457B /* Sources */,
+				7599AA532F62000100A8457B /* Frameworks */,
+				7599AA552F62000100A8457B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				7599AA512F62000100A8457B /* Calorie Tracker Widgets */,
+			);
+			name = "Calorie Tracker Widgets";
+			packageProductDependencies = (
+			);
+			productName = "Calorie Tracker Widgets";
+			productReference = 7599AA502F62000100A8457B /* Calorie Tracker Widgets.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 		75A100062F53000100A8457B /* Calorie TrackerUITests */ = {
 			isa = PBXNativeTarget;
@@ -131,6 +195,9 @@
 					7587F51B2F5209DE00A8457B = {
 						CreatedOnToolsVersion = 26.2;
 					};
+					7599AA4E2F62000100A8457B = {
+						CreatedOnToolsVersion = 26.2;
+					};
 					75A100062F53000100A8457B = {
 						CreatedOnToolsVersion = 26.2;
 						TestTargetID = 7587F51B2F5209DE00A8457B;
@@ -154,6 +221,7 @@
 			projectRoot = "";
 			targets = (
 				7587F51B2F5209DE00A8457B /* Calorie Tracker */,
+				7599AA4E2F62000100A8457B /* Calorie Tracker Widgets */,
 				75A100062F53000100A8457B /* Calorie TrackerUITests */,
 			);
 		};
@@ -161,6 +229,13 @@
 
 /* Begin PBXResourcesBuildPhase section */
 		7587F51A2F5209DE00A8457B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7599AA552F62000100A8457B /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -184,6 +259,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7599AA522F62000100A8457B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		75A100052F53000100A8457B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -194,6 +276,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		7599AA582F62000100A8457B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7599AA4E2F62000100A8457B /* Calorie Tracker Widgets */;
+			targetProxy = 7599AA572F62000100A8457B /* PBXContainerItemProxy */;
+		};
 		75A100082F53000100A8457B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 7587F51B2F5209DE00A8457B /* Calorie Tracker */;
@@ -342,7 +429,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Calorie Tracker/Calorie Tracker.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = 5TGUM38DL9;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -385,7 +472,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Calorie Tracker/Calorie Tracker.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = 5TGUM38DL9;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -414,6 +501,58 @@
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		7599AA5B2F62000100A8457B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = "Calorie Tracker Widgets/Calorie Tracker Widgets.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 9;
+				DEVELOPMENT_TEAM = 5TGUM38DL9;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Calorie-Tracker-Widgets-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = "Micah.Calorie-Tracker.widgets";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		7599AA5C2F62000100A8457B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = "Calorie Tracker Widgets/Calorie Tracker Widgets.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 9;
+				DEVELOPMENT_TEAM = 5TGUM38DL9;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Calorie-Tracker-Widgets-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = "Micah.Calorie-Tracker.widgets";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -488,6 +627,15 @@
 			buildConfigurations = (
 				7587F5282F5209DF00A8457B /* Debug */,
 				7587F5292F5209DF00A8457B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7599AA5D2F62000100A8457B /* Build configuration list for PBXNativeTarget "Calorie Tracker Widgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7599AA5B2F62000100A8457B /* Debug */,
+				7599AA5C2F62000100A8457B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

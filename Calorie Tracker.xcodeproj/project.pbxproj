@@ -512,7 +512,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = "Calorie Tracker Widgets/Calorie Tracker Widgets.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = 5TGUM38DL9;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Calorie-Tracker-Widgets-Info.plist";
@@ -538,7 +538,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = "Calorie Tracker Widgets/Calorie Tracker Widgets.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = 5TGUM38DL9;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Calorie-Tracker-Widgets-Info.plist";

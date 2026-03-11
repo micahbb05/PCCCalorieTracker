@@ -1,0 +1,5 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test -project "/Users/micah/Documents/Calorie Tracker/Calorie Tracker.xcodeproj" -scheme "Calorie Tracker" -destination "platform=iOS Simulator,name=iPhone 17" "-only-testing:Calorie_TrackerUITests/testPCCMenuSearchAndScrollStayAnchored" "-only-testing:Calorie_TrackerUITests/testPCCMenuLastCategoryClearsBottomBar" "-only-testing:Calorie_TrackerUITests/testStressRapidTabSwitching" "-only-testing:Calorie_TrackerUITests/testStressExcessiveTextEntry" "-only-testing:Calorie_TrackerUITests/testStressMonkey2000Interactions" "-only-testing:Calorie_TrackerUITests/testE2EHappyPathPCCMenuSearchFlow"
+
+2026-03-11 09:31:58.176 xcodebuild[21092:485566] Writing error result bundle to /var/folders/96/53cwcbj521q1vtjplkrvc7d80000gn/T/ResultBundle_2026-11-03_09-31-0058.xcresult
+xcodebuild: error: Failed to build project Calorie Tracker with scheme Calorie Tracker.: Tests in the target “Calorie_TrackerUITests” can’t be run because “Calorie_TrackerUITests” isn’t a member of the specified test plan or scheme.

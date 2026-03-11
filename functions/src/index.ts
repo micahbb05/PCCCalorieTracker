@@ -948,8 +948,14 @@ Use exactly this JSON shape:
 Rules for food_photo mode:
 - Detect one or more foods in the image.
 - Return one item per distinct food.
-- Use web lookup for every detected food (including basic foods) to find the most accurate per-serving nutrition available.
-- Prefer official nutrition pages, restaurant nutrition PDFs/pages, USDA/FoodData Central, Open Food Facts, and major manufacturer pages.
+- Classify each food into one source strategy:
+  - brand_exact: branded or restaurant-specific item (e.g., "Taco Bell Cheesy Bean and Rice Burrito").
+  - generic_stable_density: generic single food with reasonably stable per-mass nutrition (e.g., chicken breast, white rice, salmon).
+  - generic_variable_composite: generic mixed dish with high recipe/size variance (e.g., burrito, casserole, stir fry, mixed bowl).
+- For brand_exact: use reliable web nutrition for the exact branded/restaurant item.
+- For generic_stable_density: use reliable per-oz/per-100g reference nutrition (USDA/FoodData Central style) and scale by visible portion.
+- For generic_variable_composite: do not force an exact web item match when no brand/restaurant is identified; estimate from visible portion/composition.
+- Prefer official nutrition pages, restaurant nutrition PDFs/pages, USDA/FoodData Central, Open Food Facts, and major manufacturer pages when web lookup is used.
 - Include as many reliable nutrients as available in "nutrients" using normalized keys.
 - Use "estimatedServings" for how much food is shown in the photo relative to the base serving.
 - Choose a practical base serving that a user can adjust later, such as 1 sandwich, 1 slice, 1 cup, 4 oz, 1 bowl, 1 taco, etc.
@@ -962,7 +968,9 @@ Rules for food_photo mode:
 - For non-count foods (oz/g/cup/tbsp/tsp), omit servingItemsCount and estimatedItemCount.
 - If there are multiple foods, include all clearly visible foods.
 - If confidence is poor, make the best reasonable estimate anyway.
-- sourceType must be "real" when nutrition was found from a reliable web source, and "estimated" only when no reliable web source exists.
+- sourceType rules:
+  - Use "real" for brand_exact and generic_stable_density items.
+  - Use "estimated" for generic_variable_composite items unless a clear branded/restaurant item is identified.
 
 Rules for nutrition_label mode:
 - Read the visible nutrition facts from the label as accurately as possible.
@@ -1550,6 +1558,147 @@ function parseAIVisionJsonResponse(text: string): {
   return { mode, items };
 }
 
+const BRAND_OR_RESTAURANT_KEYWORDS = [
+  "mcdonald",
+  "taco bell",
+  "chipotle",
+  "chick fil a",
+  "chick-fil-a",
+  "burger king",
+  "wendy",
+  "subway",
+  "kfc",
+  "popeyes",
+  "domino",
+  "pizza hut",
+  "starbucks",
+  "panera",
+  "panda express",
+  "whataburger",
+  "in n out",
+  "in-n-out",
+  "sonic",
+  "arbys",
+  "arby's",
+  "little caesars",
+  "five guys",
+  "shake shack",
+  "zaxby",
+  "bojangles",
+  "dunkin",
+  "restaurant"
+];
+
+const GENERIC_VARIABLE_COMPOSITE_KEYWORDS = [
+  "burrito",
+  "taco",
+  "quesadilla",
+  "enchilada",
+  "sandwich",
+  "burger",
+  "pizza",
+  "pasta",
+  "lasagna",
+  "casserole",
+  "stir fry",
+  "stir-fry",
+  "fried rice",
+  "bowl",
+  "wrap",
+  "salad",
+  "soup",
+  "chili",
+  "curry",
+  "gumbo",
+  "stew",
+  "plate",
+  "combo"
+];
+
+const GENERIC_STABLE_DENSITY_KEYWORDS = [
+  "chicken breast",
+  "chicken thigh",
+  "chicken",
+  "turkey breast",
+  "turkey",
+  "salmon",
+  "tuna",
+  "tilapia",
+  "cod",
+  "shrimp",
+  "egg",
+  "eggs",
+  "tofu",
+  "rice",
+  "oatmeal",
+  "oats",
+  "potato",
+  "sweet potato",
+  "broccoli",
+  "spinach",
+  "green beans",
+  "asparagus",
+  "banana",
+  "apple",
+  "orange",
+  "berries",
+  "yogurt",
+  "greek yogurt",
+  "cottage cheese",
+  "milk",
+  "black beans",
+  "beans"
+];
+
+function containsKeyword(text: string, keywords: readonly string[]): boolean {
+  return keywords.some((keyword) => text.includes(keyword));
+}
+
+function normalizeFoodNameForRules(name: string): string {
+  return name.trim().toLowerCase().replace(/[^a-z0-9\s\-']/g, " ");
+}
+
+function classifyFoodPhotoSource(name: string): "brand_exact" | "generic_stable_density" | "generic_variable_composite" {
+  const normalized = normalizeFoodNameForRules(name);
+  if (!normalized) return "generic_variable_composite";
+  if (containsKeyword(normalized, BRAND_OR_RESTAURANT_KEYWORDS)) return "brand_exact";
+  if (containsKeyword(normalized, GENERIC_VARIABLE_COMPOSITE_KEYWORDS)) return "generic_variable_composite";
+  if (containsKeyword(normalized, GENERIC_STABLE_DENSITY_KEYWORDS)) return "generic_stable_density";
+  return "generic_variable_composite";
+}
+
+function applyFoodPhotoSourceRules(items: Array<{
+  name: string;
+  servingAmount: number;
+  servingUnit: string;
+  servingItemsCount?: number;
+  estimatedServings: number;
+  estimatedItemCount?: number;
+  calories: number;
+  protein: number;
+  sourceType: "real" | "estimated";
+  nutrients: Record<string, number>;
+}>): Array<{
+  name: string;
+  servingAmount: number;
+  servingUnit: string;
+  servingItemsCount?: number;
+  estimatedServings: number;
+  estimatedItemCount?: number;
+  calories: number;
+  protein: number;
+  sourceType: "real" | "estimated";
+  nutrients: Record<string, number>;
+}> {
+  return items.map((item) => {
+    const sourceClass = classifyFoodPhotoSource(item.name);
+    if (sourceClass === "generic_variable_composite") {
+      return { ...item, sourceType: "estimated" };
+    }
+    return { ...item, sourceType: "real" };
+  });
+}
+
 async function performAIVisionAnalysis(
   apiKey: string,
   imageBase64: string,
@@ -1626,12 +1775,15 @@ async function performAIVisionAnalysis(
       logger.error("AI vision returned invalid JSON", { rawText: text });
       return { status: 502, body: { error: "AI returned an invalid response.", rawJson: text } };
     }
+    const normalizedItems = parsed.mode === "food_photo"
+      ? applyFoodPhotoSourceRules(parsed.items)
+      : parsed.items;
 
     return {
       status: 200,
       body: {
         mode: parsed.mode,
-        items: parsed.items,
+        items: normalizedItems,
         rawJson: jsonText
       }
     };

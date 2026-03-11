@@ -14,6 +14,14 @@ struct MenuSheetView: View {
         let item: MenuItem
     }
 
+    private struct MenuStatusState {
+        let systemImage: String
+        let title: String
+        let message: String
+        let showsProgress: Bool
+        let showsRetry: Bool
+    }
+
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
 
@@ -130,20 +138,87 @@ struct MenuSheetView: View {
     }
 
     private var filteredLines: [MenuLine] {
-        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
+        guard !trimmedSearchText.isEmpty else {
             return menu.lines
         }
 
         return menu.lines.compactMap { line in
             let items = line.items.filter { item in
-                item.name.localizedCaseInsensitiveContains(trimmed)
+                item.name.localizedCaseInsensitiveContains(trimmedSearchText)
             }
             guard !items.isEmpty else {
                 return nil
             }
             return MenuLine(id: line.id, name: line.name, items: items)
         }
+    }
+
+    private var trimmedSearchText: String {
+        searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var searchStatusState: MenuStatusState? {
+        guard !trimmedSearchText.isEmpty else { return nil }
+        if let errorMessage, !errorMessage.isEmpty {
+            return MenuStatusState(
+                systemImage: "exclamationmark.triangle.fill",
+                title: "Could not search menu",
+                message: errorMessage,
+                showsProgress: false,
+                showsRetry: true
+            )
+        }
+        if isLoading {
+            return MenuStatusState(
+                systemImage: "magnifyingglass",
+                title: "Searching menu",
+                message: "Checking today's items for matches.",
+                showsProgress: true,
+                showsRetry: false
+            )
+        }
+        if filteredLines.isEmpty {
+            return MenuStatusState(
+                systemImage: "magnifyingglass",
+                title: "No results found",
+                message: "Try a broader search term or check spelling.",
+                showsProgress: false,
+                showsRetry: false
+            )
+        }
+        return nil
+    }
+
+    private var browsingStatusState: MenuStatusState? {
+        guard trimmedSearchText.isEmpty else { return nil }
+        if let errorMessage, !errorMessage.isEmpty {
+            return MenuStatusState(
+                systemImage: "exclamationmark.triangle.fill",
+                title: "Could not load menu",
+                message: errorMessage,
+                showsProgress: false,
+                showsRetry: true
+            )
+        }
+        if isLoading {
+            return MenuStatusState(
+                systemImage: "fork.knife.circle",
+                title: "Loading menu",
+                message: "Pulling today's dining options and nutrition data.",
+                showsProgress: true,
+                showsRetry: false
+            )
+        }
+        if filteredLines.isEmpty {
+            return MenuStatusState(
+                systemImage: "fork.knife",
+                title: "No menu items available",
+                message: "Today's menu has not been published yet.",
+                showsProgress: false,
+                showsRetry: false
+            )
+        }
+        return nil
     }
 
     var body: some View {
@@ -239,56 +314,10 @@ struct MenuSheetView: View {
 
     @ViewBuilder
     private var content: some View {
-        if isLoading {
-            statusCard(
-                systemImage: "fork.knife.circle",
-                title: "Loading menu",
-                message: "Pulling today's dining options and nutrition data."
-            ) {
-                ProgressView()
-                    .tint(accent)
-            }
-        } else if let errorMessage {
-            statusCard(
-                systemImage: "exclamationmark.triangle.fill",
-                title: "Could not load menu",
-                message: errorMessage
-            ) {
-                Button {
-                    Task {
-                        isRetrying = true
-                        await onRetry()
-                        isRetrying = false
-                    }
-                } label: {
-                    if isRetrying {
-                        ProgressView()
-                            .tint(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                    } else {
-                        Text("Retry")
-                            .font(.headline.weight(.semibold))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                    }
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.white)
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(accent)
-                )
-                .disabled(isRetrying)
-            }
-        } else if filteredLines.isEmpty {
-            statusCard(
-                systemImage: searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "fork.knife" : "magnifyingglass",
-                title: searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No menu items available" : "No matches found",
-                message: searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Today's menu has not been published yet." : "Try a broader search term."
-            )
-        } else if !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if !trimmedSearchText.isEmpty {
             searchResultsContent
+        } else if let status = browsingStatusState {
+            statusView(status)
         } else {
             VStack(alignment: .leading, spacing: 14) {
                 ForEach(filteredLines) { line in
@@ -442,17 +471,21 @@ struct MenuSheetView: View {
             .frame(height: 22)
             .accessibilityIdentifier("pccMenu.searchField")
 
-            if !searchText.isEmpty {
-                Button {
-                    searchText = ""
-                    Haptics.selection()
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(textSecondary)
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("pccMenu.clearSearchButton")
+            Button {
+                guard !searchText.isEmpty else { return }
+                searchText = ""
+                Haptics.selection()
+            } label: {
+                Label("Clear search", systemImage: "xmark.circle.fill")
+                    .labelStyle(.iconOnly)
+                    .foregroundStyle(textSecondary)
+                    .opacity(searchText.isEmpty ? 0.35 : 1)
+                    .frame(width: 24, height: 24)
             }
+            .buttonStyle(.plain)
+            .disabled(searchText.isEmpty)
+            .accessibilityLabel("Clear search")
+            .accessibilityIdentifier("pccMenu.clearSearchButton")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
@@ -462,35 +495,80 @@ struct MenuSheetView: View {
 
     private var searchResultsContent: some View {
         VStack(alignment: .leading, spacing: 14) {
-            ForEach(filteredLines) { line in
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(spacing: 12) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(line.name)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(textPrimary)
-                            Text("\(line.items.count) result\(line.items.count == 1 ? "" : "s")")
-                                .font(.caption)
-                                .foregroundStyle(textSecondary)
+            if let status = searchStatusState {
+                statusView(status)
+            } else {
+                ForEach(filteredLines) { line in
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(line.name)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(textPrimary)
+                                Text("\(line.items.count) result\(line.items.count == 1 ? "" : "s")")
+                                    .font(.caption)
+                                    .foregroundStyle(textSecondary)
+                            }
+
+                            Spacer()
                         }
 
-                        Spacer()
-                    }
-
-                    VStack(spacing: 10) {
-                        if venue == .grabNGo {
-                            grabNGoSelectAllRow(for: line)
-                        }
-                        ForEach(line.items) { item in
-                            menuItemRow(item)
+                        VStack(spacing: 10) {
+                            if venue == .grabNGo {
+                                grabNGoSelectAllRow(for: line)
+                            }
+                            ForEach(line.items) { item in
+                                menuItemRow(item)
+                            }
                         }
                     }
+                    .padding(16)
+                    .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
                 }
-                .padding(16)
-                .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
             }
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("pccMenu.searchResults")
+    }
+
+    private func statusView(_ status: MenuStatusState) -> some View {
+        statusCard(
+            systemImage: status.systemImage,
+            title: status.title,
+            message: status.message
+        ) {
+            if status.showsRetry {
+                Button {
+                    Task {
+                        isRetrying = true
+                        await onRetry()
+                        isRetrying = false
+                    }
+                } label: {
+                    if isRetrying {
+                        ProgressView()
+                            .tint(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                    } else {
+                        Text("Retry")
+                            .font(.headline.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                    }
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.white)
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(accent)
+                )
+                .disabled(isRetrying)
+            } else if status.showsProgress {
+                ProgressView()
+                    .tint(accent)
+            }
+        }
     }
 
     private func lineCard(for line: MenuLine) -> some View {

@@ -199,8 +199,9 @@ final class Calorie_TrackerUITests: XCTestCase {
         XCTAssertTrue(results.waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["Grilled Chicken Bowl"].waitForExistence(timeout: 3))
 
-        let clearButton = app.buttons["pccMenu.clearSearchButton"]
+        let clearButton = app.descendants(matching: .any)["pccMenu.clearSearchButton"]
         XCTAssertTrue(clearButton.waitForExistence(timeout: 2))
+        XCTAssertTrue(clearButton.isHittable)
         clearButton.tap()
         XCTAssertEqual((searchField.value as? String) ?? "", "")
 

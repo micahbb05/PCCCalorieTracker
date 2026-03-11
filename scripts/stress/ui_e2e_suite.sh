@@ -7,7 +7,7 @@ OUT_DIR="$ROOT_DIR/output/stress/$RUN_ID"
 LOG_DIR="$OUT_DIR/logs/ui"
 mkdir -p "$LOG_DIR"
 
-DESTINATION="${STRESS_IOS_DESTINATION:-platform=iOS Simulator,name=iPhone 16}"
+DESTINATION="${STRESS_IOS_DESTINATION:-platform=iOS Simulator,name=iPhone 17}"
 LOG_FILE="$LOG_DIR/xcodebuild_ui.log"
 
 XCODE_STATUS=0
@@ -15,12 +15,12 @@ xcodebuild test \
   -project "$ROOT_DIR/Calorie Tracker.xcodeproj" \
   -scheme "Calorie Tracker" \
   -destination "$DESTINATION" \
-  -only-testing:"Calorie TrackerUITests/testPCCMenuSearchAndScrollStayAnchored" \
-  -only-testing:"Calorie TrackerUITests/testPCCMenuLastCategoryClearsBottomBar" \
-  -only-testing:"Calorie TrackerUITests/testStressRapidTabSwitching" \
-  -only-testing:"Calorie TrackerUITests/testStressExcessiveTextEntry" \
-  -only-testing:"Calorie TrackerUITests/testStressMonkey2000Interactions" \
-  -only-testing:"Calorie TrackerUITests/testE2EHappyPathPCCMenuSearchFlow" \
+  -only-testing:"Calorie TrackerUITests/Calorie_TrackerUITests/testPCCMenuSearchAndScrollStayAnchored" \
+  -only-testing:"Calorie TrackerUITests/Calorie_TrackerUITests/testPCCMenuLastCategoryClearsBottomBar" \
+  -only-testing:"Calorie TrackerUITests/Calorie_TrackerUITests/testStressRapidTabSwitching" \
+  -only-testing:"Calorie TrackerUITests/Calorie_TrackerUITests/testStressExcessiveTextEntry" \
+  -only-testing:"Calorie TrackerUITests/Calorie_TrackerUITests/testStressMonkey2000Interactions" \
+  -only-testing:"Calorie TrackerUITests/Calorie_TrackerUITests/testE2EHappyPathPCCMenuSearchFlow" \
   > "$LOG_FILE" 2>&1 || XCODE_STATUS=$?
 
 ACTIONS=$(grep -Eo 'STRESS_METRIC actions=[0-9]+' "$LOG_FILE" | tail -n1 | cut -d= -f2 || echo "0")

@@ -83,3 +83,7 @@ C6-duration-no-pace-default-pace-infer
   requestDelta: 0
   effectiveDelta: 0
     C6-duration-no-pace-default-pace-infer-run1 input={"weightLb":170,"distanceMiles":null,"durationMinutes":50,"paceMinPerMile":null} app=310 ref=310 delta=0 (0.00%)
+
+
+Report written: /Users/micah/Documents/Calorie Tracker/output/running_step_borrow_audit.txt
+

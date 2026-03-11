@@ -1,0 +1,35 @@
+
+Step/Walking Calorie Accuracy Evaluation
+
+1) Steps -> calories (StepActivityService.estimatedCaloriesToday)
+   Cases: 10
+   MAE: 32.3 kcal
+   MAPE: 10.3%
+   Bias range: 9.9% to +11.3%
+   Worst case: S1 app=59, ref=53, error=6 kcal (11.3%)
+
+2) Running walking-equivalent fallback (duration-only path)
+   Path tested: ExerciseCalorieService.walkingEquivalentCalories when distance is missing
+   Cases: 8
+   MAE: 0.0 kcal
+   MAPE: 0.0%
+   Bias range: 0.0% to +0.0%
+   Legacy (pre-fix) MAPE for same cases: 36.2%
+   Worst case: D1 app=211, ref=211, error=0 kcal (0.0%)
+
+3) Running walking-equivalent distance path consistency
+   Path tested: ExerciseCalorieService.walkingEquivalentCalories when distance is present
+   Cases: 4
+   MAE: 0.0 kcal
+   MAPE: 0.0%
+
+Sample case details:
+   S1: steps=3000, app=59, ref=53, err=6 (11.3%)
+   S2: steps=7000, app=182, ref=165, err=17 (10.3%)
+   S3: steps=10000, app=304, ref=276, err=28 (10.1%)
+   D1: pace=8 min/mi, dur=30 min, app=211, ref=211, err=0 (0.0%)
+   D2: pace=10 min/mi, dur=30 min, app=205, ref=205, err=0 (0.0%)
+   D3: pace=12 min/mi, dur=30 min, app=201, ref=201, err=0 (0.0%)
+
+Overall gate (<=15% each main path): PASS
+

@@ -1,0 +1,14 @@
+{
+  "suite": "ui_e2e",
+  "passed": false,
+  "metrics": {
+    "uiActionCount": 0,
+    "uiActionSuccesses": 0,
+    "uiActionSuccessRate": 0,
+    "uiCriticalDeadEnds": 0,
+    "e2eHappyPathPass": 0,
+    "passedTests": 0,
+    "failedTests": 0
+  },
+  "logFile": "output/stress/codex-check3/logs/ui/xcodebuild_ui.log"
+}

@@ -1256,12 +1256,18 @@ struct MenuSheetView: View {
             }
             .onAppear {
                 isMultiplierKeyboardVisible = false
+                isServingAmountFieldFocused = false
                 syncSelectedServingAmountText()
             }
             .onDisappear {
                 isMultiplierKeyboardVisible = false
             }
             .onChange(of: selectedMultiplierValue) { _, _ in
+                if !isServingAmountFieldFocused {
+                    syncSelectedServingAmountText()
+                }
+            }
+            .onChange(of: selectedServingBaselineAmount) { _, _ in
                 if !isServingAmountFieldFocused {
                     syncSelectedServingAmountText()
                 }

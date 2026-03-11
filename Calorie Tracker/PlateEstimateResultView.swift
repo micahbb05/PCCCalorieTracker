@@ -325,6 +325,7 @@ struct PlateEstimateResultView: View {
             }
             .onAppear {
                 isAdjusterKeyboardVisible = false
+                isAdjusterAmountFieldFocused = false
                 prepareServingAdjuster(for: item)
             }
             .onDisappear {
@@ -339,6 +340,11 @@ struct PlateEstimateResultView: View {
                 isAdjusterKeyboardVisible = false
             }
             .onChange(of: adjusterMultiplier) { _, _ in
+                if !isAdjusterAmountFieldFocused {
+                    syncAdjusterAmountTextFromSlider()
+                }
+            }
+            .onChange(of: adjusterBaselineAmount) { _, _ in
                 if !isAdjusterAmountFieldFocused {
                     syncAdjusterAmountTextFromSlider()
                 }
@@ -521,9 +527,9 @@ struct PlateEstimateResultView: View {
     }
 
     private func prepareServingAdjuster(for item: MenuItem) {
-        let currentTotal = max(ozByItemId[item.id] ?? 0, 0.01)
+        let currentStoredAmount = max(ozByItemId[item.id] ?? 0, 0.01)
         if item.isCountBased {
-            let quantity = max(0.25, adjusterQuantityByItemId[item.id] ?? roundToServingSelectorIncrement(currentTotal))
+            let quantity = max(0.25, adjusterQuantityByItemId[item.id] ?? roundToServingSelectorIncrement(currentStoredAmount))
             adjusterQuantity = quantity
             adjusterCountText = formattedServingAmount(quantity)
             adjusterBaselineAmount = 1.0
@@ -531,16 +537,17 @@ struct PlateEstimateResultView: View {
             adjusterAmountText = "1"
             adjusterQuantityByItemId[item.id] = quantity
         } else {
+            let currentDisplayAmount = roundToServingSelectorIncrement(storedOzToDisplayAmount(currentStoredAmount, for: item))
             adjusterQuantity = 1.0
             if let savedBaseline = adjusterBaselineByItemId[item.id],
                let savedSliderValue = adjusterSliderValueByItemId[item.id] {
                 adjusterBaselineAmount = max(roundToServingSelectorIncrement(savedBaseline), 0)
                 adjusterMultiplier = min(max(savedSliderValue, 0.25), 1.75)
             } else {
-                adjusterBaselineAmount = roundToServingSelectorIncrement(currentTotal)
+                adjusterBaselineAmount = max(currentDisplayAmount, 0)
                 adjusterMultiplier = 1.0
             }
-            adjusterAmountText = formattedServingAmount(currentAdjusterAmount())
+            syncAdjusterAmountTextFromSlider()
         }
         preparedAdjusterItemId = item.id
     }
@@ -615,8 +622,8 @@ struct PlateEstimateResultView: View {
         if item.isCountBased {
             return adjusterQuantity
         }
-        let servingAmount = max(roundToServingSelectorIncrement(currentAdjusterAmount()), 0)
-        return servingAmount
+        let displayAmount = max(roundToServingSelectorIncrement(currentAdjusterAmount()), 0)
+        return displayAmountToStoredOz(displayAmount, for: item)
     }
 
     private func applyAdjusterSliderChange(for item: MenuItem) {
@@ -643,7 +650,10 @@ struct PlateEstimateResultView: View {
             let unit = displayCountUnit(for: item, quantity: quantity)
             return "\(formattedServingAmount(quantity)) \(unit)"
         }
-        return formattedDisplayServingWithUnit(currentOz, unit: item.servingUnit)
+        let displayAmount = max(storedOzToDisplayAmount(currentOz, for: item), 0)
+        let formattedAmount = formattedServingAmount(displayAmount)
+        let unitText = inflectedUnit(displayServingUnit(for: item.servingUnit), quantity: displayAmount)
+        return "\(formattedAmount) \(unitText)"
     }
 
     private func itemNutritionAtCurrentPortion(_ item: MenuItem) -> (calories: Int, protein: Int, multiplier: Double) {
@@ -718,6 +728,26 @@ struct PlateEstimateResultView: View {
             return amount / 28.3495
         }
         return amount
+    }
+
+    private func baseDisplayServingAmount(for item: MenuItem) -> Double {
+        max(convertedServingAmount(item.servingAmount, unit: item.servingUnit), 0)
+    }
+
+    private func storedOzToDisplayAmount(_ oz: Double, for item: MenuItem) -> Double {
+        guard !item.isCountBased else { return oz }
+        let baseOz = baseOzByItemId[item.id] ?? item.servingOzForPortions
+        let baseDisplay = baseDisplayServingAmount(for: item)
+        guard baseOz > 0, baseDisplay > 0 else { return oz }
+        return (oz / baseOz) * baseDisplay
+    }
+
+    private func displayAmountToStoredOz(_ amount: Double, for item: MenuItem) -> Double {
+        guard !item.isCountBased else { return amount }
+        let baseOz = baseOzByItemId[item.id] ?? item.servingOzForPortions
+        let baseDisplay = baseDisplayServingAmount(for: item)
+        guard baseOz > 0, baseDisplay > 0 else { return amount }
+        return (amount / baseDisplay) * baseOz
     }
 
     private func displayCountUnit(for item: MenuItem, quantity: Double) -> String {

@@ -702,7 +702,10 @@ struct PlateEstimateResultView: View {
     }
 
     private func displayServingUnit(for unit: String) -> String {
-        unit.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "servings" : unit
+        let trimmed = unit.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return "servings" }
+        if isGramUnit(trimmed) { return "g" }
+        return trimmed
     }
 
     private func inflectedTextFieldUnit(for unit: String, amountText: String) -> String {
@@ -723,11 +726,12 @@ struct PlateEstimateResultView: View {
     }
 
     private func convertedServingAmount(_ amount: Double, unit: String) -> Double {
-        let normalizedUnit = unit.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if normalizedUnit == "g" || normalizedUnit == "gram" || normalizedUnit == "grams" {
-            return amount / 28.3495
-        }
         return amount
+    }
+
+    private func isGramUnit(_ unit: String) -> Bool {
+        let normalizedUnit = unit.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return normalizedUnit == "g" || normalizedUnit == "gram" || normalizedUnit == "grams" || normalizedUnit == "grms"
     }
 
     private func baseDisplayServingAmount(for item: MenuItem) -> Double {

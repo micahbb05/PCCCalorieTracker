@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /*
-Stress test for PCC AI mode (`estimatePlatePortions`) using a 10-food image.
+Stress test for PCC Smart Log (`estimatePlatePortions`) using a 10-food image.
 
 Usage:
   node scripts/gemini_plate_stress_test.js \

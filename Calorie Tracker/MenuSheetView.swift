@@ -1523,7 +1523,10 @@ struct MenuSheetView: View {
     }
 
     private func displayServingUnit(for unit: String) -> String {
-        isGramUnit(unit) ? "oz" : unit
+        if isGramUnit(unit) {
+            return "g"
+        }
+        return unit
     }
 
     private func inflectedTextFieldUnit(for unit: String, amountText: String) -> String {
@@ -1541,9 +1544,6 @@ struct MenuSheetView: View {
     }
 
     private func convertedServingAmount(_ amount: Double, unit: String) -> Double {
-        if isGramUnit(unit) {
-            return amount / 28.3495
-        }
         return amount
     }
 
@@ -1560,6 +1560,6 @@ struct MenuSheetView: View {
 
     private func isGramUnit(_ unit: String) -> Bool {
         let normalized = unit.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return normalized == "g" || normalized == "gram" || normalized == "grams"
+        return normalized == "g" || normalized == "gram" || normalized == "grams" || normalized == "grms"
     }
 }

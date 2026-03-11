@@ -90,6 +90,12 @@ final class USDAFoodService {
         do {
             (data, response) = try await URLSession.shared.data(for: request)
         } catch {
+            if error is CancellationError {
+                throw error
+            }
+            if let urlError = error as? URLError, urlError.code == .cancelled {
+                throw error
+            }
             throw USDAFoodError.networkFailure
         }
 
@@ -97,6 +103,9 @@ final class USDAFoodService {
             throw USDAFoodError.invalidPayload
         }
         guard (200...299).contains(httpResponse.statusCode) else {
+            if httpResponse.statusCode == 404 {
+                throw USDAFoodError.noResults
+            }
             if let decodedError = try? JSONDecoder().decode(SearchRequestErrorResponse.self, from: data),
                let message = decodedError.error?.trimmingCharacters(in: .whitespacesAndNewlines),
                !message.isEmpty {
@@ -136,9 +145,17 @@ final class USDAFoodService {
             calories: calories,
             nutrientValues: nutrientValues.filter { $0.key != "calories" },
             servingAmount: max(food.servingAmount, 0),
-            servingUnit: food.servingUnit.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+            servingUnit: normalizedServingUnit(food.servingUnit),
             servingDescription: food.servingDescription?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
         )
+    }
+
+    private func normalizedServingUnit(_ rawUnit: String) -> String {
+        let normalized = rawUnit.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if normalized == "gram" || normalized == "grams" || normalized == "grms" {
+            return "g"
+        }
+        return normalized
     }
 
 }

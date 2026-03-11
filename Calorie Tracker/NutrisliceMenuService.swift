@@ -83,7 +83,7 @@ struct MenuItem: Identifiable, Hashable, Codable {
         // Explicit measured menu units (volume/weight) should always stay measurement-based.
         if u.contains("cup")
             || u.contains("oz")
-            || u == "g" || u == "gram" || u == "grams"
+            || u == "g" || u == "gram" || u == "grams" || u == "grms"
             || u.contains("tbsp") || u.contains("tablespoon")
             || u.contains("tsp") || u.contains("teaspoon")
             || u == "ml" || u == "l" || u == "lb" || u == "lbs" {
@@ -125,7 +125,7 @@ struct MenuItem: Identifiable, Hashable, Codable {
         if isCountBased { return 1.0 }
         let unit = servingUnit.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let amount = max(servingAmount, 0.0)
-        if unit == "g" || unit == "gram" || unit == "grams" { return amount / 28.3495 }
+        if unit == "g" || unit == "gram" || unit == "grams" || unit == "grms" { return amount / 28.3495 }
         if unit.contains("oz") { return amount > 0 ? amount : 4.0 }
         if unit.contains("cup") { return (amount > 0 ? amount : 1.0) * 8.0 }
         if unit.contains("tbsp") || unit.contains("tablespoon") { return (amount > 0 ? amount : 1.0) * 0.5 }

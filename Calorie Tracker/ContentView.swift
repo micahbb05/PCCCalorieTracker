@@ -342,6 +342,29 @@ struct ContentView: View {
         let servingUnit: String
         let entrySource: EntrySource
         let displayedNutrientKeys: [String]?
+        let quickAddID: UUID?
+
+        init(
+            name: String,
+            subtitle: String?,
+            calories: Int,
+            nutrientValues: [String: Int],
+            servingAmount: Double,
+            servingUnit: String,
+            entrySource: EntrySource,
+            displayedNutrientKeys: [String]?,
+            quickAddID: UUID? = nil
+        ) {
+            self.name = name
+            self.subtitle = subtitle
+            self.calories = calories
+            self.nutrientValues = nutrientValues
+            self.servingAmount = servingAmount
+            self.servingUnit = servingUnit
+            self.entrySource = entrySource
+            self.displayedNutrientKeys = displayedNutrientKeys
+            self.quickAddID = quickAddID
+        }
     }
 
     private struct FoodLogDisplayEntry: Identifiable {
@@ -420,7 +443,7 @@ struct ContentView: View {
             case .usdaSearch: return "Find Foods"
             case .barcode: return "Scan Barcode"
             case .quickAdd: return "Quick Add"
-            case .aiPhoto: return "AI Mode"
+            case .aiPhoto: return "Smart Log"
             case .manualEntry: return "Manual Entry"
             }
         }
@@ -610,7 +633,9 @@ struct ContentView: View {
     @State private var foodSearchResults: [FoodSearchResult] = []
     @State private var isUSDASearchLoading = false
     @State private var usdaSearchError: String?
+    @State private var hasCompletedUSDASearch = false
     @State private var usdaSearchDebounceTask: Task<Void, Never>?
+    @State private var usdaSearchTask: Task<Void, Never>?
     @State private var latestFoodSearchRequestID = 0
     @State private var foodReviewItem: FoodReviewItem?
     @State private var foodReviewNameText = ""
@@ -1728,7 +1753,7 @@ struct ContentView: View {
                         openBarcodeScannerFromPicker()
                     }
 
-                    addDestinationSquareButton(title: "AI Mode", icon: "sparkles") {
+                    addDestinationSquareButton(title: "Smart Log", icon: "sparkles") {
                         openAddDestination(.aiPhoto)
                     }
 
@@ -2149,6 +2174,7 @@ struct ContentView: View {
         QuickAddManagerView(
             quickAddFoods: $quickAddFoods,
             trackedNutrientKeys: trackedNutrientKeys,
+            storedVenueMenus: venueMenus,
             surfacePrimary: surfacePrimary,
             surfaceSecondary: surfaceSecondary,
             textPrimary: textPrimary,
@@ -2167,6 +2193,9 @@ struct ContentView: View {
             accent: accent,
             onSelect: { item in
                 addQuickAddFood(item)
+            },
+            onManage: {
+                presentQuickAddManagerFromPicker()
             },
             onClose: nil,
             showsStandaloneChrome: true
@@ -2910,25 +2939,53 @@ struct ContentView: View {
             let query = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
             guard query.count >= 2 else {
                 latestFoodSearchRequestID += 1
+                usdaSearchTask?.cancel()
                 foodSearchResults = []
                 isUSDASearchLoading = false
                 usdaSearchError = nil
+                hasCompletedUSDASearch = false
                 return
             }
             usdaSearchDebounceTask = Task {
-                try? await Task.sleep(nanoseconds: 400_000_000)
+                try? await Task.sleep(nanoseconds: 550_000_000)
                 guard !Task.isCancelled else { return }
-                await performUSDASearch()
+                await scheduleUSDASearch(query: query, trigger: .automatic)
             }
         }
     }
 
     private var quickAddTabView: some View {
         VStack(alignment: .leading, spacing: 0) {
-            addWorkspaceHeader(
-                title: AddDestination.quickAdd.title,
-                subtitle: AddDestination.quickAdd.subtitle
-            )
+            HStack(alignment: .top, spacing: 12) {
+                tabHeader(
+                    title: AddDestination.quickAdd.title,
+                    subtitle: AddDestination.quickAdd.subtitle
+                )
+
+                Spacer(minLength: 8)
+
+                Button {
+                    presentQuickAddManagerFromPicker()
+                    Haptics.impact(.light)
+                } label: {
+                    Text("Manage")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(surfacePrimary.opacity(0.94))
+                        )
+                        .overlay(
+                            Capsule(style: .continuous)
+                                .stroke(textSecondary.opacity(0.14), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 18)
+            .padding(.bottom, 6)
 
             QuickAddPickerView(
                 quickAddFoods: quickAddFoods,
@@ -2939,6 +2996,9 @@ struct ContentView: View {
                 accent: accent,
                 onSelect: { item in
                     addQuickAddFood(item)
+                },
+                onManage: {
+                    presentQuickAddManagerFromPicker()
                 },
                 onClose: nil,
                 showsStandaloneChrome: false
@@ -3112,8 +3172,6 @@ struct ContentView: View {
                                 }
                             }
                         )
-
-                        quickAddManagementCard
                     }
                 }
                 .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 4, trailing: 0))
@@ -3867,9 +3925,15 @@ struct ContentView: View {
 
                 Menu {
                     ForEach(NetHistoryRange.allCases) { range in
-                        Button(range.title) {
+                        Button {
                             netHistoryRange = range
                             Haptics.selection()
+                        } label: {
+                            if range == netHistoryRange {
+                                Label(range.title, systemImage: "checkmark")
+                            } else {
+                                Text(range.title)
+                            }
                         }
                     }
                 } label: {
@@ -3931,9 +3995,15 @@ struct ContentView: View {
 
                 Menu {
                     ForEach(NetHistoryRange.allCases) { range in
-                        Button(range.title) {
+                        Button {
                             historyDistributionRange = range
                             Haptics.selection()
+                        } label: {
+                            if range == historyDistributionRange {
+                                Label(range.title, systemImage: "checkmark")
+                            } else {
+                                Text(range.title)
+                            }
                         }
                     }
                 } label: {
@@ -3990,9 +4060,15 @@ struct ContentView: View {
                             Spacer()
                             Menu {
                                 ForEach(HistoryChartRange.allCases) { range in
-                                    Button(range.title) {
+                                    Button {
                                         expandedHistoryChartRange = range
                                         Haptics.selection()
+                                    } label: {
+                                        if range == expandedHistoryChartRange {
+                                            Label(range.title, systemImage: "checkmark")
+                                        } else {
+                                            Text(range.title)
+                                        }
                                     }
                                 }
                             } label: {
@@ -4656,44 +4732,6 @@ struct ContentView: View {
         .padding(.vertical, 2)
     }
 
-    private var quickAddManagementCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Quick Add Foods")
-                .font(.headline.weight(.semibold))
-            Text("Save foods you log often for one-tap adding.")
-                .font(.subheadline)
-                .foregroundStyle(textSecondary)
-
-            Button {
-                isQuickAddManagerPresented = true
-                Haptics.impact(.light)
-            } label: {
-                Text("Manage Quick Add Foods")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-            }
-            .buttonStyle(.bordered)
-            .tint(accent)
-        }
-        .padding(18)
-        .tint(Color(red: 0.20, green: 0.50, blue: 0.98))
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(uiColor: .secondarySystemBackground).opacity(colorScheme == .dark ? 0.82 : 0.55))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(Color.white.opacity(colorScheme == .dark ? 0.08 : 0.14), lineWidth: 1)
-                )
-                .shadow(
-                    color: Color.black.opacity(colorScheme == .dark ? 0.20 : 0.08),
-                    radius: colorScheme == .dark ? 10 : 6,
-                    x: 0,
-                    y: 2
-                )
-        )
-    }
-
     private func nutrientFieldBinding(for key: String) -> Binding<String> {
         Binding(
             get: { nutrientInputTexts[key] ?? "" },
@@ -4901,53 +4939,37 @@ struct ContentView: View {
                         .autocorrectionDisabled()
                         .submitLabel(.search)
                         .onSubmit {
-                            Task {
-                                await performUSDASearch()
+                            Task { @MainActor in
+                                await scheduleUSDASearch(trigger: .manual)
                             }
                         }
                         .foregroundStyle(textPrimary)
 
-                    if !usdaSearchText.isEmpty {
-                        Button {
-                            latestFoodSearchRequestID += 1
-                            usdaSearchText = ""
-                            foodSearchResults = []
-                            isUSDASearchLoading = false
-                            usdaSearchError = nil
-                            usdaSearchDebounceTask?.cancel()
-                            usdaSearchDebounceTask = nil
-                            Haptics.selection()
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(textSecondary)
-                        }
-                        .buttonStyle(.plain)
+                    Button {
+                        guard !usdaSearchText.isEmpty else { return }
+                        latestFoodSearchRequestID += 1
+                        usdaSearchText = ""
+                        foodSearchResults = []
+                        isUSDASearchLoading = false
+                        usdaSearchError = nil
+                        hasCompletedUSDASearch = false
+                        usdaSearchDebounceTask?.cancel()
+                        usdaSearchTask?.cancel()
+                        usdaSearchDebounceTask = nil
+                        Haptics.selection()
+                    } label: {
+                        Label("Clear search", systemImage: "xmark.circle.fill")
+                            .labelStyle(.iconOnly)
+                            .foregroundStyle(textSecondary)
+                            .opacity(usdaSearchText.isEmpty ? 0.35 : 1)
+                            .frame(width: 24, height: 24)
                     }
+                    .buttonStyle(.plain)
+                    .disabled(usdaSearchText.isEmpty)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
                 .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
-
-                Button {
-                    Task {
-                        await performUSDASearch()
-                    }
-                } label: {
-                    if isUSDASearchLoading {
-                        ProgressView()
-                            .tint(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                    } else {
-                        Text("Search")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(accent)
-                .disabled(isUSDASearchLoading)
 
                 if let usdaSearchError {
                     Text(usdaSearchError)
@@ -4955,7 +4977,18 @@ struct ContentView: View {
                         .foregroundStyle(Color.orange)
                 }
 
-                if !foodSearchResults.isEmpty {
+                if isUSDASearchLoading {
+                    HStack(spacing: 10) {
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                            .tint(accent)
+                        Text("Searching USDA foods...")
+                            .font(.subheadline)
+                            .foregroundStyle(textSecondary)
+                    }
+                    .padding(.vertical, 4)
+                    .accessibilityIdentifier("usdaSearch.loading")
+                } else if !foodSearchResults.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Results")
                             .font(.headline.weight(.semibold))
@@ -4968,7 +5001,7 @@ struct ContentView: View {
                         }
                     }
                 } else if !usdaSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isUSDASearchLoading && usdaSearchError == nil {
-                    Text("Search to see matching foods.")
+                    Text(hasCompletedUSDASearch ? "No results found. Try a broader search term." : "Type to see matching foods.")
                         .font(.subheadline)
                         .foregroundStyle(textSecondary)
                 }
@@ -4999,12 +5032,20 @@ struct ContentView: View {
                                 .foregroundStyle(accent)
 
                             VStack(alignment: .leading, spacing: 6) {
-                                TextField("Food name", text: $foodReviewNameText)
-                                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                                    .foregroundStyle(textPrimary)
-                                    .submitLabel(.done)
-                                    .focused($foodReviewFocusedField, equals: .name)
-                                    .inputStyle(surface: surfacePrimary.opacity(0.94), text: textPrimary, secondary: textSecondary)
+                                if isFoodReviewNameEditable(for: item) {
+                                    TextField("Food name", text: $foodReviewNameText)
+                                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                                        .foregroundStyle(textPrimary)
+                                        .submitLabel(.done)
+                                        .focused($foodReviewFocusedField, equals: .name)
+                                        .inputStyle(surface: surfacePrimary.opacity(0.94), text: textPrimary, secondary: textSecondary)
+                                } else {
+                                    Text(item.name)
+                                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                                        .foregroundStyle(textPrimary)
+                                        .lineLimit(2)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
                             }
 
                             if let subtitle = item.subtitle {
@@ -5122,6 +5163,15 @@ struct ContentView: View {
                 applyTypedFoodReviewAmountIfPossible(text: newValue)
             }
             .interactiveDismissDisabled(isFoodReviewKeyboardVisible)
+        }
+    }
+
+    private func isFoodReviewNameEditable(for item: FoodReviewItem) -> Bool {
+        switch item.entrySource {
+        case .quickAdd:
+            return false
+        case .manual, .barcode, .usda, .aiFoodPhoto, .aiNutritionLabel, .aiText, .pccMenu:
+            return true
         }
     }
 
@@ -6188,6 +6238,7 @@ struct ContentView: View {
             }
         case .usdaSearch:
             usdaSearchError = nil
+            hasCompletedUSDASearch = false
         case .barcode:
             hasScannedBarcodeInCurrentSheet = false
             barcodeLookupError = nil
@@ -6260,19 +6311,34 @@ struct ContentView: View {
         }
     }
 
+    private enum USDASearchTrigger {
+        case automatic
+        case manual
+    }
+
     @MainActor
-    private func performUSDASearch() async {
-        let query = usdaSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard query.count >= 2 else {
+    private func scheduleUSDASearch(query: String? = nil, trigger: USDASearchTrigger) async {
+        let resolvedQuery = (query ?? usdaSearchText).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard resolvedQuery.count >= 2 else {
             latestFoodSearchRequestID += 1
+            usdaSearchTask?.cancel()
             foodSearchResults = []
             isUSDASearchLoading = false
             usdaSearchError = nil
+            hasCompletedUSDASearch = false
             return
         }
 
         latestFoodSearchRequestID += 1
         let requestID = latestFoodSearchRequestID
+        usdaSearchTask?.cancel()
+        usdaSearchTask = Task {
+            await runUSDASearch(query: resolvedQuery, requestID: requestID, trigger: trigger)
+        }
+    }
+
+    @MainActor
+    private func runUSDASearch(query: String, requestID: Int, trigger: USDASearchTrigger) async {
         isUSDASearchLoading = true
         usdaSearchError = nil
 
@@ -6280,11 +6346,21 @@ struct ContentView: View {
             let results = try await searchFoodsAcrossSources(query: query)
             guard requestID == latestFoodSearchRequestID else { return }
             foodSearchResults = results
+            hasCompletedUSDASearch = true
             Haptics.selection()
         } catch {
             guard requestID == latestFoodSearchRequestID else { return }
+            if isCancellationError(error) {
+                isUSDASearchLoading = false
+                return
+            }
+
             foodSearchResults = []
+            hasCompletedUSDASearch = true
             if case USDAFoodError.noResults = error {
+                usdaSearchError = nil
+            } else if trigger == .automatic, case USDAFoodError.networkFailure = error {
+                // Avoid transient connectivity flashes while typing quickly.
                 usdaSearchError = nil
             } else {
                 usdaSearchError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -6299,7 +6375,7 @@ struct ContentView: View {
 
     private func searchFoodsAcrossSources(query: String) async throws -> [FoodSearchResult] {
         let merged = mergeAndRankSearchResults(
-            usda: await searchUSDAResults(query: query),
+            usda: try await searchUSDAResults(query: query),
             query: query
         )
         if merged.isEmpty {
@@ -6308,15 +6384,11 @@ struct ContentView: View {
         return merged
     }
 
-    private func searchUSDAResults(query: String) async -> [USDAFoodSearchResult] {
+    private func searchUSDAResults(query: String) async throws -> [USDAFoodSearchResult] {
         if disableUSDASearchForDebug {
             return []
         }
-        do {
-            return try await usdaFoodService.searchFoods(query: query)
-        } catch {
-            return []
-        }
+        return try await usdaFoodService.searchFoods(query: query)
     }
 
     private func mergeAndRankSearchResults(
@@ -6354,7 +6426,7 @@ struct ContentView: View {
         FoodSearchResult(
             id: "usda-\(result.fdcId)",
             source: .usda,
-            name: result.name,
+            name: formattedFoodTitle(result.name),
             brand: result.brand,
             calories: result.calories,
             nutrientValues: result.nutrientValues,
@@ -6364,23 +6436,33 @@ struct ContentView: View {
         )
     }
 
+    private func formattedFoodTitle(_ name: String) -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return name }
+        return trimmed.lowercased().localizedCapitalized
+    }
+
     private func searchRelevanceScore(for result: FoodSearchResult, query: String) -> Int {
         let normalizedQuery = query
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
         let name = result.name.lowercased()
         let brand = (result.brand ?? "").lowercased()
+        let searchable = "\(name) \(brand)"
+        let searchWords = splitSearchWords(searchable)
         let tokens = normalizedQuery.split(whereSeparator: \.isWhitespace).map(String.init)
 
         var score = 0
         if name == normalizedQuery { score += 140 }
         if name.hasPrefix(normalizedQuery) { score += 90 }
-        if name.contains(normalizedQuery) { score += 60 }
+        if name.contains(normalizedQuery) { score += normalizedQuery.count >= 4 ? 60 : 28 }
+        if searchWords.contains(where: { $0.hasPrefix(normalizedQuery) }) { score += 36 }
         if !brand.isEmpty, brand.contains(normalizedQuery) { score += 24 }
 
         for token in tokens {
-            if name.contains(token) { score += 22 }
-            if !brand.isEmpty, brand.contains(token) { score += 10 }
+            if name.contains(token) { score += token.count >= 4 ? 22 : 10 }
+            if !brand.isEmpty, brand.contains(token) { score += token.count >= 4 ? 10 : 4 }
+            if searchWords.contains(where: { $0.hasPrefix(token) }) { score += 16 }
         }
 
         if result.calories > 0 { score += 8 }
@@ -6397,13 +6479,20 @@ struct ContentView: View {
         let name = result.name.lowercased()
         let brand = (result.brand ?? "").lowercased()
         let searchable = "\(name) \(brand)"
-        if searchable.contains(normalizedQuery) {
+        let searchWords = splitSearchWords(searchable)
+        if searchWords.contains(where: { $0.hasPrefix(normalizedQuery) }) {
+            return true
+        }
+        if normalizedQuery.count >= 4 && searchable.contains(normalizedQuery) {
             return true
         }
 
         let tokens = normalizedQuery.split(whereSeparator: \.isWhitespace).map(String.init)
         let longTokens = tokens.filter { $0.count >= 3 }
-        let matchedLongTokenCount = longTokens.filter { searchable.contains($0) }.count
+        let matchedLongTokenCount = longTokens.filter { token in
+            searchWords.contains(where: { $0.hasPrefix(token) })
+            || (token.count >= 4 && searchable.contains(token))
+        }.count
 
         switch result.source {
         case .usda:
@@ -6415,6 +6504,23 @@ struct ContentView: View {
         case .openFoodFacts:
             return matchedLongTokenCount >= 1 && score >= 20
         }
+    }
+
+    private func splitSearchWords(_ text: String) -> [String] {
+        text
+            .components(separatedBy: .alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+    }
+
+    private func isCancellationError(_ error: Error) -> Bool {
+        if error is CancellationError {
+            return true
+        }
+        if let urlError = error as? URLError, urlError.code == .cancelled {
+            return true
+        }
+        let nsError = error as NSError
+        return nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled
     }
 
     private func normalizedSearchKey(name: String, brand: String?) -> String {
@@ -6434,6 +6540,10 @@ struct ContentView: View {
         let signature = foodReviewSliderSignature(for: item)
         let quantity = max(1, selectedFoodReviewQuantity)
         let editedName = MealEntry.normalizedName(foodReviewNameText)
+        let selectedServingAmount = max(
+            roundToServingSelectorIncrement(selectedFoodReviewBaselineAmount * selectedFoodReviewMultiplier),
+            0.01
+        )
         var scaledNutrients: [String: Int] = [:]
         for (key, value) in item.nutrientValues {
             scaledNutrients[key] = Int((Double(value) * multiplier).rounded())
@@ -6457,10 +6567,18 @@ struct ContentView: View {
             entries.append(contentsOf: newEntries)
         }
 
+        if case .quickAdd = item.entrySource, let quickAddID = item.quickAddID {
+            persistQuickAddServingBase(id: quickAddID, amount: selectedServingAmount)
+        }
+
         foodReviewItem = nil
         foodReviewNameText = ""
-        foodReviewSliderBaselineBySignature[signature] = max(roundToServingSelectorIncrement(selectedFoodReviewBaselineAmount), 0)
-        foodReviewSliderValueBySignature[signature] = min(max(selectedFoodReviewMultiplier, 0.25), 1.75)
+        if case .quickAdd = item.entrySource {
+            // Quick Add serving baseline persists directly to the saved quick-add item.
+        } else {
+            foodReviewSliderBaselineBySignature[signature] = max(roundToServingSelectorIncrement(selectedFoodReviewBaselineAmount), 0)
+            foodReviewSliderValueBySignature[signature] = min(max(selectedFoodReviewMultiplier, 0.25), 1.75)
+        }
         selectedFoodReviewMultiplier = 1.0
         selectedFoodReviewBaselineAmount = 1.0
         selectedFoodReviewAmountText = ""
@@ -7315,8 +7433,11 @@ struct ContentView: View {
     private func presentFoodReview(_ item: FoodReviewItem, initialMultiplier: Double = 1.0) {
         let baseAmount = convertedServingAmount(item.servingAmount, unit: item.servingUnit)
         let signature = foodReviewSliderSignature(for: item)
-        if let savedBaseline = foodReviewSliderBaselineBySignature[signature],
-           let savedSliderValue = foodReviewSliderValueBySignature[signature] {
+        if case .quickAdd = item.entrySource {
+            selectedFoodReviewBaselineAmount = max(roundToServingSelectorIncrement(baseAmount * initialMultiplier), 0)
+            selectedFoodReviewMultiplier = 1.0
+        } else if let savedBaseline = foodReviewSliderBaselineBySignature[signature],
+                  let savedSliderValue = foodReviewSliderValueBySignature[signature] {
             selectedFoodReviewBaselineAmount = max(roundToServingSelectorIncrement(savedBaseline), 0)
             selectedFoodReviewMultiplier = min(max(savedSliderValue, 0.25), 1.75)
         } else {
@@ -7554,23 +7675,38 @@ struct ContentView: View {
         storedQuickAddFoodsData = String(decoding: data, as: UTF8.self)
     }
 
+    private func presentQuickAddManagerFromPicker() {
+        if isQuickAddPickerPresented {
+            isQuickAddPickerPresented = false
+            DispatchQueue.main.async {
+                isQuickAddManagerPresented = true
+            }
+        } else {
+            isQuickAddManagerPresented = true
+        }
+    }
+
     private func addQuickAddFood(_ item: QuickAddFood) {
-        let now = Date()
-        let newEntry = MealEntry(
-            id: UUID(),
+        let reviewItem = FoodReviewItem(
             name: item.name,
+            subtitle: "Quick Add",
             calories: item.calories,
             nutrientValues: item.nutrientValues,
-            createdAt: now,
-            mealGroup: mealGroup(for: now, source: .quickAdd)
+            servingAmount: item.servingAmount,
+            servingUnit: item.servingUnit,
+            entrySource: .quickAdd,
+            displayedNutrientKeys: nil,
+            quickAddID: item.id
         )
 
-        withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
-            entries.append(newEntry)
+        if isQuickAddPickerPresented {
+            isQuickAddPickerPresented = false
+            DispatchQueue.main.async {
+                presentFoodReview(reviewItem)
+            }
+        } else {
+            presentFoodReview(reviewItem)
         }
-
-        isQuickAddPickerPresented = false
-        showAddConfirmation()
     }
 
     @MainActor
@@ -7593,6 +7729,21 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    private func persistQuickAddServingBase(id: UUID, amount: Double) {
+        guard let index = quickAddFoods.firstIndex(where: { $0.id == id }) else { return }
+        let existing = quickAddFoods[index]
+        let updated = QuickAddFood(
+            id: existing.id,
+            name: existing.name,
+            calories: existing.calories,
+            nutrientValues: existing.nutrientValues,
+            servingAmount: amount,
+            servingUnit: existing.servingUnit,
+            createdAt: existing.createdAt
+        )
+        quickAddFoods[index] = updated
     }
 
     @MainActor
@@ -7632,7 +7783,10 @@ struct ContentView: View {
     }
 
     private func displayServingUnit(for unit: String) -> String {
-        isGramUnit(unit) ? "oz" : unit
+        if isGramUnit(unit) {
+            return "g"
+        }
+        return unit
     }
 
     private func inflectedTextFieldUnit(for unit: String, amountText: String) -> String {
@@ -7646,15 +7800,12 @@ struct ContentView: View {
     }
 
     private func convertedServingAmount(_ amount: Double, unit: String) -> Double {
-        if isGramUnit(unit) {
-            return amount / 28.3495
-        }
         return amount
     }
 
     private func isGramUnit(_ unit: String) -> Bool {
         let normalized = unit.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return normalized == "g" || normalized == "gram" || normalized == "grams"
+        return normalized == "g" || normalized == "gram" || normalized == "grams" || normalized == "grms"
     }
 }
 

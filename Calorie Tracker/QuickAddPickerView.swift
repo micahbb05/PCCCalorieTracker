@@ -8,6 +8,7 @@ struct QuickAddPickerView: View {
     let textSecondary: Color
     let accent: Color
     let onSelect: (QuickAddFood) -> Void
+    let onManage: (() -> Void)?
     let onClose: (() -> Void)?
     let showsStandaloneChrome: Bool
 
@@ -76,13 +77,38 @@ struct QuickAddPickerView: View {
                         Spacer()
                     }
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Quick Add")
-                            .font(.system(size: 32, weight: .bold, design: .rounded))
-                            .foregroundStyle(textPrimary)
-                        Text("Pick a saved food to add instantly.")
-                            .font(.subheadline)
-                            .foregroundStyle(textSecondary)
+                    HStack(alignment: .top, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Quick Add")
+                                .font(.system(size: 32, weight: .bold, design: .rounded))
+                                .foregroundStyle(textPrimary)
+                            Text("Pick a saved food to add instantly.")
+                                .font(.subheadline)
+                                .foregroundStyle(textSecondary)
+                        }
+
+                        Spacer(minLength: 8)
+
+                        if let onManage {
+                            Button {
+                                onManage()
+                                Haptics.impact(.light)
+                            } label: {
+                                Text("Manage")
+                                    .font(.subheadline.weight(.semibold))
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        Capsule(style: .continuous)
+                                            .fill(surfacePrimary.opacity(0.94))
+                                    )
+                                    .overlay(
+                                        Capsule(style: .continuous)
+                                            .stroke(textSecondary.opacity(0.14), lineWidth: 1)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                 }
 
@@ -93,6 +119,19 @@ struct QuickAddPickerView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .foregroundStyle(textPrimary)
+                    Button {
+                        guard !searchText.isEmpty else { return }
+                        searchText = ""
+                        Haptics.selection()
+                    } label: {
+                        Label("Clear search", systemImage: "xmark.circle.fill")
+                            .labelStyle(.iconOnly)
+                            .foregroundStyle(textSecondary)
+                            .opacity(searchText.isEmpty ? 0.35 : 1)
+                            .frame(width: 24, height: 24)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(searchText.isEmpty)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
@@ -103,7 +142,7 @@ struct QuickAddPickerView: View {
                         Text(quickAddFoods.isEmpty ? "No quick add foods yet." : "No quick add foods match your search.")
                             .font(.headline.weight(.semibold))
                             .foregroundStyle(textPrimary)
-                        Text(quickAddFoods.isEmpty ? "Create them from Profile." : "Try a broader search term.")
+                        Text(quickAddFoods.isEmpty ? "Tap Manage to create your first quick add food." : "Try a broader search term.")
                             .font(.subheadline)
                             .foregroundStyle(textSecondary)
                     }
@@ -121,7 +160,7 @@ struct QuickAddPickerView: View {
                                         Text(item.name)
                                             .font(.headline.weight(.semibold))
                                             .foregroundStyle(textPrimary)
-                                        Text("\(item.calories) cal")
+                                        Text("\(item.calories) cal • \(servingSummary(for: item))")
                                             .font(.caption)
                                             .foregroundStyle(textSecondary)
                                     }
@@ -148,5 +187,11 @@ struct QuickAddPickerView: View {
         }
         .scrollIndicators(.hidden)
         .scrollDismissesKeyboard(.interactively)
+    }
+
+    private func servingSummary(for item: QuickAddFood) -> String {
+        let amount = formatServingSelectorAmount(item.servingAmount)
+        let unit = inflectServingUnitToken(item.servingUnit, quantity: item.servingAmount)
+        return "\(amount) \(unit)"
     }
 }

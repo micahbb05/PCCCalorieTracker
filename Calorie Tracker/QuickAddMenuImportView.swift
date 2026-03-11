@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct QuickAddMenuImportView: View {
     @Environment(\.dismiss) private var dismiss
@@ -19,15 +20,20 @@ struct QuickAddMenuImportView: View {
     @State private var searchText = ""
     @State private var isRetrying = false
     @State private var expandedLineIDs: Set<String> = []
+    @State private var isKeyboardVisible = false
+    @FocusState private var isSearchFieldFocused: Bool
 
     private var filteredLines: [MenuLine] {
-        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return menu.lines }
+        guard !trimmedSearchText.isEmpty else { return menu.lines }
         return menu.lines.compactMap { line in
-            let items = line.items.filter { $0.name.localizedCaseInsensitiveContains(trimmed) }
+            let items = line.items.filter { $0.name.localizedCaseInsensitiveContains(trimmedSearchText) }
             guard !items.isEmpty else { return nil }
             return MenuLine(id: line.id, name: line.name, items: items)
         }
+    }
+
+    private var trimmedSearchText: String {
+        searchText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     var body: some View {
@@ -83,7 +89,25 @@ struct QuickAddMenuImportView: View {
                             TextField("Search menu", text: $searchText)
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled()
+                                .submitLabel(.done)
+                                .focused($isSearchFieldFocused)
+                                .onSubmit {
+                                    isSearchFieldFocused = false
+                                }
                                 .foregroundStyle(textPrimary)
+                            Button {
+                                guard !searchText.isEmpty else { return }
+                                searchText = ""
+                                Haptics.selection()
+                            } label: {
+                                Label("Clear search", systemImage: "xmark.circle.fill")
+                                    .labelStyle(.iconOnly)
+                                    .foregroundStyle(textSecondary)
+                                    .opacity(searchText.isEmpty ? 0.35 : 1)
+                                    .frame(width: 24, height: 24)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(searchText.isEmpty)
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 12)
@@ -121,10 +145,16 @@ struct QuickAddMenuImportView: View {
                                         .fill(accent)
                                 )
                             }
+                        } else if !trimmedSearchText.isEmpty && filteredLines.isEmpty {
+                            statusCard(title: "No results found", message: "Try a broader search term or check spelling.") {
+                                EmptyView()
+                            }
                         } else if filteredLines.isEmpty {
                             statusCard(title: "Menu not available yet", message: "Today's menu hasn't been published yet for this venue.") {
                                 EmptyView()
                             }
+                        } else if !trimmedSearchText.isEmpty {
+                            searchResultsContent
                         } else {
                             LazyVStack(alignment: .leading, spacing: 14) {
                                 ForEach(filteredLines) { line in
@@ -137,9 +167,76 @@ struct QuickAddMenuImportView: View {
                     .padding(.top, 18)
                     .padding(.bottom, 32)
                 }
+                .scrollDismissesKeyboard(.immediately)
             }
             .onAppear {
                 expandedLineIDs = []
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { notification in
+            let endFrame = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect) ?? .zero
+            let visibleHeight = max(0, UIScreen.main.bounds.maxY - endFrame.minY)
+            isKeyboardVisible = visibleHeight > 20
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            isKeyboardVisible = false
+        }
+        .onDisappear {
+            isKeyboardVisible = false
+        }
+        .interactiveDismissDisabled(isKeyboardVisible)
+    }
+
+    private var searchResultsContent: some View {
+        LazyVStack(alignment: .leading, spacing: 14) {
+            ForEach(filteredLines) { line in
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(line.name)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(textPrimary)
+                            Text("\(line.items.count) result\(line.items.count == 1 ? "" : "s")")
+                                .font(.caption)
+                                .foregroundStyle(textSecondary)
+                        }
+
+                        Spacer()
+                    }
+
+                    VStack(spacing: 10) {
+                        ForEach(line.items) { item in
+                            Button {
+                                onSelect(item)
+                                dismiss()
+                            } label: {
+                                HStack(alignment: .top, spacing: 12) {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(item.name)
+                                            .font(.body.weight(.semibold))
+                                            .foregroundStyle(textPrimary)
+                                        Text("\(item.calories) cal • \(item.protein)g protein")
+                                            .font(.caption)
+                                            .foregroundStyle(textSecondary)
+                                    }
+                                    Spacer()
+                                }
+                                .padding(14)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                        .fill(surfaceSecondary.opacity(0.92))
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                        .stroke(textSecondary.opacity(0.10), lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .padding(16)
+                .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
             }
         }
     }

@@ -151,14 +151,52 @@ struct QuickAddFood: Identifiable, Codable, Equatable {
     let name: String
     let calories: Int
     let nutrientValues: [String: Int]
+    let servingAmount: Double
+    let servingUnit: String
     let createdAt: Date
 
-    init(id: UUID, name: String, calories: Int, nutrientValues: [String: Int], createdAt: Date) {
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case calories
+        case nutrientValues
+        case servingAmount
+        case servingUnit
+        case createdAt
+    }
+
+    init(
+        id: UUID,
+        name: String,
+        calories: Int,
+        nutrientValues: [String: Int],
+        servingAmount: Double,
+        servingUnit: String,
+        createdAt: Date
+    ) {
         self.id = id
         self.name = MealEntry.normalizedName(name)
         self.calories = max(0, calories)
         self.nutrientValues = nutrientValues.mapValues { max(0, $0) }
+        self.servingAmount = max(servingAmount, 0.01)
+        let normalizedUnit = servingUnit.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.servingUnit = normalizedUnit.isEmpty ? "serving" : normalizedUnit.lowercased()
         self.createdAt = createdAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        let decodedName = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
+        name = MealEntry.normalizedName(decodedName)
+        calories = max(0, try container.decode(Int.self, forKey: .calories))
+        nutrientValues = (try container.decodeIfPresent([String: Int].self, forKey: .nutrientValues) ?? [:]).mapValues { max(0, $0) }
+        servingAmount = max(0.01, try container.decodeIfPresent(Double.self, forKey: .servingAmount) ?? 1)
+        let decodedUnit = (try container.decodeIfPresent(String.self, forKey: .servingUnit) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        servingUnit = decodedUnit.isEmpty ? "serving" : decodedUnit
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
     }
 }
 

@@ -14,6 +14,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     ) -> Bool {
         application.registerForRemoteNotifications()
         application.setMinimumBackgroundFetchInterval(UIApplication.backgroundFetchIntervalMinimum)
+        HealthKitBackgroundObserver.shared.start()
+        Task(priority: .utility) {
+            _ = await BackgroundWidgetRefreshService.shared.refreshSnapshot()
+        }
         return true
     }
 
@@ -35,8 +39,12 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
     ) {
         Task {
-            let didUpdateMenus = await AppMenuPreloadService.shared.preloadTodayMenus()
-            completionHandler(didUpdateMenus ? .newData : .noData)
+            async let didUpdateMenus = AppMenuPreloadService.shared.preloadTodayMenus()
+            async let didUpdateWidget = BackgroundWidgetRefreshService.shared.refreshSnapshot()
+            let menusUpdated = await didUpdateMenus
+            let widgetUpdated = await didUpdateWidget
+            let didUpdate = menusUpdated || widgetUpdated
+            completionHandler(didUpdate ? .newData : .noData)
         }
     }
 }

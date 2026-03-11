@@ -63,6 +63,7 @@ nav {
 .logo {
   font-weight: 800;
   font-size: 1.25rem;
+  line-height: 1;
   color: var(--text-main);
   display: flex;
   align-items: center;
@@ -71,18 +72,25 @@ nav {
   font-family: 'DM Sans', 'Inter', system-ui, -apple-system, sans-serif;
 }
 
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 
 nav a {
   color: var(--text-muted);
   text-decoration: none;
   font-size: 0.9375rem;
   font-weight: 500;
+  line-height: 1;
   transition: all 0.2s ease;
   font-family: 'DM Sans', 'Inter', system-ui, -apple-system, sans-serif;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.35rem 0.75rem;
+  padding: 0.45rem 0.75rem;
   border-radius: 999px;
   background: transparent;
 }
@@ -98,7 +106,7 @@ nav a:hover {
   background: var(--surface-hover);
 }
 
-nav a:hover svg {
+nav a.back-btn:hover svg {
   transform: translateX(-3px);
 }
 

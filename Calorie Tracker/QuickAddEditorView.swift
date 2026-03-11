@@ -364,8 +364,9 @@ struct QuickAddEditorView: View {
 
     private func quickAddNutrientGridCell(at index: Int) -> some View {
         let nutrient = editableNutrients[index]
-        return labeledField("\(nutrient.name) (\(nutrient.unit))", spacing: 8) {
-            TextField("\(nutrient.name) (\(nutrient.unit))", text: nutrientBinding(for: nutrient.key))
+        let label = nutrient.unit.uppercased() == "CALORIES" ? nutrient.name : "\(nutrient.name) (\(nutrient.unit))"
+        return labeledField(label, spacing: 8) {
+            TextField(label, text: nutrientBinding(for: nutrient.key))
                 .keyboardType(.numberPad)
                 .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
         }
@@ -959,6 +960,7 @@ struct QuickAddEditorView: View {
         )
         let keys = tracked.union(stored)
         return keys
+            .filter { $0 != "calories" }
             .map { NutrientCatalog.definition(for: $0) }
             .sorted { lhs, rhs in
                 let lhsRank = NutrientCatalog.preferredOrder.firstIndex(of: lhs.key) ?? Int.max

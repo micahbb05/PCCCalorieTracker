@@ -4,14 +4,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Calorie Tracker — PCC Dining + AI Food Logging</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/pcc-ios-logo-blue.png?v=20260311c">
+  <link rel="shortcut icon" href="/assets/pcc-ios-logo-blue.png?v=20260311c">
+  <link rel="apple-touch-icon" href="/assets/pcc-ios-logo-blue.png?v=20260311c">
+  <title>PCC Calorie Tracker</title>
   <meta name="description"
     content="Track calories with PCC Dining menus built in, AI photo logging, barcode scanning, USDA search, Apple Health goals, and optional iCloud sync.">
 
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://calorie-tracker-364e3.web.app/" />
-  <meta property="og:title" content="Calorie Tracker — PCC Dining + AI Food Logging" />
+  <meta property="og:title" content="PCC Calorie Tracker" />
   <meta property="og:description"
     content="Track calories with PCC Dining menus built in, AI photo logging, barcode scanning, USDA search, Apple Health goals, and optional iCloud sync." />
   <meta property="og:image" content="https://calorie-tracker-364e3.web.app/assets/og-image.png" />
@@ -19,7 +22,7 @@
   <!-- Twitter -->
   <meta property="twitter:card" content="summary_large_image" />
   <meta property="twitter:url" content="https://calorie-tracker-364e3.web.app/" />
-  <meta property="twitter:title" content="Calorie Tracker — PCC Dining + AI Food Logging" />
+  <meta property="twitter:title" content="PCC Calorie Tracker" />
   <meta property="twitter:description"
     content="Track calories with PCC Dining menus built in, AI photo logging, barcode scanning, USDA search, Apple Health goals, and optional iCloud sync." />
   <meta property="twitter:image" content="https://calorie-tracker-364e3.web.app/assets/og-image.png" />
@@ -109,6 +112,7 @@
     .logo {
       font-weight: 800;
       font-size: 1.25rem;
+      line-height: 1;
       color: var(--text);
       display: flex;
       align-items: center;
@@ -122,16 +126,46 @@
       stroke: var(--accent);
     }
 
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
     nav a {
       color: var(--text-muted);
       text-decoration: none;
       font-size: 0.9375rem;
       font-weight: 500;
-      transition: color 0.2s var(--transition-smooth);
+      line-height: 1;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.45rem 0.75rem;
+      border-radius: 999px;
+      background: transparent;
+    }
+
+    @media (max-width: 600px) {
+      .github-link {
+        display: none !important;
+      }
+    }
+
+    nav a svg {
+      width: 16px;
+      height: 16px;
+      transition: transform 0.2s ease;
     }
 
     nav a:hover {
       color: var(--text);
+      background: #f3f4f6;
+    }
+
+    nav a.back-btn:hover svg {
+      transform: translateX(-3px);
     }
 
     main {
@@ -394,7 +428,13 @@
         </svg>
         Calorie Tracker
       </div>
-      <a href="/privacy.html">Privacy Policy</a>
+      <div class="nav-links">
+        <a href="https://github.com/micahbb05/PCCCalorieTracker" class="github-link" target="_blank" rel="noopener noreferrer">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-github"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.2c3-.3 6-1.5 6-6.5a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 5 3 6.2 6 6.5a4.8 4.8 0 0 0-1 3.2v4"/><path d="M9 18c-4.5 1.6-5-2-7-2"/></svg>
+          View on GitHub
+        </a>
+        <a href="/privacy-policy">Privacy Policy</a>
+      </div>
     </nav>
   </header>
 
@@ -411,7 +451,7 @@
         <a href="https://testflight.apple.com/join/GfbNC6TX" class="cta">
           Join TestFlight Beta
         </a>
-        <a href="/demo/index.html" class="cta secondary">
+        <a href="/demo" class="cta secondary">
           Try Web Demo
         </a>
       </div>
@@ -474,7 +514,7 @@
         Calorie Tracker
       </div>
       <div class="footer-links">
-        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/privacy-policy">Privacy Policy</a>
       </div>
       <div class="copyright">
         &copy; 2026 Calorie Tracker. All rights reserved. Not officially affiliated with Pensacola Christian College.

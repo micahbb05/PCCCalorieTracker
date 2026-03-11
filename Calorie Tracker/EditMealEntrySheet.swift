@@ -253,8 +253,9 @@ struct EditMealEntrySheet: View {
     @ViewBuilder
     private func nutrientGridCell(at index: Int) -> some View {
         let nutrient = editableNutrients[index]
-        labeledField("\(nutrient.name) (\(nutrient.unit))", spacing: 8) {
-            TextField("\(nutrient.name) (\(nutrient.unit))", text: nutrientBinding(for: nutrient.key))
+        let label = nutrient.unit.uppercased() == "CALORIES" ? nutrient.name : "\(nutrient.name) (\(nutrient.unit))"
+        labeledField(label, spacing: 8) {
+            TextField(label, text: nutrientBinding(for: nutrient.key))
                 .keyboardType(.numberPad)
                 .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
         }

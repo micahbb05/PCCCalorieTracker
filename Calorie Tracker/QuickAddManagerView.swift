@@ -64,7 +64,7 @@ struct QuickAddManagerView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Manage quick add foods")
+                        Text("Manage Quick Add Foods")
                             .font(.system(size: 32, weight: .bold, design: .rounded))
                             .foregroundStyle(textPrimary)
                         Text("Create and edit reusable foods.")

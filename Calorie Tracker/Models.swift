@@ -238,6 +238,7 @@ struct ExerciseEntry: Identifiable, Codable, Equatable {
     let id: UUID
     let exerciseType: ExerciseType
     let customName: String?
+    let symbolName: String?
     let durationMinutes: Int
     let distanceMiles: Double?
     let calories: Int
@@ -245,7 +246,7 @@ struct ExerciseEntry: Identifiable, Codable, Equatable {
     let createdAt: Date
 
     private enum CodingKeys: String, CodingKey {
-        case id, exerciseType, customName, durationMinutes, calories, createdAt
+        case id, exerciseType, customName, symbolName, durationMinutes, calories, createdAt
         case distanceMiles
         case reclassifiedWalkingCalories
         case intensity
@@ -255,6 +256,7 @@ struct ExerciseEntry: Identifiable, Codable, Equatable {
         id: UUID,
         exerciseType: ExerciseType,
         customName: String? = nil,
+        symbolName: String? = nil,
         durationMinutes: Int,
         distanceMiles: Double? = nil,
         calories: Int,
@@ -265,6 +267,8 @@ struct ExerciseEntry: Identifiable, Codable, Equatable {
         self.exerciseType = exerciseType
         let trimmedName = customName?.trimmingCharacters(in: .whitespacesAndNewlines)
         self.customName = (trimmedName?.isEmpty == false) ? trimmedName : nil
+        let trimmedSymbolName = symbolName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.symbolName = (trimmedSymbolName?.isEmpty == false) ? trimmedSymbolName : nil
         self.durationMinutes = durationMinutes
         self.distanceMiles = distanceMiles
         self.calories = calories
@@ -279,6 +283,9 @@ struct ExerciseEntry: Identifiable, Codable, Equatable {
         let decodedCustomName = try c.decodeIfPresent(String.self, forKey: .customName)
         let trimmedName = decodedCustomName?.trimmingCharacters(in: .whitespacesAndNewlines)
         customName = (trimmedName?.isEmpty == false) ? trimmedName : nil
+        let decodedSymbolName = try c.decodeIfPresent(String.self, forKey: .symbolName)
+        let trimmedSymbolName = decodedSymbolName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        symbolName = (trimmedSymbolName?.isEmpty == false) ? trimmedSymbolName : nil
         durationMinutes = try c.decode(Int.self, forKey: .durationMinutes)
         distanceMiles = try c.decodeIfPresent(Double.self, forKey: .distanceMiles)
         calories = try c.decode(Int.self, forKey: .calories)
@@ -292,6 +299,7 @@ struct ExerciseEntry: Identifiable, Codable, Equatable {
         try c.encode(id, forKey: .id)
         try c.encode(exerciseType, forKey: .exerciseType)
         try c.encodeIfPresent(customName, forKey: .customName)
+        try c.encodeIfPresent(symbolName, forKey: .symbolName)
         try c.encode(durationMinutes, forKey: .durationMinutes)
         try c.encodeIfPresent(distanceMiles, forKey: .distanceMiles)
         try c.encode(calories, forKey: .calories)
@@ -300,10 +308,14 @@ struct ExerciseEntry: Identifiable, Codable, Equatable {
     }
 
     var displayTitle: String {
-        if exerciseType == .directCalories, let customName {
+        if let customName {
             return customName
         }
         return exerciseType.title
+    }
+
+    var displayIconName: String {
+        symbolName ?? exerciseType.iconName
     }
 
     /// For running/cycling with distance; for weight lifting/walking or legacy entries, nil.

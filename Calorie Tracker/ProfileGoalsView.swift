@@ -248,8 +248,9 @@ struct ProfileGoalsView: View {
         VStack(alignment: .leading, spacing: 16) {
             ForEach(trackedNutrientKeys, id: \.self) { key in
                 let nutrient = NutrientCatalog.definition(for: key)
+                let label = nutrient.unit.uppercased() == "CALORIES" ? nutrient.name : "\(nutrient.name) (\(nutrient.unit))"
                 goalField(
-                    title: "\(nutrient.name) (\(nutrient.unit))",
+                    title: label,
                     subtitle: nil,
                     value: nutrientGoalBinding(for: key),
                     onDecrement: { adjustNutrientGoal(for: key, delta: -nutrient.step) },

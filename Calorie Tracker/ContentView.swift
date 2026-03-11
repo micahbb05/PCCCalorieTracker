@@ -344,6 +344,49 @@ struct ContentView: View {
         let displayedNutrientKeys: [String]?
         let quickAddID: UUID?
 
+        var isCountBased: Bool {
+            let u = servingUnit.trimmingCharacters(in: .whitespaces).lowercased()
+            let n = name.trimmingCharacters(in: .whitespaces).lowercased()
+
+            if u.contains("cup")
+                || u.contains("oz")
+                || u == "g" || u == "gram" || u == "grams" || u == "grms"
+                || u.contains("tbsp") || u.contains("tablespoon")
+                || u.contains("tsp") || u.contains("teaspoon")
+                || u == "ml" || u == "l" || u == "lb" || u == "lbs" {
+                return false
+            }
+
+            if [
+                "piece", "pieces",
+                "slice", "slices",
+                "nugget", "nuggets",
+                "sandwich", "sandwiches",
+                "burger", "burgers",
+                "taco", "tacos",
+                "burrito", "burritos",
+                "wrap", "wraps",
+                "quesadilla", "quesadillas"
+            ].contains(u) { return true }
+            if n.contains("nugget") { return true }
+            if n.contains("quesadilla") { return true }
+            if n.contains("cookie") || n.contains("chips") || n.hasSuffix(" chip") { return true }
+            if n.contains("sandwich") || n.contains("burger") || n.contains("burrito") || n.contains("taco") || n.contains("wrap") {
+                return true
+            }
+
+            let ambiguousUnits: Set<String> = ["", "serving", "servings", "each", "ea", "item", "items", "portion", "portions"]
+            if !ambiguousUnits.contains(u) {
+                let letters = CharacterSet.letters
+                let unitChars = CharacterSet(charactersIn: u)
+                let looksLikeSingleWordUnit = !u.contains(" ") && !u.isEmpty && letters.isSuperset(of: unitChars)
+                if looksLikeSingleWordUnit {
+                    return true
+                }
+            }
+            return false
+        }
+
         init(
             name: String,
             subtitle: String?,
@@ -4590,7 +4633,7 @@ struct ContentView: View {
 
     private func exerciseLogRow(_ entry: ExerciseEntry, isDeletable: Bool) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: entry.exerciseType.iconName)
+            Image(systemName: entry.displayIconName)
                 .font(.body)
                 .foregroundStyle(accent)
                 .frame(width: 28, alignment: .center)
@@ -4828,8 +4871,9 @@ struct ContentView: View {
 
     @ViewBuilder
     private func nutrientFieldCell(_ nutrient: NutrientDefinition) -> some View {
+        let label = nutrient.unit.uppercased() == "CALORIES" ? nutrient.name : "\(nutrient.name) (\(nutrient.unit))"
         VStack(alignment: .leading, spacing: 8) {
-            Text("\(nutrient.name) (\(nutrient.unit))")
+            Text(label)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(textPrimary)
 
@@ -5061,34 +5105,38 @@ struct ContentView: View {
                         }
 
                         VStack(alignment: .leading, spacing: 14) {
-                            let minMultiplier = 0.25
-                            let maxMultiplier = 1.75
-                            let minServingAmount = formattedServingAmount(selectedFoodReviewBaselineAmount * minMultiplier)
-                            let maxServingAmount = formattedServingAmount(selectedFoodReviewBaselineAmount * maxMultiplier)
-                            let minServingUnit = inflectedUnit(displayServingUnit(for: item.servingUnit), quantity: selectedFoodReviewBaselineAmount * minMultiplier)
-                            let maxServingUnit = inflectedUnit(displayServingUnit(for: item.servingUnit), quantity: selectedFoodReviewBaselineAmount * maxMultiplier)
-                            HStack {
-                                Text("\(minServingAmount) \(minServingUnit)")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(textSecondary)
-                                Spacer()
-                                Text("\(maxServingAmount) \(maxServingUnit)")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(textSecondary)
-                            }
+                            if item.isCountBased {
+                                foodReviewCountBasedQuantityCard(for: item)
+                            } else {
+                                let minMultiplier = 0.25
+                                let maxMultiplier = 1.75
+                                let minServingAmount = formattedServingAmount(selectedFoodReviewBaselineAmount * minMultiplier)
+                                let maxServingAmount = formattedServingAmount(selectedFoodReviewBaselineAmount * maxMultiplier)
+                                let minServingUnit = inflectedUnit(displayServingUnit(for: item.servingUnit), quantity: selectedFoodReviewBaselineAmount * minMultiplier)
+                                let maxServingUnit = inflectedUnit(displayServingUnit(for: item.servingUnit), quantity: selectedFoodReviewBaselineAmount * maxMultiplier)
+                                HStack {
+                                    Text("\(minServingAmount) \(minServingUnit)")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(textSecondary)
+                                    Spacer()
+                                    Text("\(maxServingAmount) \(maxServingUnit)")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(textSecondary)
+                                }
 
-                            HorizontalServeSlider(
-                                value: $selectedFoodReviewMultiplier,
-                                range: minMultiplier...maxMultiplier,
-                                step: 0.25
-                            ) {
-                                Haptics.selection()
-                            }
-                            .frame(height: 52)
+                                HorizontalServeSlider(
+                                    value: $selectedFoodReviewMultiplier,
+                                    range: minMultiplier...maxMultiplier,
+                                    step: 0.25
+                                ) {
+                                    Haptics.selection()
+                                }
+                                .frame(height: 52)
 
-                            HStack(alignment: .top, spacing: 14) {
-                                foodReviewServingAmountCard(for: item)
-                                foodReviewQuantityCard
+                                HStack(alignment: .top, spacing: 14) {
+                                    foodReviewServingAmountCard(for: item)
+                                    foodReviewQuantityCard
+                                }
                             }
                         }
 
@@ -5333,6 +5381,83 @@ struct ContentView: View {
                         .allowsHitTesting(false)
                 }
 
+        }
+        .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(surfacePrimary.opacity(0.94))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(textSecondary.opacity(0.12), lineWidth: 1)
+        )
+    }
+
+    private func foodReviewCountBasedQuantityCard(for item: FoodReviewItem) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Quantity")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(textSecondary)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .multilineTextAlignment(.center)
+
+            HStack(spacing: 18) {
+                let currentValue = parsedDecimalAmount(selectedFoodReviewAmountText) ?? roundToServingSelectorIncrement(selectedFoodReviewBaselineAmount * selectedFoodReviewMultiplier)
+                Button {
+                    let nextAmount = max(1.0, currentValue - 1.0)
+                    selectedFoodReviewBaselineAmount = nextAmount
+                    selectedFoodReviewMultiplier = 1.0
+                    syncFoodReviewAmountText()
+                    Haptics.selection()
+                } label: {
+                    Image(systemName: "minus.circle.fill")
+                        .font(.title2)
+                }
+                .foregroundStyle(currentValue > 1.0 ? accent : textSecondary.opacity(0.5))
+                .disabled(currentValue <= 1.0)
+
+                TextField("", text: $selectedFoodReviewAmountText)
+                    .font(.headline.weight(.semibold))
+                    .keyboardType(.decimalPad)
+                    .focused($foodReviewFocusedField, equals: .amount)
+                    .multilineTextAlignment(.leading)
+                    .frame(width: 102)
+                    .padding(.leading, 10)
+                    .padding(.vertical, 8)
+                    .padding(.trailing, 56)
+                    .foregroundStyle(textPrimary)
+                    .tint(textPrimary)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(surfacePrimary.opacity(0.95))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(textSecondary.opacity(0.18), lineWidth: 1)
+                    )
+                    .overlay(alignment: .trailing) {
+                        Text(inflectedTextFieldUnit(for: item.servingUnit, amountText: selectedFoodReviewAmountText))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(textSecondary)
+                            .padding(.trailing, 10)
+                            .allowsHitTesting(false)
+                    }
+
+                Button {
+                    let currentValue = parsedDecimalAmount(selectedFoodReviewAmountText) ?? roundToServingSelectorIncrement(selectedFoodReviewBaselineAmount * selectedFoodReviewMultiplier)
+                    let nextAmount = currentValue + 1.0
+                    selectedFoodReviewBaselineAmount = nextAmount
+                    selectedFoodReviewMultiplier = 1.0
+                    syncFoodReviewAmountText()
+                    Haptics.selection()
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title2)
+                }
+                .foregroundStyle(accent)
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
         }
         .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
         .padding(10)

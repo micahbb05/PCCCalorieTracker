@@ -51,6 +51,7 @@ final class StepActivityService: ObservableObject {
 
     private let pedometer = CMPedometer()
     private let calendar: Calendar
+    private var isLiveUpdatesRunning = false
 
     init() {
         var centralCalendar = Calendar(identifier: .gregorian)
@@ -76,6 +77,7 @@ final class StepActivityService: ObservableObject {
     func refreshIfAuthorized() {
         authorizationState = Self.resolveAuthorizationState()
         guard authorizationState == .authorized else {
+            stopLiveUpdatesIfNeeded()
             if authorizationState != .notDetermined {
                 todayStepCount = 0
                 todayDistanceMeters = 0
@@ -83,6 +85,7 @@ final class StepActivityService: ObservableObject {
             return
         }
 
+        startLiveUpdatesIfNeeded()
         queryTodaySteps()
     }
 
@@ -93,6 +96,7 @@ final class StepActivityService: ObservableObject {
             return
         }
 
+        startLiveUpdatesIfNeeded()
         queryTodaySteps()
     }
 
@@ -114,6 +118,7 @@ final class StepActivityService: ObservableObject {
         if let error {
             lastErrorMessage = error.localizedDescription
             if authorizationState != .authorized {
+                stopLiveUpdatesIfNeeded()
                 todayStepCount = 0
                 todayDistanceMeters = 0
             }
@@ -124,6 +129,30 @@ final class StepActivityService: ObservableObject {
         todayStepCount = data?.numberOfSteps.intValue ?? 0
         todayDistanceMeters = max(data?.distance?.doubleValue ?? 0, 0)
         authorizationState = Self.resolveAuthorizationState(afterSuccessfulQuery: true)
+    }
+
+    private func startLiveUpdatesIfNeeded() {
+        guard !isLiveUpdatesRunning else { return }
+        guard CMPedometer.isStepCountingAvailable() else { return }
+
+        let startOfDay = calendar.startOfDay(for: Date())
+        pedometer.startUpdates(from: startOfDay) { [weak self] data, error in
+            Task { @MainActor in
+                guard let self else { return }
+                self.handleQueryResult(data: data, error: error)
+            }
+        }
+        isLiveUpdatesRunning = true
+    }
+
+    private func stopLiveUpdatesIfNeeded() {
+        guard isLiveUpdatesRunning else { return }
+        pedometer.stopUpdates()
+        isLiveUpdatesRunning = false
+    }
+
+    deinit {
+        pedometer.stopUpdates()
     }
 
     private func resolvedWeightKg(profile: BMRProfile?) -> Double {

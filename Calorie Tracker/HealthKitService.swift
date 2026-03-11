@@ -92,9 +92,10 @@ final class HealthKitService: ObservableObject {
 
         do {
             let status = try await authorizationRequestStatus()
-            authorizationState = (status == .unnecessary) ? .connected : .notConnected
+            authorizationState = (status == .unnecessary || hasAnyReadAuthorization) ? .connected : .notConnected
             guard authorizationState == .connected else {
                 profile = nil
+                todayWorkouts = []
                 return
             }
             await loadHealthData()
@@ -240,71 +241,17 @@ final class HealthKitService: ObservableObject {
         calendar.timeZone = .autoupdatingCurrent
         let startOfToday = calendar.startOfDay(for: Date())
         let predicate = HKQuery.predicateForSamples(withStart: startOfToday, end: Date(), options: .strictStartDate)
-        let profileSnapshot = profile
+        let profileSnapshot = profile?.bmrProfile
 
         return await withCheckedContinuation { continuation in
             let query = HKSampleQuery(sampleType: workoutType, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)]) { _, samples, _ in
                 let workouts = (samples as? [HKWorkout]) ?? []
-                let entries = workouts.compactMap { workout -> ExerciseEntry? in
-                    Self.mapWorkoutToExercise(workout, profile: profileSnapshot)
+                let entries = workouts.map { workout -> ExerciseEntry in
+                    HealthKitWorkoutMapper.makeExerciseEntry(from: workout, profile: profileSnapshot)
                 }
                 continuation.resume(returning: entries)
             }
             healthStore.execute(query)
-        }
-    }
-
-    private nonisolated static func mapWorkoutToExercise(_ workout: HKWorkout, profile: SyncedProfile?) -> ExerciseEntry? {
-        guard let type = mapActivityType(workout.workoutActivityType) else { return nil }
-        let durationMinutes = max(Int(workout.duration / 60), 1)
-        let weight = profile?.weightPounds ?? 170
-        let distanceMiles: Double? = {
-            guard let distance = workout.totalDistance?.doubleValue(for: .mile()), distance > 0 else { return nil }
-            return distance
-        }()
-        let paceMinutesPerMile: Double? = {
-            guard let miles = distanceMiles, miles > 0, workout.duration > 0 else { return nil }
-            return (workout.duration / 60.0) / miles
-        }()
-        let calories = ExerciseCalorieService.fullCalories(
-            type: type,
-            durationMinutes: durationMinutes,
-            distanceMiles: distanceMiles,
-            weightPounds: weight,
-            paceMinutesPerMile: paceMinutesPerMile,
-            durationSeconds: workout.duration
-        )
-        let reclassifiedWalkingCalories: Int
-        if type == .running {
-            reclassifiedWalkingCalories = ExerciseCalorieService.walkingEquivalentCalories(
-                type: type,
-                durationMinutes: durationMinutes,
-                distanceMiles: distanceMiles,
-                weightPounds: weight,
-                paceMinutesPerMile: paceMinutesPerMile,
-                durationSeconds: workout.duration
-            )
-        } else {
-            reclassifiedWalkingCalories = 0
-        }
-        return ExerciseEntry(
-            id: UUID(),
-            exerciseType: type,
-            durationMinutes: durationMinutes,
-            distanceMiles: distanceMiles,
-            calories: calories,
-            reclassifiedWalkingCalories: reclassifiedWalkingCalories,
-            createdAt: workout.startDate
-        )
-    }
-
-    private nonisolated static func mapActivityType(_ activity: HKWorkoutActivityType) -> ExerciseType? {
-        switch activity {
-        case .running: return .running
-        case .cycling, .handCycling: return .cycling
-        case .swimming: return .swimming
-        case .traditionalStrengthTraining, .functionalStrengthTraining, .crossTraining, .highIntensityIntervalTraining: return .weightLifting
-        default: return nil
         }
     }
 
@@ -408,7 +355,29 @@ final class HealthKitService: ObservableObject {
         if let weight = HKObjectType.quantityType(forIdentifier: .bodyMass) {
             types.insert(weight)
         }
+        if let stepCount = HKObjectType.quantityType(forIdentifier: .stepCount) {
+            types.insert(stepCount)
+        }
+        if let walkingDistance = HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning) {
+            types.insert(walkingDistance)
+        }
         types.insert(HKObjectType.workoutType())
         return types
+    }
+
+    /// `getRequestStatusForAuthorization` becomes `.shouldRequest` when new read types are added,
+    /// even if the user has already granted previously-requested types (e.g. workouts).
+    /// Keep the service connected when at least one key read type is already authorized.
+    private var hasAnyReadAuthorization: Bool {
+        let workoutAuthorized = healthStore.authorizationStatus(for: HKObjectType.workoutType()) == .sharingAuthorized
+        let bodyMassAuthorized: Bool = {
+            guard let bodyMass = HKObjectType.quantityType(forIdentifier: .bodyMass) else { return false }
+            return healthStore.authorizationStatus(for: bodyMass) == .sharingAuthorized
+        }()
+        let heightAuthorized: Bool = {
+            guard let height = HKObjectType.quantityType(forIdentifier: .height) else { return false }
+            return healthStore.authorizationStatus(for: height) == .sharingAuthorized
+        }()
+        return workoutAuthorized || bodyMassAuthorized || heightAuthorized
     }
 }

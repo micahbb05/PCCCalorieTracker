@@ -4,7 +4,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Privacy Policy — Calorie Tracker</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/pcc-ios-logo-blue.png?v=20260311c">
+  <link rel="shortcut icon" href="/assets/pcc-ios-logo-blue.png?v=20260311c">
+  <link rel="apple-touch-icon" href="/assets/pcc-ios-logo-blue.png?v=20260311c">
+  <title>PCC Calorie Tracker - Privacy Policy</title>
   <meta name="description" content="Privacy Policy for Calorie Tracker iOS app.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -65,8 +68,28 @@
     }
 
     nav {
-      max-width: 800px;
+      max-width: 1100px;
       margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      font-weight: 800;
+      font-size: 1.25rem;
+      line-height: 1;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      letter-spacing: -0.03em;
+    }
+
+    .logo svg {
+      width: 24px;
+      height: 24px;
+      stroke: var(--accent);
     }
 
     nav a {
@@ -74,19 +97,29 @@
       text-decoration: none;
       font-size: 0.9375rem;
       font-weight: 500;
+      line-height: 1;
+      transition: all 0.2s ease;
       display: inline-flex;
       align-items: center;
-      gap: 0.5rem;
-      transition: color 0.2s var(--transition-smooth);
+      gap: 0.35rem;
+      padding: 0.45rem 0.75rem;
+      border-radius: 999px;
+      background: transparent;
+    }
+
+    nav a svg {
+      width: 16px;
+      height: 16px;
+      transition: transform 0.2s ease;
     }
 
     nav a:hover {
       color: var(--text);
+      background: #f3f4f6;
     }
 
-    nav a svg {
-      width: 18px;
-      height: 18px;
+    nav a.back-btn:hover svg {
+      transform: translateX(-3px);
     }
 
     main {
@@ -185,12 +218,20 @@
 
   <header>
     <nav>
-      <a href="/index.html">
-        <svg xmlns="http://www.w3.org/-2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="m15 18-6-6 6-6" />
+      <div class="logo">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+          stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+          class="lucide lucide-activity">
+          <path
+            d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.48 12H2" />
         </svg>
-        Back to Calorie Tracker
+        Calorie Tracker
+      </div>
+      <a href="/" class="back-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+        </svg>
+        Back to Home
       </a>
     </nav>
   </header>
@@ -279,7 +320,7 @@
       listed support channel.</p>
 
     <footer>
-      <a href="/index.html">Calorie Tracker</a>
+      <a href="/">Calorie Tracker</a>
     </footer>
   </main>
 </body>

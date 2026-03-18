@@ -5,6 +5,7 @@ struct OnboardingFlowView: View {
     @Binding var deficitCalories: Int
     @Binding var goalTypeRaw: String
     @Binding var surplusCalories: Int
+    @Binding var fixedGoalCalories: Int
     @Binding var trackedNutrientKeys: [String]
     @Binding var nutrientGoals: [String: Int]
     let availableNutrients: [NutrientDefinition]
@@ -140,8 +141,8 @@ struct OnboardingFlowView: View {
                 )
                 welcomeFeatureCard(
                     icon: "target",
-                    title: "Deficit or surplus",
-                    detail: "Choose deficit to lose weight or surplus to gain. Set the daily amount.",
+                    title: "Deficit, surplus, or fixed",
+                    detail: "Choose a dynamic goal from burn (deficit/surplus) or a fixed daily calorie target.",
                     tint: accent
                 )
                 welcomeFeatureCard(
@@ -209,23 +210,25 @@ struct OnboardingFlowView: View {
     }
 
     private var deficitSlide: some View {
-        let isSurplus = goalTypeRaw == "surplus"
         return VStack(alignment: .leading, spacing: 18) {
             slideHeading(
                 eyebrow: "Slide 3 of 4",
-                title: isSurplus ? "Set Your Surplus Goal" : "Set Your Deficit Goal",
-                detail: isSurplus
-                    ? "This amount is added to calories burned to create your daily intake target."
-                    : "This amount is subtracted from calories burned to create your daily intake target."
+                title: goalTypeRaw == "fixed" ? "Set Your Fixed Goal" : (goalTypeRaw == "surplus" ? "Set Your Surplus Goal" : "Set Your Deficit Goal"),
+                detail: goalTypeRaw == "fixed"
+                    ? "This is your direct daily intake target, independent of calories burned."
+                    : (goalTypeRaw == "surplus"
+                        ? "This amount is added to calories burned to create your daily intake target."
+                        : "This amount is subtracted from calories burned to create your daily intake target.")
             )
 
             Picker("Goal Type", selection: $goalTypeRaw) {
                 Text("Deficit").tag("deficit")
                 Text("Surplus").tag("surplus")
+                Text("Fixed").tag("fixed")
             }
             .pickerStyle(.segmented)
 
-            if !isSurplus {
+            if goalTypeRaw == "deficit" {
                 DeficitGoalEditor(
                     deficitCalories: $deficitCalories,
                     title: "Daily deficit",
@@ -233,13 +236,22 @@ struct OnboardingFlowView: View {
                     helperText: "You can change this later in Profile. The app allows any value from 0 to 2500 calories.",
                     accent: accent
                 )
-            } else {
+            } else if goalTypeRaw == "surplus" {
                 DeficitGoalEditor(
                     deficitCalories: $surplusCalories,
                     title: "Daily surplus",
                     subtitle: "Common moderate range: 200-500 cal",
                     helperText: "You can change this later in Profile. The app allows any value from 0 to 2500 calories.",
                     accent: accent
+                )
+            } else {
+                DeficitGoalEditor(
+                    deficitCalories: $fixedGoalCalories,
+                    title: "Daily calorie goal",
+                    subtitle: "Total calories to eat per day",
+                    helperText: "You can change this later in Profile. The app allows any value from 1 to 6000 calories.",
+                    accent: accent,
+                    maxCalories: 6000
                 )
             }
         }

@@ -1,6 +1,6 @@
 import Foundation
 import HealthKit
-import CoreMotion
+import UIKit
 
 @MainActor
 final class BackgroundWidgetRefreshService {
@@ -39,19 +39,38 @@ final class BackgroundWidgetRefreshService {
     private static let strideMultiplier = 0.415
 
     private let healthStore = HKHealthStore()
-    private let pedometer = CMPedometer()
     private let defaults = UserDefaults.standard
     private let decoder = JSONDecoder()
 
     func refreshSnapshot() async -> Bool {
         let state = loadState()
-        let profile = await fetchProfile()
-        let healthWorkouts = await fetchTodayWorkouts(profile: profile)
+
+        let todayID = centralDayIdentifier(for: Date())
+
+        // Match ContentView's "effective profile + effective workouts" strategy:
+        // - localHealthProfile may be nil on some devices/conditions
+        // - cloudSynced profile/workouts can provide fallback values
+        // - local workouts should still be mapped using the local profile (if nil, mapping uses nil),
+        //   but BMR/step-calorie estimation can use the effective (cloud) profile.
+        let localProfile = await fetchProfile()
+        let cloudSyncedBMRProfile = loadCloudSyncedBMRProfile()
+        let effectiveProfile = localProfile ?? cloudSyncedBMRProfile
+
+        // Map local workouts using localProfile (not effectiveProfile) to mirror ContentView.
+        let localHealthWorkouts = await fetchTodayWorkouts(profile: localProfile)
+        let cloudSyncedTodayWorkouts = loadCloudSyncedTodayWorkouts(for: todayID)
+        let effectiveHealthWorkouts = effectiveTodayHealthWorkouts(
+            todayID: todayID,
+            local: localHealthWorkouts,
+            synced: cloudSyncedTodayWorkouts
+        )
+
         let stepMetrics = await fetchStepMetrics()
         let snapshot = makeSnapshot(
             from: state,
-            profile: profile,
-            healthWorkouts: healthWorkouts,
+            todayID: todayID,
+            profile: effectiveProfile,
+            healthWorkouts: effectiveHealthWorkouts,
             stepMetrics: stepMetrics
         )
 
@@ -61,16 +80,17 @@ final class BackgroundWidgetRefreshService {
 
         persistDailyTotals(goal: snapshot.goalCalories, burned: snapshot.burnedCalories)
         WidgetSnapshotStore.save(snapshot)
+        WatchAppSyncService.shared.push(context: makeWatchSyncContext(from: snapshot, state: state))
         return true
     }
 
     private func makeSnapshot(
         from state: StoredState,
+        todayID: String,
         profile: BMRProfile?,
         healthWorkouts: [ExerciseEntry],
         stepMetrics: StepMetrics
     ) -> WidgetCalorieSnapshot {
-        let todayID = centralDayIdentifier(for: Date())
         let manualExercises = state.exercisesByDay[todayID] ?? []
         let allExercises = manualExercises + healthWorkouts
         let totalCalories = max(state.entries.reduce(0) { $0 + $1.calories }, 0)
@@ -118,9 +138,141 @@ final class BackgroundWidgetRefreshService {
             goalCalories: safeGoal,
             burnedCalories: burned,
             caloriesLeft: max(safeGoal - totalCalories, 0),
-            progress: min(max(Double(totalCalories) / Double(safeGoal), 0), 1),
+            progress: max(Double(totalCalories) / Double(safeGoal), 0),
+            goalTypeRaw: state.goalType.rawValue,
+            selectedAppIconChoiceRaw: defaults.string(forKey: "selectedAppIconChoice") ?? AppIconChoice.standard.rawValue,
             trackedNutrients: Array(trackedNutrients)
         )
+    }
+
+    private func currentCloudOriginDeviceType() -> CloudSyncOriginDeviceType {
+        switch UIDevice.current.userInterfaceIdiom {
+        case .phone:
+            return .iphone
+        case .pad:
+            return .ipad
+        case .mac:
+            return .mac
+        default:
+            return .unknown
+        }
+    }
+
+    private func syncedHealthSourceDeviceType() -> CloudSyncOriginDeviceType {
+        let raw = defaults.string(forKey: "syncedHealthSourceDeviceTypeRaw") ?? ""
+        return CloudSyncOriginDeviceType(rawValue: raw) ?? .unknown
+    }
+
+    private func loadCloudSyncedBMRProfile() -> BMRProfile? {
+        guard
+            let raw = defaults.string(forKey: "syncedHealthProfileData"),
+            !raw.isEmpty,
+            let data = raw.data(using: .utf8),
+            let decoded = try? decoder.decode(HealthKitService.SyncedProfile.self, from: data)
+        else {
+            return nil
+        }
+        return decoded.bmrProfile
+    }
+
+    private func loadCloudSyncedTodayWorkouts(for todayID: String) -> [ExerciseEntry] {
+        guard
+            let raw = defaults.string(forKey: "syncedTodayWorkoutsData"),
+            !raw.isEmpty,
+            let data = raw.data(using: .utf8),
+            let decoded = try? decoder.decode([ExerciseEntry].self, from: data)
+        else {
+            return []
+        }
+
+        return decoded.filter { entry in
+            centralDayIdentifier(for: entry.createdAt) == todayID
+        }
+    }
+
+    private func effectiveTodayHealthWorkouts(
+        todayID: String,
+        local: [ExerciseEntry],
+        synced: [ExerciseEntry]
+    ) -> [ExerciseEntry] {
+        // Filter local as a safety net (even though fetchTodayWorkouts queries only today).
+        let localFiltered = local.filter { entry in
+            centralDayIdentifier(for: entry.createdAt) == todayID
+        }
+        let syncedFiltered = synced
+
+        if currentCloudOriginDeviceType() == .iphone {
+            if localFiltered.isEmpty {
+                return syncedFiltered
+            }
+            if syncedFiltered.isEmpty {
+                return localFiltered
+            }
+            return mergedWorkoutEntries(primary: localFiltered, secondary: syncedFiltered)
+        }
+
+        let shouldUseIPhoneExerciseSource =
+            currentCloudOriginDeviceType() != .iphone && syncedHealthSourceDeviceType() == .iphone
+
+        if shouldUseIPhoneExerciseSource {
+            return syncedFiltered
+        }
+
+        if localFiltered.isEmpty {
+            return syncedFiltered
+        }
+        if syncedFiltered.isEmpty {
+            return localFiltered
+        }
+        return mergedWorkoutEntries(primary: localFiltered, secondary: syncedFiltered)
+    }
+
+    private func mergedWorkoutEntries(primary: [ExerciseEntry], secondary: [ExerciseEntry]) -> [ExerciseEntry] {
+        var seen = Set<String>()
+        var merged: [ExerciseEntry] = []
+
+        for entry in (primary + secondary).sorted(by: { $0.createdAt > $1.createdAt }) {
+            let key = workoutMergeKey(for: entry)
+            guard !seen.contains(key) else { continue }
+            seen.insert(key)
+            merged.append(entry)
+        }
+
+        return merged
+    }
+
+    private func workoutMergeKey(for entry: ExerciseEntry) -> String {
+        let roundedTimestamp = Int(entry.createdAt.timeIntervalSince1970.rounded())
+        let distanceBucket = Int(((entry.distanceMiles ?? 0) * 100).rounded())
+        let name = (entry.customName ?? "")
+            .lowercased()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return "\(entry.exerciseType.rawValue)|\(name)|\(entry.durationMinutes)|\(entry.calories)|\(distanceBucket)|\(roundedTimestamp)"
+    }
+
+    private func makeWatchSyncContext(from snapshot: WidgetCalorieSnapshot, state: StoredState) -> [String: Any] {
+        let todayEntries = state.entries
+            .filter { Calendar.autoupdatingCurrent.isDateInToday($0.createdAt) }
+            .sorted(by: { $0.createdAt > $1.createdAt })
+            .prefix(12)
+            .map { entry in
+                [
+                    "id": entry.id.uuidString,
+                    "name": entry.name,
+                    "calories": max(entry.calories, 0),
+                    "createdAt": entry.createdAt.timeIntervalSince1970
+                ] as [String: Any]
+            }
+
+        return [
+            "goalCalories": max(snapshot.goalCalories, 1),
+            "activityCalories": max(snapshot.burnedCalories, 0),
+            "currentMealTitle": "Lunch",
+            "goalTypeRaw": snapshot.goalTypeRaw,
+            "selectedAppIconChoiceRaw": snapshot.selectedAppIconChoiceRaw,
+            "venueMenuItems": [String: [String]](),
+            "entries": todayEntries
+        ]
     }
 
     private func persistDailyTotals(goal: Int, burned: Int) {
@@ -414,7 +566,8 @@ final class BackgroundWidgetRefreshService {
                 sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)]
             ) { _, samples, _ in
                 let workouts = (samples as? [HKWorkout]) ?? []
-                let entries = workouts.map { workout -> ExerciseEntry in
+                let preferredWorkouts = Self.preferredIPhoneSamples(from: workouts)
+                let entries = preferredWorkouts.map { workout -> ExerciseEntry in
                     HealthKitWorkoutMapper.makeExerciseEntry(from: workout, profile: profile)
                 }
                 continuation.resume(returning: entries)
@@ -423,60 +576,39 @@ final class BackgroundWidgetRefreshService {
         }
     }
 
-    private func fetchStepMetrics() async -> StepMetrics {
-        let pedometerMetrics = await fetchPedometerStepMetrics()
-        if pedometerMetrics.steps > 0 || pedometerMetrics.distanceMeters > 0 {
-            return pedometerMetrics
-        }
-
-        let stepCount = await todayQuantitySum(for: .stepCount, unit: .count())
-        let distanceMeters = await todayQuantitySum(for: .distanceWalkingRunning, unit: .meter())
-        if stepCount > 0 || distanceMeters > 0 {
-            return StepMetrics(
-                steps: max(Int(stepCount.rounded()), 0),
-                distanceMeters: max(distanceMeters, 0)
-            )
-        }
-
-        return StepMetrics(steps: 0, distanceMeters: 0)
+    nonisolated private static func preferredIPhoneSamples<T: HKSample>(from samples: [T]) -> [T] {
+        let iPhoneSamples = samples.filter { isIPhoneSourceRevision($0.sourceRevision) }
+        return iPhoneSamples.isEmpty ? samples : iPhoneSamples
     }
 
-    private func todayQuantitySum(for identifier: HKQuantityTypeIdentifier, unit: HKUnit) async -> Double {
-        guard let type = HKObjectType.quantityType(forIdentifier: identifier) else {
-            return 0
+    nonisolated private static func isIPhoneSourceRevision(_ sourceRevision: HKSourceRevision) -> Bool {
+        if let productType = sourceRevision.productType?.lowercased(), productType.contains("iphone") {
+            return true
         }
+        if sourceRevision.source.name.lowercased().contains("iphone") {
+            return true
+        }
+        if sourceRevision.source.bundleIdentifier.lowercased().contains("iphone") {
+            return true
+        }
+        return false
+    }
 
+    private func fetchStepMetrics() async -> StepMetrics {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .autoupdatingCurrent
-        let startOfDay = calendar.startOfDay(for: Date())
-        let predicate = HKQuery.predicateForSamples(withStart: startOfDay, end: Date(), options: .strictStartDate)
+        let metrics = await HealthKitStepMetricsLogic.fetchTodayStepMetrics(
+            healthStore: healthStore,
+            calendar: calendar
+        )
 
-        return await withCheckedContinuation { continuation in
-            let query = HKStatisticsQuery(quantityType: type, quantitySamplePredicate: predicate, options: .cumulativeSum) { _, statistics, _ in
-                let value = statistics?.sumQuantity()?.doubleValue(for: unit) ?? 0
-                continuation.resume(returning: max(value, 0))
-            }
-            healthStore.execute(query)
-        }
-    }
-
-    private func fetchPedometerStepMetrics() async -> StepMetrics {
-        guard CMPedometer.isStepCountingAvailable() else {
+        guard metrics.stepError == nil else {
             return StepMetrics(steps: 0, distanceMeters: 0)
         }
-
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = .autoupdatingCurrent
-        let startOfDay = calendar.startOfDay(for: Date())
-        let now = Date()
-
-        return await withCheckedContinuation { continuation in
-            pedometer.queryPedometerData(from: startOfDay, to: now) { data, _ in
-                let steps = max(data?.numberOfSteps.intValue ?? 0, 0)
-                let distance = max(data?.distance?.doubleValue ?? 0, 0)
-                continuation.resume(returning: StepMetrics(steps: steps, distanceMeters: distance))
-            }
-        }
+        return StepMetrics(
+            steps: metrics.steps,
+            distanceMeters: metrics.distanceMeters
+        )
     }
 }
 

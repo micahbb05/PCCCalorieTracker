@@ -1,0 +1,283 @@
+Calorie Tracker App UI Review
+Generated: 2026-03-12 (America/New_York)
+
+Scope and Assumption
+This review is based on the iOS SwiftUI app in `Calorie Tracker/` (not the separate `webapp/` demo). It explains how the app UI is structured, how each major screen behaves, and the practical strengths and weaknesses of the current interface.
+
+1) UI Architecture Overview
+The app uses a custom shell rather than the default iOS `TabView` tab bar.
+
+- Root flow:
+  - If onboarding is incomplete, users see a 4-slide onboarding flow.
+  - After onboarding, users enter the main app shell.
+- Main shell:
+  - Full-screen gradient background.
+  - One active content area (Today, History, Add, Profile, Settings).
+  - A floating rounded bottom tab bar with a large central Add button.
+  - Multiple sheets/full-screen covers for focused tasks (menu picker, food review, chart expansion, edit entry, quick add management, exercise logging, AI plate confirmation, etc.).
+- Visual system:
+  - Dark/light adaptive surfaces.
+  - Rounded cards with subtle strokes and shadows.
+  - Consistent accent blue for key actions.
+  - Large rounded headline typography and monospaced numerics for calorie/stat values.
+
+2) Onboarding UI (4 slides)
+The onboarding is a card-based page flow with:
+- Header title, progress capsules, and Skip action.
+- Slides:
+  1. Welcome/value proposition cards.
+  2. Apple Health connection state and action.
+  3. Deficit vs surplus picker with goal editor.
+  4. Nutrient selection list.
+
+Pros
+- Clear staged setup for first-time users.
+- Good explanation of Health and goal logic before first log.
+- Nutrient customization early prevents clutter later.
+
+Cons
+- Four slides plus controls can feel dense.
+- There is no explicit completion summary screen confirming final choices.
+- Users who skip may still not understand deficit/surplus behavior deeply.
+
+3) Main Navigation UI
+Primary navigation is the floating bottom bar with five destinations:
+- Today
+- History
+- Add (center emphasized button)
+- Profile
+- Settings
+
+Pressing Add opens an add-destination picker sheet instead of immediately switching to one fixed screen.
+
+Pros
+- Strong visual hierarchy: Add is correctly emphasized as the core job.
+- Floating bar keeps app identity distinct and modern.
+- Add-destination picker reduces dependence on hidden menus.
+
+Cons
+- Nonstandard tab behavior (Add opens sheet) may confuse users expecting normal tab switching.
+- Floating bar plus safe-area spacing consumes vertical space.
+- Many destinations can increase cognitive load for new users.
+
+4) Today Tab UI
+The Today page is a list of high-importance cards/sections:
+- Calorie hero card:
+  - Large “Calories Left”
+  - Progress bar
+  - Consumed vs Goal values
+  - Color state logic (green/yellow/red depending on goal/burn context)
+- Daily nutrient progress card(s) for selected nutrients.
+- Food log grouped by meal windows (Breakfast/Lunch/Snack/Dinner style grouping).
+- Exercise section (manual exercise + Health workouts + walking summary).
+- Meal distribution ring chart card.
+- Destructive reset section (“Reset Today”).
+
+Pros
+- Very strong at-a-glance status design (hero card is readable and motivating).
+- Good information hierarchy from primary metric to detailed logs.
+- Context actions (edit/delete) on log rows are practical.
+- Meal and exercise segmentation gives useful daily structure.
+
+Cons
+- The screen can become long and visually heavy when many entries exist.
+- Multiple card styles and section headers may feel busy.
+- Reset action is close to normal workflow sections; accidental taps are possible despite destructive styling.
+
+5) History Tab UI
+History uses a scroll stack of analytic cards:
+- Monthly calendar grid with day status dots and day detail sheet on tap.
+- “7-Day Calorie Trends” chart with expansion path.
+- “7-Day Statistics” tile row.
+- Net average intake card with selectable ranges.
+- Average meal distribution card with selectable ranges.
+- Expanded trend sheet with line chart and range selector.
+- Day detail sheet showing status, totals, nutrient totals, and meal distribution.
+
+Pros
+- Combines short-term and long-term analytics in one place.
+- Calendar + chart + summary + per-day drill-in is a complete pattern.
+- Range controls are compact and understandable.
+
+Cons
+- High information density may overwhelm casual users.
+- Some health/goal logic labels (e.g., deficit/surplus state interpretation) are nuanced and may require explanation.
+- Heavy chart/metric content can feel analytical rather than behavior-guiding.
+
+6) Add Flows UI
+Add is a multi-path workspace with six destinations:
+- PCC Menu
+- Manual Entry
+- Search Foods (USDA)
+- Scan Barcode
+- Smart Log (AI photo + AI text)
+- Quick Add
+
+6.1 Add Destination Picker Sheet
+- Two full-width emphasized buttons (PCC Menu, Manual Entry).
+- Four square options below.
+
+Pros
+- Fast branching by user context.
+- Reduces friction by showing all acquisition modes.
+
+Cons
+- Too many equal options can produce decision paralysis.
+- Label differences (“Search Foods” vs “Find Foods” in other contexts) can cause minor terminology inconsistency.
+
+6.2 Manual Entry UI
+- Card-based form with food name, calories, nutrient fields in adaptive grid.
+- Input validation and inline error messaging.
+- Keyboard-aware scrolling/focus logic for reliability.
+
+Pros
+- Efficient for power users.
+- Strong validation reduces bad logs.
+- Focus management shows good polish.
+
+Cons
+- Grid input can still feel data-entry heavy.
+- New users may not know which nutrients matter.
+
+6.3 Smart Log UI (AI)
+- “Take Photo” and “Choose From Library” actions.
+- “Describe Your Meal” text editor with analyze button.
+- Loading overlays and error alert.
+- Results can route into plate item confirmation/adjustment UI.
+
+Pros
+- Supports both visual and text AI entry modes.
+- Clear loading and failure feedback.
+- Good bridge from AI estimate to user-adjusted confirmation.
+
+Cons
+- AI expectations can be high; trust can drop if estimates are off.
+- Text entry + photo options + confirm flow introduces multi-step complexity.
+
+6.4 Barcode UI
+- Camera scanner card in Add workspace.
+- Progress overlay during lookup.
+- Error toast behavior.
+
+Pros
+- Fast for packaged foods.
+- Immediate camera-first workflow is practical.
+
+Cons
+- Camera workflows are environment-sensitive (lighting, label quality).
+- Recovery from failed matches can require switching to another add mode.
+
+6.5 USDA Search UI
+- Dedicated search view with debounce behavior and loading/error states.
+- Results feed into food review before logging.
+
+Pros
+- Reliable fallback for non-menu/non-barcode foods.
+- Debounce and request control improve UX stability.
+
+Cons
+- Search quality depends on external data consistency.
+- Result relevance can vary by naming conventions.
+
+6.6 Quick Add UI
+- Quick Add picker embedded in Add tab.
+- Separate manager sheet to search/edit/delete templates.
+- Editor supports manual fields and import helpers (barcode/search/menu).
+
+Pros
+- Excellent repeat-entry acceleration.
+- Management tools are robust and practical.
+
+Cons
+- Full manager + editor UI can feel advanced for beginners.
+- Maintaining many templates can become administrative overhead.
+
+7) Menu and Portion UI (PCC + Plate Estimate)
+Menu UI includes:
+- Venue switching.
+- Menu-type switching.
+- Search.
+- Line expansion.
+- Quantity/serving multiplier handling.
+- Bottom CTA for add selected items.
+- AI popup path for plate estimation.
+
+Plate estimate result UI includes:
+- List of detected items.
+- Swipe/remove interactions.
+- Per-item serving adjuster sheet.
+- Live total nutrition card.
+- Final “Add to log” action.
+
+Pros
+- Highly functional for cafeteria-style meals.
+- Portion adjuster solves a major real-world logging problem.
+- Live total nutrition updates are a strong trust/review mechanism.
+
+Cons
+- Advanced controls (multipliers, serving baselines, count-based logic) can be cognitively heavy.
+- Long menu flows can require many taps for simple logs.
+- New users may not distinguish baseline serving vs selected serving quickly.
+
+8) Profile Tab UI
+Profile organizes goal-related controls into cards:
+- Calorie goals (deficit/surplus + weekend variation).
+- Nutrient goals (step controls per selected nutrient).
+- Body profile/Health connection status.
+- Smart adjustment toggle + status summary.
+
+Pros
+- Strong separation between “tracking input” and “goal configuration.”
+- Health status and fallback messaging are transparent.
+- Weekend override supports realistic behavior patterns.
+
+Cons
+- Many numeric controls and technical labels can feel intimidating.
+- Smart adjustment language may not be immediately intuitive without onboarding memory.
+
+9) Settings Tab UI
+Settings includes:
+- Nutrition tracking selection.
+- AI serving behavior toggle.
+- App icon segmented picker.
+- Replay onboarding and privacy policy actions.
+
+Pros
+- Good centralization of app-wide preferences.
+- Replay onboarding is a useful recovery mechanism.
+- Privacy access is easy to find.
+
+Cons
+- AI setting explanation is precise but somewhat verbose for quick scanning.
+- App icon control is useful but lower-value than some users expect from top-level settings space.
+
+10) Cross-Cutting UI Strengths
+- Consistent card language and spacing across tabs and sheets.
+- Strong dark/light adaptation.
+- Good use of haptics and micro-feedback.
+- Keyboard-aware behavior in input-heavy areas.
+- Defensive state handling with error/empty/loading states in major flows.
+- Analytics and logging coexist without losing core daily task visibility.
+
+11) Cross-Cutting UI Weaknesses
+- Feature breadth increases complexity; new-user discoverability is a challenge.
+- Some screens are dense and can feel “power-user first.”
+- Multiple paths to add food are powerful but can dilute default guidance.
+- Modal/sheet layering is extensive, which can increase navigation depth.
+- Terminology consistency (especially across add destinations and data sources) can be tightened.
+
+12) Overall UI Evaluation
+The UI is ambitious and functionally strong. It successfully supports a wide set of real-world logging workflows (manual, barcode, menu, AI text/photo, quick templates) while still providing a daily dashboard and meaningful historical analytics.
+
+Best qualities
+- Practical, high-utility workflows for many food logging scenarios.
+- Strong visual hierarchy for daily calories and progress.
+- Rich but coherent analytics and per-day drill-in.
+
+Biggest risks
+- Cognitive load from many options and dense cards.
+- Learning curve for users who only need simple calorie logging.
+- Potential friction from multi-step flows in advanced add paths.
+
+Bottom line
+This is a feature-rich, power-capable UI with solid visual consistency and strong task coverage. Its main opportunity is simplification and progressive disclosure: guiding users more aggressively toward “quick default paths” while preserving the advanced controls that are already implemented well.

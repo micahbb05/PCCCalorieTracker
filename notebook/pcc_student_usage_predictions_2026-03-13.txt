@@ -1,0 +1,281 @@
+PCC-Targeted Usage Predictions for Calorie Tracker
+Generated: March 13, 2026 (America/New_York)
+Workspace: /Users/micah/Documents/Calorie Tracker
+
+======================================================================
+1) Objective
+======================================================================
+Create evidence-based predictions for how students at Pensacola Christian College (PCC) are likely to use this app, given that the app connects to PCC dining menus (Nutrislice data for Four Winds, Varsity, Grab N Go).
+
+This document combines:
+- Verified PCC context (student population, dining model, dining hours, academic calendar cadence).
+- Verified product behavior from this codebase.
+- Explicit assumptions where no direct measurement is available.
+
+======================================================================
+2) Verified Inputs (Ground Truth)
+======================================================================
+2.1 Product capabilities in this repository
+- The app supports PCC dining import from Nutrislice with venues:
+  - Four Winds
+  - Varsity
+  - Grab N Go
+- Supported meal windows differ by venue in code:
+  - Four Winds: lunch, dinner
+  - Varsity: breakfast, lunch, dinner
+  - Grab N Go: breakfast, lunch, dinner
+- Users can search menu items, multi-select foods, apply serving multipliers, and add to meal logs.
+- The app also supports manual logging, USDA search, AI text meal analysis, AI food photo analysis, plate estimation, and HealthKit/activity integration.
+
+Code references used:
+- /Users/micah/Documents/Calorie Tracker/Calorie Tracker/NutrisliceMenuService.swift
+- /Users/micah/Documents/Calorie Tracker/Calorie Tracker/MenuSheetView.swift
+- /Users/micah/Documents/Calorie Tracker/README.md
+
+2.2 PCC scale and student mix
+- PCC reports growth to “over 4,500” students.
+- Student composition shown on PCC at-a-glance page includes:
+  - 90.6% undergraduate
+  - 9.4% graduate
+  - 47% male, 53% female
+- PCC reports 65.9% of students employed on campus (work assistance context).
+
+2.3 PCC dining operating model
+- PCC dining page states three primary dining options: Four Winds, Varsity, Grab N Go.
+- Breakfast/lunch/dinner are included in residence hall students’ room and board.
+- Four Winds details include renovation (2024) and over 1,600 seats.
+- Varsity is open daily with over 1,000 seats.
+- Grab N Go is positioned for portable meals “on class days.”
+- PCC publishes dining hours with narrow mealtime windows, including weekday breakfast/lunch/dinner windows and separate weekend timings.
+- PCC states partnership with Nutrislice for detailed nutritional information and QR-based access in dining halls.
+- PCC has a dedicated “Dining Menus” page instructing users to download Nutrislice, select “Pensacola Christian College,” and log in.
+
+2.4 Academic calendar signals (2026–2027)
+- Fall 2026 classes begin September 1, 2026.
+- Fall final exams: December 14–17, 2026.
+- Semester ends: December 17, 2026.
+- Spring 2027 classes begin January 25, 2027.
+- Spring final exams: May 10–13, 2027.
+- Semester ends: May 14, 2027.
+- Calendar also explicitly calls out arrival/check-in events and mentions work students staying through last work responsibility.
+
+======================================================================
+3) Assumptions (Explicit)
+======================================================================
+A1) No app analytics dataset was provided here (no DAU/MAU, retention, or funnel logs), so quantitative values below are modeled estimates, not measured telemetry.
+A2) Student smartphone ownership is treated as effectively ubiquitous for this audience segment.
+A3) Because residence hall students have meals included and meal windows are structured, menu-linked logging behavior will be strongly time-windowed.
+A4) Because PCC already promotes Nutrislice directly, this app must win usage by convenience (faster logging + personal calorie goals), not by menu access alone.
+
+======================================================================
+4) Usage Predictions for PCC Student Audience
+======================================================================
+4.1 Adoption pattern (who adopts first)
+Prediction:
+- Early adopters will be students already motivated by fitness/body composition goals, athletes, and students who actively monitor macros.
+- Secondary adopters will be students who want practical control (weight maintenance, gaining/losing weight) but prefer quick logging via menu import.
+
+Rationale:
+- App value is highest for users who already care about nutrition outcomes.
+- The “menu-connected + quick add” flow lowers friction relative to generic calorie apps.
+
+Confidence: High
+
+4.2 Time-of-day usage shape (strongly meal-peaked)
+Prediction:
+- Session spikes will occur in three sharp windows aligned to PCC dining schedules:
+  - Breakfast: primarily 6:00-8:30 a.m. weekdays (Varsity)
+  - Lunch: primarily 10:45 a.m.-1:15 p.m. weekdays
+  - Dinner: primarily 4:45-6:30 p.m. weekdays (slightly shorter on Wednesday)
+- A smaller late-evening usage band is likely from “catch-up logging” (students backfilling missed entries).
+
+Rationale:
+- Dining windows are explicit and bounded.
+- Menu import UI is optimized for pre-meal or in-line selection behavior.
+
+Confidence: High
+
+4.3 Day-of-week behavior
+Prediction:
+- Monday-Thursday will produce the steadiest usage.
+- Friday and Saturday will show slightly more variability (more schedule and outing variance).
+- Sunday will show lower meal-import intensity than weekdays, but still meaningful use around the two lunch windows and evening meal periods.
+
+Rationale:
+- Structured class days + grab-and-go pattern support consistency during weekdays.
+- Weekend dining windows and routines differ.
+
+Confidence: Medium-High
+
+4.4 Semester-seasonality
+Prediction:
+- Highest app demand during:
+  - First 3-5 weeks after each semester starts (habit formation period).
+  - 2-3 weeks before major breaks and near finals (goal urgency / weight-control behavior).
+- Noticeable drops during:
+  - Thanksgiving holiday window
+  - Interterm transitions
+  - Post-semester departures
+
+Rationale:
+- PCC calendar has clear class-active vs break periods.
+- Diet tracking apps typically have stronger usage in routine-heavy weeks than break periods.
+
+Confidence: High
+
+4.5 Feature-level usage mix (within this app)
+Prediction (share of active PCC users by primary logging behavior):
+- PCC menu import as dominant pathway: ~55-75%
+- Manual + quick-add hybrid users: ~20-35%
+- USDA/barcode-first users: ~10-20%
+- AI photo/text as primary path: ~5-15%
+
+Rationale:
+- For this audience, the strongest unique advantage is direct menu connection.
+- AI is valuable but usually secondary due added capture effort and occasional uncertainty.
+
+Confidence: Medium
+
+4.6 Venue distribution inside PCC menu flow
+Prediction:
+- Varsity will likely generate the highest event volume overall because:
+  - It is open daily.
+  - It serves all three meals.
+- Four Winds will be heavily lunch/dinner concentrated.
+- Grab N Go usage will be clustered around class-day schedule pressure and fast transitions.
+
+Confidence: High
+
+4.7 Retention curve expectation
+Prediction:
+- 7-day retention among students who complete at least 3 menu-import logs in week 1 should be substantially higher than users who only manually log once.
+- Biggest churn risk occurs after first 10-14 days if:
+  - onboarding does not quickly demonstrate “faster than Nutrislice + notes,” or
+  - daily reminder habit is not formed.
+
+Confidence: Medium
+
+4.8 Stress points and likely user complaints
+Prediction:
+- Most likely friction points for PCC students:
+  - Menu data timing gaps (if menu updates lag or items are missing).
+  - Portion uncertainty (how to convert plated amount into realistic serving multipliers).
+  - Fast-paced meal lines causing users to delay logging, then forget.
+
+Confidence: High
+
+======================================================================
+5) Quantitative Planning Ranges (Model-Based)
+======================================================================
+Important: These are planning ranges for roadmap decisions, not observed metrics.
+
+If campus-aware product-market fit is strong within PCC:
+- Weekly Active Users (WAU) among iOS student audience: 8-20% of reachable iOS users.
+- DAU/WAU ratio: 0.38-0.60 during active semester weeks.
+- Meal-window concentration:
+  - Top 3 meal windows may account for 65-80% of daily sessions.
+- Active user logging frequency:
+  - Typical engaged user: 1.4-2.6 logging sessions/day on class days.
+
+If fit is moderate:
+- WAU: 4-10%
+- DAU/WAU: 0.25-0.42
+- Meal-window concentration remains high due dining schedule even with lower adoption.
+
+======================================================================
+6) Product Implications for This App (PCC Audience)
+======================================================================
+6.1 Highest-leverage behavior loop
+- Open app near meal window.
+- Pull correct venue/meal quickly.
+- Select 1-4 items fast.
+- Apply serving adjustments only when needed.
+- Add and exit in under 45 seconds.
+
+This loop will likely determine retention more than advanced AI features for core PCC users.
+
+6.2 Priority reliability expectations
+Given predictable meal spikes, reliability expectations are strict at mealtime:
+- Menu load failures during short windows will disproportionately damage trust.
+- Search latency and UI friction directly reduce capture rate.
+- Venue/meal auto-selection accuracy (time aware) matters at first tap.
+
+6.3 Data quality leverage
+Because PCC and Nutrislice already provide nutrition details, app differentiation should focus on:
+- Better personalization (goals + calorie left + macro progress).
+- Better actionability (portion controls, quick corrections, history patterns).
+- Better continuity (Health/workout integration and daily target context).
+
+======================================================================
+7) Prediction Confidence Summary
+======================================================================
+High confidence predictions:
+- Mealtime session spikes and time-bounded usage.
+- Strong role of menu-import as primary value driver.
+- Semester cadence effects (rises near starts; dips on breaks/ends).
+- Varsity-heavy volume due all-day meal coverage.
+
+Medium confidence predictions:
+- Exact share split across logging methods.
+- Retention uplift magnitude by first-week behavior.
+- Adoption penetration percentages (requires real telemetry).
+
+Lower confidence areas (without live data):
+- Precise MAU saturation ceiling.
+- Exact retention curves by student segment.
+
+======================================================================
+8) Validation Plan (What to Measure Next)
+======================================================================
+To convert these predictions into measured truth, instrument and review:
+- Event funnel:
+  - menu_opened
+  - venue_selected
+  - item_selected
+  - add_selected_committed
+- Time metrics:
+  - open_to_first_item_ms
+  - open_to_add_commit_ms
+- Reliability metrics:
+  - menu_fetch_fail_rate by venue and meal window
+  - empty_menu_rate by venue and meal window
+- Behavioral metrics:
+  - logs per active user per day
+  - DAU by hour-of-day and day-of-week
+  - retention by first-week action count
+
+Minimum viable observation period:
+- 6-8 weeks spanning active class weeks (not break-only weeks).
+
+======================================================================
+9) Source Links (Used for this document)
+======================================================================
+Official PCC sources:
+1) PCC About page
+   https://www.pcci.edu/about/
+2) PCC At a Glance (student and institutional stats)
+   https://www.pcci.edu/about/pcc-at-a-glance.aspx
+3) PCC Campus Life page (links and campus-life framing including meals card)
+   https://www.pcci.edu/campus-life/
+4) PCC Dining page (venues, hours, Nutrislice partnership)
+   https://www.pcci.edu/visit-us/dining/
+5) PCC Dining Menus page (Nutrislice app flow)
+   https://www.pcci.edu/visit-us/dining/menus/
+6) PCC Academic Calendar
+   https://www.pcci.edu/calendars/academic-calendar.aspx
+7) PCC Student Handbook landing page and current PDF endpoint
+   https://www.pcci.edu/media/handbook/
+   https://www.pcci.edu/HB
+
+Local codebase sources:
+8) Nutrislice menu service and venue/meal support rules
+   /Users/micah/Documents/Calorie Tracker/Calorie Tracker/NutrisliceMenuService.swift
+9) Menu sheet interaction model
+   /Users/micah/Documents/Calorie Tracker/Calorie Tracker/MenuSheetView.swift
+10) Repository feature summary
+   /Users/micah/Documents/Calorie Tracker/README.md
+
+======================================================================
+10) Final Notes
+======================================================================
+These predictions are intentionally conservative and tied to verifiable PCC operating patterns and this app’s implemented feature set as of March 13, 2026. The fastest way to improve accuracy now is to instrument meal-window funnel metrics and reassess after 6-8 weeks of live student usage.

@@ -1,0 +1,16 @@
+{
+  "" : {
+    "const-values" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker Widgets.build/Objects-normal/x86_64/Calorie Tracker Widgets-primary.swiftconstvalues",
+    "dependencies" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker Widgets.build/Objects-normal/x86_64/Calorie Tracker Widgets-primary.d",
+    "diagnostics" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker Widgets.build/Objects-normal/x86_64/Calorie Tracker Widgets-primary.dia",
+    "emit-module-dependencies" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker Widgets.build/Objects-normal/x86_64/Calorie Tracker Widgets-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker Widgets.build/Objects-normal/x86_64/Calorie Tracker Widgets-primary-emit-module.dia",
+    "pch" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker Widgets.build/Objects-normal/x86_64/Calorie Tracker Widgets-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker Widgets.build/Objects-normal/x86_64/Calorie Tracker Widgets-primary.swiftdeps"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker Widgets/CalorieTrackerWidgets.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker Widgets.build/Objects-normal/x86_64/CalorieTrackerWidgets.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker Widgets.build/Objects-normal/x86_64/CalorieTrackerWidgets.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker Widgets.build/Objects-normal/x86_64/CalorieTrackerWidgets.o"
+  }
+}

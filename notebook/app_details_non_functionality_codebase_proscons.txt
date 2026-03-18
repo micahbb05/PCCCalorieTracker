@@ -1,0 +1,229 @@
+Calorie Tracker - Comprehensive App Details Outside Functionality, Codebase, and Pros/Cons
+Generated: 2026-03-12 (America/New_York)
+
+Scope of this document
+- This notebook intentionally excludes three categories:
+  - functionality (feature behavior and user-task flows)
+  - codebase (file-by-file architecture walk-through)
+  - pros/cons (evaluation or subjective scoring)
+- It focuses on everything else that is concrete, operational, policy-related, and product-contextual.
+
+1) Product identity and positioning metadata
+- Product name in repo/docs: Calorie Tracker.
+- Primary platform: iOS (SwiftUI app target) with companion WidgetKit extension.
+- Hosting presence: Firebase Hosting site with public privacy page and a static home/demo footprint.
+- App URL scheme (deep link): calorietracker://
+- App privacy page URL in app settings: https://calorie-tracker-364e3.web.app/privacy
+- Widget display name in extension plist: "Calories Widget".
+- Main brand/app icon variants:
+  - Standard icon (default)
+  - Pink alternate icon (via iOS alternate app icon API)
+
+2) Distribution targets and execution surfaces
+- iOS app target exists as first-party mobile runtime.
+- Widget extension target exists and is embedded into main app.
+- UI test target exists as separate test bundle.
+- Firebase Functions target exists for backend HTTP services.
+- Firebase Hosting target exists for static policy/demo pages.
+- Additional webapp exists (Vite + TypeScript) as a sandbox/demo environment, separate from the iOS runtime.
+
+3) Apple platform capabilities, permissions, and entitlements
+- Main app entitlements:
+  - HealthKit entitlement enabled.
+  - iCloud container entitlement enabled (iCloud.$(CFBundleIdentifier)).
+  - CloudKit service entitlement enabled.
+  - Shared app group entitlement enabled: group.Micah.Calorie-Tracker.
+- Widget entitlements:
+  - Shared app group entitlement enabled: group.Micah.Calorie-Tracker.
+- Main app Info.plist runtime declarations:
+  - URL type name: Micah.Calorie-Tracker.deeplink
+  - URL scheme: calorietracker
+  - Background modes: fetch, remote-notification
+
+4) App lifecycle, background behavior, and push/background fetch posture
+- On app launch:
+  - Registers for remote notifications.
+  - Sets minimum background fetch interval.
+  - Starts HealthKit background observer.
+  - Kicks async widget snapshot refresh.
+- Background fetch handler performs concurrent refresh operations and reports newData/noData.
+- Remote notification handler checks whether notification is app-state CloudKit change and posts local notification center event if applicable.
+- HealthKit background observer registers HKObserverQuery for:
+  - workouts
+  - step count (if available)
+  - walking/running distance (if available)
+- Observer queries trigger widget snapshot refresh and immediate background delivery.
+
+5) Data ownership, storage boundaries, and sync model (non-feature framing)
+- Local persistence model:
+  - App uses iOS local preferences/storage (string-backed JSON payloads in UserDefaults/AppStorage keys).
+- Cross-process shared storage:
+  - App and widgets share snapshot payloads through app group defaults.
+- Cloud synchronization channel:
+  - Uses private CloudKit database for app-state envelope/payload sync.
+  - Cloud change notifications are wired to app-state refresh signaling.
+- Widget snapshot object includes:
+  - update timestamp
+  - consumed/goal/burned/left calories
+  - progress
+  - selected app icon raw value
+  - tracked nutrient summary rows
+
+6) Persisted keyspace (state and operational keys)
+- Representative app persistence keys observed:
+  - hasCompletedOnboarding
+  - deficitCalories
+  - useWeekendDeficit
+  - weekendDeficitCalories
+  - goalTypeRaw
+  - surplusCalories
+  - dailyGoalTypeArchiveData
+  - mealEntriesData
+  - trackedNutrientsData
+  - nutrientGoalsData
+  - lastCentralDayIdentifier
+  - selectedAppIconChoice
+  - dailyEntryArchiveData
+  - dailyCalorieGoalArchiveData
+  - dailyBurnedCalorieArchiveData
+  - dailyExerciseArchiveData
+  - venueMenusData
+  - venueMenuSignaturesData
+  - quickAddFoodsData
+  - calibrationStateData
+  - healthWeighInsData
+  - cloudSyncLocalModifiedAt
+  - useAIBaseServings
+- Widget group key:
+  - widget.calorieSnapshot
+
+7) Privacy, policy, and declared data practices
+- Public privacy policy exists in hosted page: public/privacy.html.
+- Policy page states "Last updated: March 6, 2026".
+- Apple privacy manifests (app + widget) declare:
+  - NSPrivacyTracking = false
+  - no tracking domains
+  - accessed API category: UserDefaults (reason code CA92.1)
+- Policy text explicitly describes major data areas:
+  - local on-device storage of tracker state
+  - private CloudKit sync
+  - Health data reads (no write to Health)
+  - Motion/Fitness step reads
+  - camera/photo usage contexts
+  - external-service requests and operational logging boundaries
+
+8) External services and dependency boundaries
+- External/provider surfaces referenced by app and backend:
+  - Firebase Cloud Functions (app backend endpoint host)
+  - Firebase Hosting
+  - Firebase Firestore (functions-side menu sync target doc)
+  - Apple CloudKit
+  - Apple HealthKit
+  - Core Motion (pedometer)
+  - USDA FoodData Central (via backend proxy)
+  - Google Gemini API (via backend)
+  - Nutrislice API
+  - Open Food Facts API (direct iOS call for barcode lookup)
+- Backend default cloud functions host used by iOS services:
+  - https://us-central1-calorie-tracker-364e3.cloudfunctions.net
+- Firebase default project in repo:
+  - calorie-tracker-364e3
+
+9) Network/API contract surface (endpoint-level facts)
+- Cloud Functions HTTP endpoints exported in source:
+  - searchUSDAFoods (GET)
+  - estimatePlatePortions (POST)
+  - analyzeFoodPhoto (POST)
+  - analyzeFoodText (POST)
+  - proxyNutrislice (GET)
+- CORS posture in functions:
+  - wildcard origin
+  - explicit method/header handling
+  - OPTIONS preflight handling
+- Secret-backed server config:
+  - USDA_API_KEY
+  - GEMINI_API_KEY
+- Hosting rewrite routes:
+  - /api/nutrislice/** -> proxyNutrislice
+  - /privacy -> /privacy.html
+  - /privacy-policy -> /privacy.html
+  - /demo -> /demo/index.html
+
+10) Security and key-management posture
+- API keys are kept on backend secrets (not committed to iOS client source as live keys).
+- iOS app uses backend endpoint abstraction for USDA/Gemini workloads.
+- CloudKit sync targets private database context, tied to user Apple ID scope.
+- No in-app account/auth signup requirement indicated in policy.
+- No ad SDK / tracking-domain declaration in privacy manifests.
+
+11) Product UX framing, branding, and presentation layer decisions
+- App enforces dark color scheme at app root (preferredColorScheme(.dark)).
+- Widget visual system uses black/blue gradients and state-color signaling.
+- Dashboard widget includes 3 deep-link action controls mapped to app destinations:
+  - pcc-menu
+  - barcode
+  - ai
+- Deep links are parsed by host=open and query dest key.
+- App settings include explicit user controls for:
+  - tracked nutrient set visibility scope
+  - AI base-serving adjustment policy toggle
+  - app icon variant
+
+12) Operational deployment and environment setup
+- Backend runtime requirements:
+  - Node.js 20 (functions engines)
+  - TypeScript build pipeline to lib/
+- Functions scripts:
+  - build, clean, deploy, serve, sync:once
+- Hosting setup includes:
+  - cleanUrls true
+  - targeted no-cache headers for root/privacy/demo HTML routes
+- Local/dev prerequisites (repo-level docs):
+  - Xcode + macOS for app
+  - Firebase CLI for deploy/emulation workflows
+
+13) Quality assurance and verification framework (non-pros/cons, factual)
+- Dedicated stress framework exists in scripts/stress with tier-based execution:
+  - pr
+  - nightly
+  - pre-release
+- Stress suites include fixture validation, formula/data checks, API contract/load/failure injection, AI quality checks, UI E2E, scenario-level checks, and final report generation.
+- Artifact structure standardized under output/stress/<run-id>/ with:
+  - summary markdown
+  - stress_report.json
+  - suite JSON outputs
+  - raw logs
+- UI test suite includes deterministic checks plus stress/monkey interaction patterns and emits stress metric lines.
+
+14) Time zone, date handling, and regional assumptions
+- Multiple services normalize date boundaries using Gregorian calendar with autoupdatingCurrent timezone (device-local behavior).
+- Backend includes explicit constants in functions source for legacy menu-sync context:
+  - TIME_ZONE = America/Los_Angeles
+  - SCHOOL_ID = four-winds
+  - MENU_TYPE = lunch
+- Current repo stress/docs and generated artifacts indicate active March 2026 maintenance cadence.
+
+15) Notable documentation alignment notes (factual consistency items)
+- README at repo root describes currently used function set including USDA + AI + nutrislice proxy endpoints.
+- functions/README.md still references scheduled/menu-sync functions (syncTodayMenuDaily, syncTodayMenuNow) that are not present as exports in current functions/src/index.ts.
+- This indicates at least one backend documentation drift area requiring reconciliation if used as operational source of truth.
+
+16) Inventory of non-production/support artifacts in repository
+- Asset-generation scripts exist for logo/app icon production (Swift scripts).
+- Temporary photo and logo option directories are present.
+- Extensive output evidence folders exist for:
+  - Playwright and UI snapshots
+  - mockups
+  - audit/stress run outputs
+- A standalone webapp (Vite TypeScript) and static demo bundle are present for auxiliary UI experimentation.
+
+17) Governance and maintenance implications (descriptive, non-evaluative)
+- The repository functions as a multi-surface product workspace (mobile app, widget extension, backend, hosting docs page, stress infrastructure, auxiliary web demo).
+- Operational correctness depends on coordinated updates across:
+  - iOS runtime configuration
+  - backend endpoint contracts
+  - hosted privacy documentation
+  - test/stress thresholds and fixtures
+- The project already stores dated evidence artifacts that can support release audits and regression traceability.
+
+End of document.

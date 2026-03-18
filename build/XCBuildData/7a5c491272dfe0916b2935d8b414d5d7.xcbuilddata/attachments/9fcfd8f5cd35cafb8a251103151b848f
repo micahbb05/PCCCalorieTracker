@@ -1,0 +1,4 @@
+module AppCheckCore {
+umbrella header "/Users/micah/Library/Developer/Xcode/DerivedData/Calorie_Tracker-gnavpovwzsrsdjcoenyhmbxwwqpf/SourcePackages/checkouts/app-check/AppCheckCore/Sources/Public/AppCheckCore/AppCheckCore.h"
+export *
+}

@@ -73,6 +73,7 @@ struct MealEntry: Identifiable, Codable, Equatable {
     let calories: Int
     let protein: Int
     let nutrientValues: [String: Int]
+    let loggedCount: Int?
     let createdAt: Date
     let mealGroup: MealGroup
 
@@ -82,16 +83,29 @@ struct MealEntry: Identifiable, Codable, Equatable {
         case calories
         case protein
         case nutrientValues
+        case loggedCount
         case createdAt
         case mealGroup
     }
 
-    init(id: UUID, name: String, calories: Int, nutrientValues: [String: Int], createdAt: Date, mealGroup: MealGroup) {
+    init(
+        id: UUID,
+        name: String,
+        calories: Int,
+        nutrientValues: [String: Int],
+        loggedCount: Int? = nil,
+        createdAt: Date,
+        mealGroup: MealGroup
+    ) {
         self.id = id
         self.name = MealEntry.normalizedName(name)
         self.calories = max(0, calories)
         self.nutrientValues = nutrientValues.mapValues { max(0, $0) }
         self.protein = self.nutrientValues["g_protein"] ?? 0
+        self.loggedCount = {
+            guard let loggedCount, loggedCount > 1 else { return nil }
+            return loggedCount
+        }()
         self.createdAt = createdAt
         self.mealGroup = mealGroup
     }
@@ -113,6 +127,11 @@ struct MealEntry: Identifiable, Codable, Equatable {
 
         nutrientValues = decodedNutrients.mapValues { max(0, $0) }
         protein = nutrientValues["g_protein"] ?? decodedProtein
+        loggedCount = {
+            let decodedCount = try? container.decodeIfPresent(Int.self, forKey: .loggedCount)
+            guard let decodedCount, decodedCount > 1 else { return nil }
+            return decodedCount
+        }()
         mealGroup = try container.decodeIfPresent(MealGroup.self, forKey: .mealGroup)
             ?? MealEntry.inferredMealGroup(for: createdAt)
     }

@@ -1,6 +1,92 @@
 import Foundation
-import CoreMotion
+import HealthKit
 import Combine
+
+enum HealthKitStepMetricsLogic {
+    struct StepMetrics {
+        let steps: Int
+        let distanceMeters: Double
+        let stepError: Error?
+    }
+
+    struct QuantityQueryResult {
+        let value: Double
+        let error: Error?
+    }
+
+    static func fetchTodayStepMetrics(healthStore: HKHealthStore, calendar: Calendar) async -> StepMetrics {
+        async let stepResult = todayQuantitySum(
+            for: .stepCount,
+            unit: .count(),
+            healthStore: healthStore,
+            calendar: calendar
+        )
+        async let distanceResult = todayQuantitySum(
+            for: .distanceWalkingRunning,
+            unit: .meter(),
+            healthStore: healthStore,
+            calendar: calendar
+        )
+
+        let resolvedStepResult = await stepResult
+        let resolvedDistanceResult = await distanceResult
+        let stepCount = max(Int(resolvedStepResult.value.rounded()), 0)
+        let distanceMeters = resolvedDistanceResult.error == nil ? max(resolvedDistanceResult.value, 0) : 0
+
+        return StepMetrics(steps: stepCount, distanceMeters: distanceMeters, stepError: resolvedStepResult.error)
+    }
+
+    static func todayQuantitySum(
+        for identifier: HKQuantityTypeIdentifier,
+        unit: HKUnit,
+        healthStore: HKHealthStore,
+        calendar: Calendar
+    ) async -> QuantityQueryResult {
+        guard let type = HKObjectType.quantityType(forIdentifier: identifier) else {
+            return QuantityQueryResult(value: 0, error: nil)
+        }
+
+        let startOfDay = calendar.startOfDay(for: Date())
+        let predicate = HKQuery.predicateForSamples(withStart: startOfDay, end: Date(), options: [])
+
+        let statsResult: QuantityQueryResult = await withCheckedContinuation { continuation in
+            let query = HKStatisticsQuery(quantityType: type, quantitySamplePredicate: predicate, options: .cumulativeSum) { _, result, error in
+                if let error {
+                    continuation.resume(returning: QuantityQueryResult(value: 0, error: error))
+                    return
+                }
+                let value = result?.sumQuantity()?.doubleValue(for: unit) ?? 0
+                continuation.resume(returning: QuantityQueryResult(value: max(value, 0), error: nil))
+            }
+            healthStore.execute(query)
+        }
+
+        if statsResult.error != nil || statsResult.value > 0 {
+            return statsResult
+        }
+
+        // Fallback path for datasets where cumulative stats can return 0 even though samples exist.
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: type,
+                predicate: predicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: nil
+            ) { _, samples, error in
+                if let error {
+                    continuation.resume(returning: QuantityQueryResult(value: 0, error: error))
+                    return
+                }
+                let quantitySamples = (samples as? [HKQuantitySample]) ?? []
+                let value = quantitySamples.reduce(0.0) { partial, sample in
+                    partial + sample.quantity.doubleValue(for: unit)
+                }
+                continuation.resume(returning: QuantityQueryResult(value: max(value, 0), error: nil))
+            }
+            healthStore.execute(query)
+        }
+    }
+}
 
 @MainActor
 final class StepActivityService: ObservableObject {
@@ -33,13 +119,13 @@ final class StepActivityService: ObservableObject {
         var detail: String {
             switch self {
             case .unavailable:
-                return "Step tracking is not available on this device."
+                return "Apple Health is not available on this device."
             case .notDetermined:
-                return "Allow Motion & Fitness access to adjust your calorie goal from steps."
+                return "Connect Apple Health to adjust your calorie goal from steps."
             case .denied:
-                return "Turn on Motion & Fitness access in Settings to use step-based calories."
+                return "Turn on Apple Health access in Settings to use step-based calories."
             case .authorized:
-                return "Today's step count is being used to adjust your calorie goal."
+                return "Today's Apple Health step count is being used to adjust your calorie goal."
             }
         }
     }
@@ -47,17 +133,20 @@ final class StepActivityService: ObservableObject {
     @Published private(set) var authorizationState: AuthorizationState
     @Published private(set) var todayStepCount: Int = 0
     @Published private(set) var todayDistanceMeters: Double = 0
+    /// Used to prevent switching the UI from archived burned totals
+    /// to "live" burned totals before initial step metrics have loaded.
+    @Published private(set) var hasLoadedFreshStepDataThisLaunch: Bool = false
     @Published private(set) var lastErrorMessage: String?
 
-    private let pedometer = CMPedometer()
+    private let healthStore = HKHealthStore()
     private let calendar: Calendar
-    private var isLiveUpdatesRunning = false
+    private var observerQueries: [HKObserverQuery] = []
 
     init() {
         var centralCalendar = Calendar(identifier: .gregorian)
         centralCalendar.timeZone = .autoupdatingCurrent
         calendar = centralCalendar
-        authorizationState = Self.resolveAuthorizationState()
+        authorizationState = HKHealthStore.isHealthDataAvailable() ? .notDetermined : .unavailable
     }
 
     func estimatedCaloriesToday(profile: BMRProfile?) -> Int {
@@ -75,84 +164,119 @@ final class StepActivityService: ObservableObject {
     }
 
     func refreshIfAuthorized() {
-        authorizationState = Self.resolveAuthorizationState()
-        guard authorizationState == .authorized else {
+        guard HKHealthStore.isHealthDataAvailable() else {
+            authorizationState = .unavailable
+            hasLoadedFreshStepDataThisLaunch = true
             stopLiveUpdatesIfNeeded()
-            if authorizationState != .notDetermined {
-                todayStepCount = 0
-                todayDistanceMeters = 0
-            }
+            todayStepCount = 0
+            todayDistanceMeters = 0
             return
         }
 
+        hasLoadedFreshStepDataThisLaunch = false
         startLiveUpdatesIfNeeded()
         queryTodaySteps()
     }
 
     func requestAccessAndRefresh() {
-        authorizationState = Self.resolveAuthorizationState()
-        guard authorizationState != .unavailable else {
+        guard HKHealthStore.isHealthDataAvailable() else {
+            authorizationState = .unavailable
             lastErrorMessage = AuthorizationState.unavailable.detail
             return
         }
+        guard
+            let stepType = HKObjectType.quantityType(forIdentifier: .stepCount),
+            let distanceType = HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)
+        else {
+            authorizationState = .unavailable
+            return
+        }
 
-        startLiveUpdatesIfNeeded()
-        queryTodaySteps()
-    }
-
-    private func queryTodaySteps() {
-        let startOfDay = calendar.startOfDay(for: Date())
-        let now = Date()
-
-        pedometer.queryPedometerData(from: startOfDay, to: now) { [weak self] data, error in
+        let readTypes: Set<HKObjectType> = [stepType, distanceType]
+        healthStore.requestAuthorization(toShare: [], read: readTypes) { [weak self] _, error in
             Task { @MainActor in
                 guard let self else { return }
-                self.handleQueryResult(data: data, error: error)
+                if let error {
+                    self.lastErrorMessage = error.localizedDescription
+                }
+                self.refreshIfAuthorized()
             }
         }
     }
 
-    private func handleQueryResult(data: CMPedometerData?, error: Error?) {
-        authorizationState = Self.resolveAuthorizationState()
+    private func queryTodaySteps() {
+        Task {
+            let metrics = await HealthKitStepMetricsLogic.fetchTodayStepMetrics(
+                healthStore: healthStore,
+                calendar: calendar
+            )
+            handleQueryResult(
+                stepCount: metrics.steps,
+                distanceMeters: metrics.distanceMeters,
+                error: metrics.stepError
+            )
+        }
+    }
 
+    private func handleQueryResult(stepCount: Int, distanceMeters: Double, error: Error?) {
         if let error {
             lastErrorMessage = error.localizedDescription
-            if authorizationState != .authorized {
-                stopLiveUpdatesIfNeeded()
-                todayStepCount = 0
-                todayDistanceMeters = 0
+            if let hkError = error as? HKError, hkError.code == .errorAuthorizationDenied {
+                authorizationState = .denied
+            } else if HKHealthStore.isHealthDataAvailable() {
+                authorizationState = .notDetermined
+            } else {
+                authorizationState = .unavailable
             }
+            stopLiveUpdatesIfNeeded()
+            todayStepCount = 0
+            todayDistanceMeters = 0
+            hasLoadedFreshStepDataThisLaunch = true
             return
         }
 
         lastErrorMessage = nil
-        todayStepCount = data?.numberOfSteps.intValue ?? 0
-        todayDistanceMeters = max(data?.distance?.doubleValue ?? 0, 0)
-        authorizationState = Self.resolveAuthorizationState(afterSuccessfulQuery: true)
+        todayStepCount = max(stepCount, 0)
+        todayDistanceMeters = max(distanceMeters, 0)
+        authorizationState = .authorized
+        hasLoadedFreshStepDataThisLaunch = true
     }
 
     private func startLiveUpdatesIfNeeded() {
-        guard !isLiveUpdatesRunning else { return }
-        guard CMPedometer.isStepCountingAvailable() else { return }
+        guard observerQueries.isEmpty else { return }
+        guard HKHealthStore.isHealthDataAvailable() else { return }
 
-        let startOfDay = calendar.startOfDay(for: Date())
-        pedometer.startUpdates(from: startOfDay) { [weak self] data, error in
-            Task { @MainActor in
-                guard let self else { return }
-                self.handleQueryResult(data: data, error: error)
+        let identifiers: [HKQuantityTypeIdentifier] = [.stepCount, .distanceWalkingRunning]
+        for identifier in identifiers {
+            guard let quantityType = HKObjectType.quantityType(forIdentifier: identifier) else { continue }
+            let observerQuery = HKObserverQuery(sampleType: quantityType, predicate: nil) { [weak self] _, completionHandler, error in
+                Task { @MainActor in
+                    defer { completionHandler() }
+                    guard let self else { return }
+                    if let error {
+                        self.handleQueryResult(stepCount: self.todayStepCount, distanceMeters: self.todayDistanceMeters, error: error)
+                    } else {
+                        self.queryTodaySteps()
+                    }
+                }
             }
+            healthStore.execute(observerQuery)
+            observerQueries.append(observerQuery)
         }
-        isLiveUpdatesRunning = true
     }
 
     private func stopLiveUpdatesIfNeeded() {
-        guard isLiveUpdatesRunning else { return }
-        pedometer.stopUpdates()
-        isLiveUpdatesRunning = false
+        guard !observerQueries.isEmpty else { return }
+        for query in observerQueries {
+            healthStore.stop(query)
+        }
+        observerQueries.removeAll()
     }
 
     deinit {
-        pedometer.stopUpdates()
+        for query in observerQueries {
+            healthStore.stop(query)
+        }
     }
 
     private func resolvedWeightKg(profile: BMRProfile?) -> Double {
@@ -186,20 +310,4 @@ final class StepActivityService: ObservableObject {
         max(heightMeters * Self.strideMultiplier, 0)
     }
 
-    private static func resolveAuthorizationState(afterSuccessfulQuery: Bool = false) -> AuthorizationState {
-        guard CMPedometer.isStepCountingAvailable() else {
-            return .unavailable
-        }
-
-        switch CMPedometer.authorizationStatus() {
-        case .authorized:
-            return .authorized
-        case .denied, .restricted:
-            return .denied
-        case .notDetermined:
-            return afterSuccessfulQuery ? .authorized : .notDetermined
-        @unknown default:
-            return .notDetermined
-        }
-    }
 }

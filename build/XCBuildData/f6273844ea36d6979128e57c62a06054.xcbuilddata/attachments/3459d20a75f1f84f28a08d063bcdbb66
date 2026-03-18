@@ -1,0 +1,4 @@
+module FirebaseCore {
+umbrella header "/Users/micah/Library/Developer/Xcode/DerivedData/Calorie_Tracker-gnavpovwzsrsdjcoenyhmbxwwqpf/SourcePackages/checkouts/firebase-ios-sdk/FirebaseCore/Sources/Public/FirebaseCore/FirebaseCore.h"
+export *
+}

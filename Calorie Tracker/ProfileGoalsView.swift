@@ -4,12 +4,15 @@ struct ProfileGoalsView: View {
     @Binding var deficitCalories: Int
     @Binding var goalTypeRaw: String
     @Binding var surplusCalories: Int
+    @Binding var fixedGoalCalories: Int
     @Binding var useWeekendDeficit: Bool
     @Binding var weekendDeficitCalories: Int
     let trackedNutrientKeys: [String]
     @Binding var nutrientGoals: [String: Int]
     let healthAuthorizationState: HealthKitService.AuthorizationState
     let healthProfile: HealthKitService.SyncedProfile?
+    let isUsingSyncedHealthFallback: Bool
+    let syncedHealthSourceLabel: String?
     let bmrCalories: Int?
     let burnedCaloriesToday: Int
     let activeBurnedCaloriesToday: Int
@@ -53,32 +56,34 @@ struct ProfileGoalsView: View {
                 bodyProfileSection
             }
 
-            if isCalibrationEnabled {
-                sectionCard(
-                    title: "Smart Adjustment",
-                    trailing: {
-                        Toggle("", isOn: $isCalibrationEnabled)
-                            .labelsHidden()
-                            .accessibilityLabel("Enable smart adjustment")
-                            .tint(Color(red: 0.19, green: 0.52, blue: 1.0))
+            if goalTypeRaw != "fixed" {
+                if isCalibrationEnabled {
+                    sectionCard(
+                        title: "Smart Adjustment",
+                        trailing: {
+                            Toggle("", isOn: $isCalibrationEnabled)
+                                .labelsHidden()
+                                .accessibilityLabel("Enable smart adjustment")
+                                .tint(Color(red: 0.19, green: 0.52, blue: 1.0))
+                        }
+                    ) {
+                        smartAdjustmentSection
                     }
-                ) {
-                    smartAdjustmentSection
-                }
-            } else {
-                sectionCard(
-                    title: "Smart Adjustment",
-                    trailing: {
-                        Toggle("", isOn: $isCalibrationEnabled)
-                            .labelsHidden()
-                            .accessibilityLabel("Enable smart adjustment")
-                            .tint(Color(red: 0.19, green: 0.52, blue: 1.0))
+                } else {
+                    sectionCard(
+                        title: "Smart Adjustment",
+                        trailing: {
+                            Toggle("", isOn: $isCalibrationEnabled)
+                                .labelsHidden()
+                                .accessibilityLabel("Enable smart adjustment")
+                                .tint(Color(red: 0.19, green: 0.52, blue: 1.0))
+                        }
+                    ) {
+                        Text("Auto-adjusts burned calories from your weekly Health weigh-ins.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                ) {
-                    Text("Auto-adjusts burned calories from your weekly Health weigh-ins.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
@@ -115,15 +120,21 @@ struct ProfileGoalsView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("BMR is calculated from Health data.")
+                    Text(isUsingSyncedHealthFallback ? "BMR is using synced Health data." : "BMR is calculated from Health data.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
+
+                    if isUsingSyncedHealthFallback {
+                        Text("Source: \(syncedHealthSourceLabel ?? "iPhone").")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary.opacity(0.85))
+                    }
                 }
 
                 Spacer(minLength: 0)
 
-                if healthAuthorizationState == .connected {
+                if healthAuthorizationState == .connected || isUsingSyncedHealthFallback {
                     healthStatusBadge
                 }
             }
@@ -134,7 +145,7 @@ struct ProfileGoalsView: View {
                     healthValueChip(title: "Height", value: healthProfile.heightDisplay)
                     healthValueChip(title: "Weight", value: healthProfile.weightDisplay)
                 }
-            } else if healthAuthorizationState != .connected {
+            } else if healthAuthorizationState != .connected, !isUsingSyncedHealthFallback {
                 Text(healthAuthorizationState.detail)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -147,7 +158,7 @@ struct ProfileGoalsView: View {
                 statPill(title: "Activity", value: "\(activeBurnedCaloriesToday) cal")
             }
 
-            if healthAuthorizationState != .connected {
+            if healthAuthorizationState == .notConnected {
                 Button(action: onRequestHealthAccess) {
                     Text("Connect Health Data")
                         .font(.subheadline.weight(.semibold))
@@ -158,6 +169,16 @@ struct ProfileGoalsView: View {
                 .tint(Color(red: 0.19, green: 0.52, blue: 1.0))
 
                 Text("Using a fallback average BMR until Health data is connected.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if healthAuthorizationState == .unavailable, isUsingSyncedHealthFallback {
+                Text("This device cannot read Health directly. Showing synced profile and workout data from your \(syncedHealthSourceLabel ?? "iPhone").")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if healthAuthorizationState == .unavailable {
+                Text("This device cannot read Health directly. Open the app on iPhone to sync profile and workout data.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -175,6 +196,7 @@ struct ProfileGoalsView: View {
             Picker("Goal Type", selection: $goalTypeRaw) {
                 Text("Deficit").tag("deficit")
                 Text("Surplus").tag("surplus")
+                Text("Fixed").tag("fixed")
             }
             .pickerStyle(.segmented)
 
@@ -186,6 +208,15 @@ struct ProfileGoalsView: View {
                     helperText: nil,
                     accent: Color(red: 0.19, green: 0.52, blue: 1.0)
                 )
+            } else if goalTypeRaw == "fixed" {
+                DeficitGoalEditor(
+                    deficitCalories: $fixedGoalCalories,
+                    title: "Fixed Calorie Goal",
+                    subtitle: "Total calories to eat each day",
+                    helperText: nil,
+                    accent: Color(red: 0.19, green: 0.52, blue: 1.0),
+                    maxCalories: 6000
+                )
             } else {
                 DeficitGoalEditor(
                     deficitCalories: $deficitCalories,
@@ -196,24 +227,26 @@ struct ProfileGoalsView: View {
                 )
             }
 
-            Toggle(isOn: $useWeekendDeficit) {
-                Text("Different goal on weekend")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
-            }
-            .tint(Color(red: 0.19, green: 0.52, blue: 1.0))
+            if goalTypeRaw != "fixed" {
+                Toggle(isOn: $useWeekendDeficit) {
+                    Text("Different goal on weekend")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                }
+                .tint(Color(red: 0.19, green: 0.52, blue: 1.0))
 
-            if useWeekendDeficit {
-                DeficitGoalEditor(
-                    deficitCalories: $weekendDeficitCalories,
-                    title: goalTypeRaw == "surplus" ? "Weekend Surplus" : "Weekend Deficit",
-                    subtitle: "Used on Saturday & Sunday",
-                    helperText: nil,
-                    accent: Color(red: 0.19, green: 0.52, blue: 1.0)
-                )
+                if useWeekendDeficit {
+                    DeficitGoalEditor(
+                        deficitCalories: $weekendDeficitCalories,
+                        title: goalTypeRaw == "surplus" ? "Weekend Surplus" : "Weekend Deficit",
+                        subtitle: "Used on Saturday & Sunday",
+                        helperText: nil,
+                        accent: Color(red: 0.19, green: 0.52, blue: 1.0)
+                    )
+                }
             }
 
-            if healthAuthorizationState == .connected, isUsingAutomatedCalories {
+            if healthAuthorizationState == .connected, isUsingAutomatedCalories, goalTypeRaw != "fixed" {
                 Text("Burned today includes BMR plus active calories (steps and exercise) personalized with your available profile data.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -289,14 +322,22 @@ struct ProfileGoalsView: View {
     }
 
     private var healthStatusBadge: some View {
-        Text(healthAuthorizationState.title)
+        Text(isUsingSyncedHealthFallback ? "Synced" : healthAuthorizationState.title)
             .font(.caption.weight(.semibold))
-            .foregroundStyle(healthAuthorizationState == .connected ? Color(red: 0.46, green: 0.90, blue: 0.60) : .white)
+            .foregroundStyle(
+                (healthAuthorizationState == .connected || isUsingSyncedHealthFallback)
+                ? Color(red: 0.46, green: 0.90, blue: 0.60)
+                : .white
+            )
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
             .background(
                 Capsule(style: .continuous)
-                    .fill(healthAuthorizationState == .connected ? Color(red: 0.13, green: 0.28, blue: 0.18) : Color.white.opacity(0.08))
+                    .fill(
+                        (healthAuthorizationState == .connected || isUsingSyncedHealthFallback)
+                        ? Color(red: 0.13, green: 0.28, blue: 0.18)
+                        : Color.white.opacity(0.08)
+                    )
             )
     }
 

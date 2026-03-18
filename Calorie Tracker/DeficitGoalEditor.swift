@@ -6,6 +6,23 @@ struct DeficitGoalEditor: View {
     let subtitle: String
     let helperText: String?
     let accent: Color
+    let maxCalories: Int
+
+    init(
+        deficitCalories: Binding<Int>,
+        title: String,
+        subtitle: String,
+        helperText: String?,
+        accent: Color,
+        maxCalories: Int = 2500
+    ) {
+        _deficitCalories = deficitCalories
+        self.title = title
+        self.subtitle = subtitle
+        self.helperText = helperText
+        self.accent = accent
+        self.maxCalories = max(maxCalories, 1)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -81,12 +98,12 @@ struct DeficitGoalEditor: View {
     private var deficitBinding: Binding<Int> {
         Binding(
             get: { deficitCalories },
-            set: { deficitCalories = min(max($0, 0), 2500) }
+            set: { deficitCalories = min(max($0, 0), maxCalories) }
         )
     }
 
     private func adjust(by delta: Int) {
-        deficitCalories = min(max(deficitCalories + delta, 0), 2500)
+        deficitCalories = min(max(deficitCalories + delta, 0), maxCalories)
         Haptics.selection()
     }
 }

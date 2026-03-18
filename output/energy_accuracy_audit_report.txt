@@ -1,5 +1,5 @@
 Energy Accuracy Audit
-Generated: 2026-03-11T14:18:05.224Z
+Generated: 2026-03-15T17:29:48.686Z
 
 Reference assumptions: running 1.00 kcal/kg/km net, walking 0.50 kcal/kg/km net, BMR = Mifflin-St Jeor.
 App assumptions under test: walking 0.55 kcal/kg/km net, running distance 1.00 kcal/kg/km net.

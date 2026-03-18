@@ -27,6 +27,19 @@ extension View {
                     .stroke(secondary.opacity(0.35), lineWidth: 1)
             )
     }
+
+    func pressableCardStyle() -> some View {
+        buttonStyle(PressableCardButtonStyle())
+    }
+}
+
+private struct PressableCardButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .opacity(configuration.isPressed ? 0.92 : 1)
+            .animation(.easeOut(duration: 0.14), value: configuration.isPressed)
+    }
 }
 
 struct ServingNutrientGridCard: View {

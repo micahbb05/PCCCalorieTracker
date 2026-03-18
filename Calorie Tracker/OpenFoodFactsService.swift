@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 struct OpenFoodFactsProduct {
     let barcode: String
@@ -41,8 +42,28 @@ enum OpenFoodFactsError: LocalizedError {
     }
 }
 
-final class OpenFoodFactsService {
+actor OpenFoodFactsService {
     private let userAgent = "CalorieTracker/1.0 (micahbb05@icloud.com)"
+    private let logger = Logger(subsystem: "CalorieTracker", category: "OpenFoodFacts")
+
+    private struct CacheEntry {
+        let product: OpenFoodFactsProduct
+        let cachedAt: Date
+    }
+
+    private let cacheTTL: TimeInterval = 12 * 60 * 60 // 12 hours
+    private var cacheByBarcode: [String: CacheEntry] = [:]
+    private var inFlightByBarcode: [String: Task<OpenFoodFactsProduct, Error>] = [:]
+
+    private let session: URLSession
+
+    init() {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 12
+        config.timeoutIntervalForResource = 20
+        config.waitsForConnectivity = true
+        self.session = URLSession(configuration: config)
+    }
 
     private struct DynamicNutriments: Decodable {
         struct DynamicCodingKeys: CodingKey {
@@ -111,68 +132,118 @@ final class OpenFoodFactsService {
             throw OpenFoodFactsError.invalidBarcode
         }
 
-        let fields = [
-            "code",
-            "product_name",
-            "generic_name",
-            "serving_quantity",
-            "serving_quantity_unit",
-            "serving_size",
-            "image_front_small_url",
-            "image_front_url",
-            "nutriments"
-        ].joined(separator: ",")
-
-        guard var components = URLComponents(string: "https://world.openfoodfacts.org/api/v2/product/\(normalizedBarcode)") else {
-            throw OpenFoodFactsError.invalidURL
-        }
-        components.queryItems = [
-            URLQueryItem(name: "fields", value: fields)
-        ]
-        guard let url = components.url else {
-            throw OpenFoodFactsError.invalidURL
+        let now = Date()
+        if let cached = cacheByBarcode[normalizedBarcode], now.timeIntervalSince(cached.cachedAt) < cacheTTL {
+            logger.debug("cache hit barcode=\(normalizedBarcode, privacy: .public)")
+            return cached.product
         }
 
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-
-        let data: Data
-        let response: URLResponse
-        do {
-            (data, response) = try await URLSession.shared.data(for: request)
-        } catch {
-            throw OpenFoodFactsError.networkFailure
+        if let existing = inFlightByBarcode[normalizedBarcode] {
+            logger.debug("dedupe in-flight barcode=\(normalizedBarcode, privacy: .public)")
+            return try await existing.value
         }
 
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw OpenFoodFactsError.invalidPayload
-        }
-        guard (200...299).contains(httpResponse.statusCode) else {
-            throw OpenFoodFactsError.fetchFailed(statusCode: httpResponse.statusCode)
+        let task = Task<OpenFoodFactsProduct, Error> { [userAgent, session, logger] in
+            let clock = ContinuousClock()
+            let start = clock.now
+            func durationMs(_ duration: Duration) -> Int64 {
+                let components = duration.components
+                let msFromSeconds = Int64(components.seconds) * 1_000
+                let msFromAttoseconds = Int64(components.attoseconds / 1_000_000_000_000_000)
+                return msFromSeconds + msFromAttoseconds
+            }
+            defer {
+                let ms = durationMs(start.duration(to: clock.now))
+                logger.debug("fetch complete barcode=\(normalizedBarcode, privacy: .public) elapsed_ms=\(ms, privacy: .public)")
+            }
+
+            try Task.checkCancellation()
+
+            let fields = [
+                "code",
+                "product_name",
+                "generic_name",
+                "serving_quantity",
+                "serving_quantity_unit",
+                "serving_size",
+                "image_front_small_url",
+                "image_front_url",
+                "nutriments"
+            ].joined(separator: ",")
+
+            guard var components = URLComponents(string: "https://world.openfoodfacts.org/api/v2/product/\(normalizedBarcode)") else {
+                throw OpenFoodFactsError.invalidURL
+            }
+            components.queryItems = [
+                URLQueryItem(name: "fields", value: fields)
+            ]
+            guard let url = components.url else {
+                throw OpenFoodFactsError.invalidURL
+            }
+
+            var request = URLRequest(url: url)
+            request.httpMethod = "GET"
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+            request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+
+            let networkStart = clock.now
+            let data: Data
+            let response: URLResponse
+            do {
+                (data, response) = try await session.data(for: request)
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch let urlError as URLError where urlError.code == .cancelled {
+                throw CancellationError()
+            } catch {
+                logger.error("network error barcode=\(normalizedBarcode, privacy: .public) err=\(String(describing: error), privacy: .public)")
+                throw OpenFoodFactsError.networkFailure
+            }
+            let networkMs = durationMs(networkStart.duration(to: clock.now))
+            logger.debug("network ok barcode=\(normalizedBarcode, privacy: .public) elapsed_ms=\(networkMs, privacy: .public) bytes=\(data.count, privacy: .public)")
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw OpenFoodFactsError.invalidPayload
+            }
+            guard (200...299).contains(httpResponse.statusCode) else {
+                throw OpenFoodFactsError.fetchFailed(statusCode: httpResponse.statusCode)
+            }
+
+            let decodeStart = clock.now
+            let decoded: ProductResponse
+            do {
+                decoded = try JSONDecoder().decode(ProductResponse.self, from: data)
+            } catch {
+                logger.error("decode error barcode=\(normalizedBarcode, privacy: .public) err=\(String(describing: error), privacy: .public)")
+                throw OpenFoodFactsError.invalidPayload
+            }
+            let decodeMs = durationMs(decodeStart.duration(to: clock.now))
+            logger.debug("decode ok barcode=\(normalizedBarcode, privacy: .public) elapsed_ms=\(decodeMs, privacy: .public)")
+
+            guard decoded.status == 1, let product = decoded.product else {
+                throw OpenFoodFactsError.productNotFound
+            }
+
+            guard let mapped = mapProduct(product, fallbackBarcode: decoded.code ?? normalizedBarcode) else {
+                throw OpenFoodFactsError.productMissingNutrition
+            }
+            return mapped
         }
 
-        let decoded: ProductResponse
-        do {
-            decoded = try JSONDecoder().decode(ProductResponse.self, from: data)
-        } catch {
-            throw OpenFoodFactsError.invalidPayload
-        }
+        inFlightByBarcode[normalizedBarcode] = task
+        defer { inFlightByBarcode[normalizedBarcode] = nil }
 
-        guard decoded.status == 1, let product = decoded.product else {
-            throw OpenFoodFactsError.productNotFound
-        }
+        let product = try await task.value
+        cacheByBarcode[normalizedBarcode] = CacheEntry(product: product, cachedAt: now)
+        return product
 
-        guard let mapped = mapProduct(product, fallbackBarcode: decoded.code ?? normalizedBarcode) else {
-            throw OpenFoodFactsError.productMissingNutrition
-        }
-        return mapped
     }
 
     private func mapProduct(_ product: OFFProduct, fallbackBarcode: String?) -> OpenFoodFactsProduct? {
-        let resolvedBarcode = product.code?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? fallbackBarcode
-        guard let barcode = resolvedBarcode?.trimmingCharacters(in: .whitespacesAndNewlines), !barcode.isEmpty else {
+        let trimmedCode = product.code?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let resolvedBarcode = trimmedCode.isEmpty ? fallbackBarcode : trimmedCode
+        let barcode = (resolvedBarcode ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !barcode.isEmpty else {
             return nil
         }
 
@@ -182,9 +253,8 @@ final class OpenFoodFactsService {
 
         let servingQuantity = normalizedServingAmount(from: product.servingQuantity)
         let servingUnit = normalizedServingUnit(from: product.servingQuantityUnit)
-        let servingDescription = product.servingSize?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .nilIfEmpty
+        let trimmedServingSize = product.servingSize?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let servingDescription = trimmedServingSize.isEmpty ? nil : trimmedServingSize
         let mappedNutrients = mapNutrients(
             from: product.nutriments?.values ?? [:],
             preferServingValues: servingDescription != nil || product.servingQuantity != nil
@@ -197,7 +267,10 @@ final class OpenFoodFactsService {
         return OpenFoodFactsProduct(
             barcode: barcode,
             name: name,
-            brand: product.brands?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
+            brand: {
+                let trimmed = product.brands?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                return trimmed.isEmpty ? nil : trimmed
+            }(),
             calories: calories,
             nutrientValues: mappedNutrients.filter { $0.key != "calories" },
             servingAmount: servingQuantity,
@@ -257,11 +330,5 @@ final class OpenFoodFactsService {
     private func normalizedServingUnit(from value: String?) -> String {
         let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return trimmed.isEmpty ? "serving" : trimmed
-    }
-}
-
-private extension String {
-    var nilIfEmpty: String? {
-        isEmpty ? nil : self
     }
 }

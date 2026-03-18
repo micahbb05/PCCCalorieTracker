@@ -74,6 +74,7 @@ final class AIFoodPhotoService {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try await BackendRequestAuth.applyHeaders(to: &request)
         request.httpBody = try JSONSerialization.data(withJSONObject: [
             "imageBase64": base64,
             "mimeType": mimeType

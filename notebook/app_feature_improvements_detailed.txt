@@ -1,0 +1,574 @@
+CALORIE TRACKER - DETAILED FEATURE IMPROVEMENT NOTEBOOK
+Generated: 2026-03-12 (America/New_York)
+
+Purpose
+This document lists high-value features that can make Calorie Tracker significantly better. Each feature includes:
+- What to build
+- Why it matters
+- User impact
+- Implementation notes
+- Risks/complexity
+- Success metrics
+
+Current product strengths considered in this plan
+- Multi-source logging (manual, USDA, menu import, barcode, AI text/photo)
+- HealthKit and activity integration
+- Widget + background refresh
+- Existing stress/regression tooling
+
+======================================================================
+PRIORITIZED ROADMAP SUMMARY
+======================================================================
+Tier 1 (highest impact, should be tackled first)
+1. Weekly Coaching + Adaptive Goal Engine
+2. Streaks, Adherence Scoring, and Behavioral Nudges
+3. Meal Planning + “Plan vs Actual” Tracking
+4. Recipe Builder + Saved Meals + Leftover Portions
+5. Macro Periodization (training vs rest-day goals)
+6. Confidence/Uncertainty Indicators for AI and Imported Data
+
+Tier 2 (high impact, medium complexity)
+7. Smart Grocery List from Meal Plan and Frequent Foods
+8. Nutrition Quality Score (not just calories)
+9. Advanced Trend Analytics + Prediction (plateau detection)
+10. Restaurant Mode and Social Eating Logging
+11. Better Barcode Data Quality Layer and Product Matching
+12. Smart Reminders by behavior pattern (not fixed alarms)
+
+Tier 3 (strong long-term differentiators)
+13. Camera-Assisted Portion Calibration Workflow
+14. Wearables Expansion Beyond HealthKit (optional connectors)
+15. Clinician/Coach Shareable Reports (export package)
+16. Budget-aware nutrition recommendations
+17. Accessibility and low-friction capture mode improvements
+18. Performance + offline-first reliability upgrades
+
+======================================================================
+DETAILED FEATURE LIST
+======================================================================
+
+1) WEEKLY COACHING + ADAPTIVE GOAL ENGINE
+What to build
+- A weekly coaching module that analyzes the last 7-28 days and proposes:
+  - Keep, increase, or decrease deficit/surplus
+  - Suggested macro target adjustments
+  - Suggested meal timing patterns
+- Add transparent explanation text: “Recommendation based on adherence, weight trend, and energy balance estimate.”
+
+Why it matters
+- Most users fail from static targets that become unrealistic over time.
+- Existing burn/goal logic is strong; adaptive coaching turns raw data into decisions.
+
+User impact
+- Better consistency and lower drop-off.
+- Reduced frustration when progress stalls.
+
+Implementation notes
+- Reuse existing trend data and calibration state.
+- Build a recommendation engine with rule-based first version:
+  - If adherence high + no expected progress -> adjust targets conservatively.
+  - If adherence low -> reduce aggressiveness and prioritize consistency.
+- Later version: optional ML personalization.
+
+Risks/complexity
+- Medium: recommendations must avoid unsafe aggressiveness.
+- Requires careful guardrails and user education copy.
+
+Success metrics
+- 4-week retention increase.
+- Higher goal adherence rate.
+- More weeks with sustained logging.
+
+----------------------------------------------------------------------
+
+2) STREAKS, ADHERENCE SCORING, AND BEHAVIORAL NUDGES
+What to build
+- Daily adherence score (0-100) based on:
+  - Logging completeness
+  - Calorie proximity to target range
+  - Macro target alignment (if tracked)
+- Streak system with flexible rules (e.g., “good enough day” tolerance).
+- Nudges triggered by behavior (e.g., missed lunch logging pattern).
+
+Why it matters
+- Progress is usually driven by behavior consistency, not perfect days.
+- Current app has strong tracking but limited motivational feedback loops.
+
+User impact
+- Makes progress visible even when scale changes are slow.
+- Reduces all-or-nothing mindset.
+
+Implementation notes
+- Add `adherenceScore` per day in history model.
+- Create nudge event engine with hard caps (avoid notification fatigue).
+- Provide settings to mute categories of nudges.
+
+Risks/complexity
+- Low-medium: risk of over-notifying users.
+
+Success metrics
+- Increase average logged days per month.
+- Improve week-over-week adherence score.
+
+----------------------------------------------------------------------
+
+3) MEAL PLANNING + PLAN VS ACTUAL TRACKING
+What to build
+- Users can pre-plan meals for next day/week.
+- Today screen compares planned vs consumed calories/macros.
+- “Swap suggestions” when plan deviates.
+
+Why it matters
+- Pre-commitment reduces impulsive eating and logging gaps.
+- Bridges tracking with forward-looking control.
+
+User impact
+- More predictable progress and easier grocery prep.
+
+Implementation notes
+- Add `PlannedMealEntry` model parallel to `MealEntry`.
+- Integrate quick-add, saved meals, and menu imports into planner.
+- Show “remaining planned macros” card in Today tab.
+
+Risks/complexity
+- Medium: UI complexity and calendar planning UX.
+
+Success metrics
+- % of users creating plans.
+- Lower day-to-day calorie variance.
+
+----------------------------------------------------------------------
+
+4) RECIPE BUILDER + SAVED MEALS + LEFTOVER PORTIONS
+What to build
+- Recipe creation with ingredients from USDA/barcode/manual items.
+- Auto compute per-serving nutrition by weight or portion count.
+- Save entire meals and one-tap re-log.
+- Leftover mode: divide into N portions or remaining grams.
+
+Why it matters
+- Home-cooked meals are hardest to log accurately.
+- Frequent meals should be near-zero friction to re-enter.
+
+User impact
+- Massive reduction in logging time.
+- Better nutrition accuracy for repeated home meals.
+
+Implementation notes
+- New models: `Recipe`, `RecipeIngredient`, `PreparedMealInstance`.
+- Add conversion utility for edible portion and serving normalization.
+- Optional photo attachment for recognition context.
+
+Risks/complexity
+- Medium-high: unit conversion and UX complexity.
+
+Success metrics
+- Increase repeat-log usage.
+- Decrease average time-to-log meal.
+
+----------------------------------------------------------------------
+
+5) MACRO PERIODIZATION (TRAINING VS REST DAY GOALS)
+What to build
+- Goal templates by day type:
+  - Strength training day
+  - Endurance day
+  - Rest day
+- Auto switch based on workout schedule or detected workout.
+
+Why it matters
+- Athletes and active users need different targets by day.
+- Existing burn model can support smarter macro distribution.
+
+User impact
+- Better performance and recovery while maintaining weight goals.
+
+Implementation notes
+- Extend goal settings to include day-type profiles.
+- Map workouts from HealthKit to profile selection.
+- Include manual override per day.
+
+Risks/complexity
+- Medium: interaction with existing weekend override and surplus/deficit logic.
+
+Success metrics
+- Higher macro target hit rate on training days.
+- Better perceived usefulness among active users.
+
+----------------------------------------------------------------------
+
+6) CONFIDENCE / UNCERTAINTY INDICATORS FOR AI & IMPORTED DATA
+What to build
+- Show confidence score and uncertainty range on AI/photo/menu parsed nutrition.
+- Highlight fields likely inaccurate and suggest quick edits.
+
+Why it matters
+- Users trust systems more when uncertainty is explicit.
+- Prevents silent error accumulation in calorie estimates.
+
+User impact
+- Better decision confidence and fewer bad logs.
+
+Implementation notes
+- Backend returns confidence metadata per item and nutrient.
+- UI badges: High/Medium/Low confidence + “Review suggested” indicator.
+- Track correction rates to improve prompts/parsing.
+
+Risks/complexity
+- Medium: requires schema changes in AI endpoints.
+
+Success metrics
+- Reduced post-add edits caused by incorrect AI outputs.
+- Better user trust ratings.
+
+----------------------------------------------------------------------
+
+7) SMART GROCERY LIST FROM PLANNER + FREQUENT FOODS
+What to build
+- Auto-generate grocery list from planned meals and recipes.
+- Aggregate by ingredient and quantity.
+- Mark pantry staples and recurring defaults.
+
+Why it matters
+- Planning fails without execution support.
+- Grocery integration turns app into end-to-end nutrition workflow.
+
+User impact
+- Easier weekly preparation and lower decision fatigue.
+
+Implementation notes
+- Ingredient normalization dictionary (e.g., “bell pepper” variants).
+- Store checkable list state with optional category grouping.
+
+Risks/complexity
+- Medium: ingredient normalization can be messy.
+
+Success metrics
+- Planner users who also use grocery list.
+- Increase in planned-meal completion.
+
+----------------------------------------------------------------------
+
+8) NUTRITION QUALITY SCORE (MICRO + FIBER + SODIUM BALANCE)
+What to build
+- A quality score that complements calories/macros.
+- Include weighted components: protein adequacy, fiber intake, added sugar limit, sodium range, micronutrient coverage.
+
+Why it matters
+- Users can hit calories while still eating poor-quality nutrition.
+- Adds health perspective beyond energy balance.
+
+User impact
+- Better long-term health outcomes, not just weight changes.
+
+Implementation notes
+- Use currently tracked nutrients where available; gracefully degrade when data missing.
+- Show both daily and weekly score trend.
+
+Risks/complexity
+- Medium: avoid pseudo-scientific scoring; keep transparent formulas.
+
+Success metrics
+- Increased fiber/protein adherence.
+- Reduction in high-sodium or high-added-sugar days.
+
+----------------------------------------------------------------------
+
+9) ADVANCED TRENDS + PREDICTION (PLATEAU DETECTION)
+What to build
+- Predictive timeline for goal progress (range, not single date).
+- Plateau detector with likely causes:
+  - Logging inconsistency
+  - Activity drop
+  - High weekend variance
+  - Water retention pattern hints
+
+Why it matters
+- Users often misinterpret short-term scale noise.
+- Better interpretation reduces churn.
+
+User impact
+- More realistic expectations and sustained engagement.
+
+Implementation notes
+- Apply smoothing and confidence intervals.
+- Keep educational copy concise and non-medical.
+
+Risks/complexity
+- Medium: must avoid overpromising forecast certainty.
+
+Success metrics
+- Fewer churn events after stalled weeks.
+- More users staying active through plateaus.
+
+----------------------------------------------------------------------
+
+10) RESTAURANT MODE + SOCIAL EATING LOGGING
+What to build
+- Fast logging for uncertain meals:
+  - Portion guess presets
+  - “Shared dish” split helpers
+  - “Tasting plate” mode with rough composition
+- Optional post-meal correction later.
+
+Why it matters
+- Restaurant/social contexts are major failure points in tracking apps.
+
+User impact
+- Higher logging continuity on weekends and events.
+
+Implementation notes
+- Create low-friction UI path with minimal required fields.
+- Integrate with uncertainty/confidence model.
+
+Risks/complexity
+- Low-medium.
+
+Success metrics
+- Weekend logging completion rate.
+- Reduced “unlogged day” frequency.
+
+----------------------------------------------------------------------
+
+11) BARCODE QUALITY LAYER + PRODUCT MATCH IMPROVEMENTS
+What to build
+- Validate scanned nutrition against plausibility checks.
+- Offer alternate matches when data seems stale or incomplete.
+- Crowd-assisted correction queue (optional moderation).
+
+Why it matters
+- Barcode databases can be inconsistent.
+- Bad barcode data silently corrupts nutrition tracking.
+
+User impact
+- Better data quality with minimal extra effort.
+
+Implementation notes
+- Add local quality heuristics:
+  - impossible calorie/macronutrient combinations
+  - missing serving sizes
+- Cache corrected product profiles locally and optionally in cloud sync.
+
+Risks/complexity
+- Medium.
+
+Success metrics
+- Reduction in barcode-derived edit rate.
+- Lower abandonment during scan flow.
+
+----------------------------------------------------------------------
+
+12) SMART REMINDERS BY USER PATTERN
+What to build
+- Adaptive reminder timing based on when user usually logs meals.
+- Context-aware reminders: “You usually log lunch around 1:15 PM.”
+
+Why it matters
+- Fixed reminders are often ignored.
+- Pattern-based reminders feel timely and less annoying.
+
+User impact
+- Better compliance with fewer notifications.
+
+Implementation notes
+- Compute per-meal logging windows from recent weeks.
+- Strict notification frequency cap and quiet hours.
+
+Risks/complexity
+- Low-medium.
+
+Success metrics
+- Reminder open rate.
+- Meal logging completion after reminder.
+
+----------------------------------------------------------------------
+
+13) CAMERA-ASSISTED PORTION CALIBRATION MODE
+What to build
+- Guided one-time calibration flow with known-size objects or standard plate dimensions.
+- Improves future food photo portion estimates per user context.
+
+Why it matters
+- Portion size is the largest source of calorie error in photo-based logging.
+
+User impact
+- More accurate AI-assisted logging over time.
+
+Implementation notes
+- Calibration profile stored per device/user.
+- Use depth cues where available; fallback to heuristic scaling.
+
+Risks/complexity
+- High: computer vision constraints and camera variability.
+
+Success metrics
+- Improved AI portion accuracy against validation set.
+
+----------------------------------------------------------------------
+
+14) OPTIONAL WEARABLE CONNECTORS (BEYOND HEALTHKIT)
+What to build
+- Optional sync adapters for popular services where HealthKit data may be incomplete.
+
+Why it matters
+- Some users keep richer activity data outside Apple’s ecosystem.
+
+User impact
+- Better burn and workout completeness for mixed-device users.
+
+Implementation notes
+- Start with import bridges via backend connectors.
+- Keep HealthKit as primary local path.
+
+Risks/complexity
+- High: API maintenance and privacy permissions.
+
+Success metrics
+- Increased activity data completeness.
+
+----------------------------------------------------------------------
+
+15) CLINICIAN / COACH SHAREABLE REPORTS
+What to build
+- Export weekly or monthly PDF report with:
+  - calories/macros trends
+  - adherence score
+  - activity summary
+  - key nutrition quality markers
+
+Why it matters
+- Users working with coaches or clinicians need clean summaries.
+
+User impact
+- Easier accountability and professional support.
+
+Implementation notes
+- Local PDF generation first.
+- Optional secure share link later.
+
+Risks/complexity
+- Low-medium.
+
+Success metrics
+- Report export usage frequency.
+
+----------------------------------------------------------------------
+
+16) BUDGET-AWARE NUTRITION SUGGESTIONS
+What to build
+- Suggest substitutions based on cost per protein/fiber/calorie efficiency.
+- Optional weekly budget target.
+
+Why it matters
+- Food cost is a major barrier to consistency.
+
+User impact
+- Makes healthy eating plans more realistic and sustainable.
+
+Implementation notes
+- Start with heuristic price ranges by food category.
+- Later integrate regional grocery APIs (optional).
+
+Risks/complexity
+- Medium-high due to regional price variability.
+
+Success metrics
+- Higher meal-plan adherence among budget users.
+
+----------------------------------------------------------------------
+
+17) ACCESSIBILITY + LOW-FRICTION CAPTURE MODE
+What to build
+- One-handed logging mode with larger tap targets.
+- Voice-first quick log intent (“log oatmeal 300 calories”).
+- Enhanced Dynamic Type, screen reader labels, and reduced-motion support.
+
+Why it matters
+- Accessibility improvements also speed up capture for all users.
+
+User impact
+- Faster input and wider usability.
+
+Implementation notes
+- Audit key flows: add meal, edit meal, quick add, AI results confirm.
+- Add explicit accessibility test scenarios in UI suite.
+
+Risks/complexity
+- Medium.
+
+Success metrics
+- Lower time-to-first-log.
+- Better completion rates on smaller devices.
+
+----------------------------------------------------------------------
+
+18) OFFLINE-FIRST + PERFORMANCE RELIABILITY UPGRADES
+What to build
+- Queue all add/edit actions offline with deterministic replay.
+- Add stale-but-usable cache for critical screens.
+- Improve startup by deferring noncritical fetches.
+
+Why it matters
+- Reliability drives trust more than new features.
+- Users log in inconsistent connectivity environments.
+
+User impact
+- Fewer failed logs and smoother experience.
+
+Implementation notes
+- Add persistent operation queue with idempotent sync keys.
+- Expand “save only if changed” patterns to other heavy writes.
+- Instrument startup and interaction latency metrics.
+
+Risks/complexity
+- Medium-high: sync conflict handling.
+
+Success metrics
+- Lower failed-action rate.
+- Faster perceived launch and add-flow completion.
+
+======================================================================
+IMPLEMENTATION ORDER (PRACTICAL)
+======================================================================
+Recommended sequence for best ROI and manageable risk:
+Phase A (foundation + behavior)
+- Feature 1: Weekly Coaching + Adaptive Goal Engine
+- Feature 2: Adherence Score + Nudges
+- Feature 6: Confidence Indicators
+
+Phase B (daily workflow leverage)
+- Feature 3: Meal Planning
+- Feature 4: Recipe Builder + Saved Meals
+- Feature 7: Smart Grocery List
+
+Phase C (analytics and advanced use cases)
+- Feature 5: Macro Periodization
+- Feature 8: Nutrition Quality Score
+- Feature 9: Plateau Prediction
+- Feature 10: Restaurant Mode
+
+Phase D (long-term differentiation)
+- Feature 13: Portion Calibration
+- Feature 15: Shareable Reports
+- Feature 18: Offline-first + Performance
+- Remaining integrations/features based on user demand and maintenance capacity
+
+======================================================================
+CROSS-CUTTING PRODUCT GUARDRAILS
+======================================================================
+- Always show rationale for automated recommendations.
+- Keep “manual override” available on all automated decisions.
+- Avoid notification overload with explicit user controls.
+- Prefer transparent formulas over opaque scoring.
+- Instrument each major feature with adoption + outcome metrics from day one.
+
+======================================================================
+FINAL RECOMMENDATION
+======================================================================
+If only three features are implemented next, choose:
+1. Weekly Coaching + Adaptive Goal Engine
+2. Meal Planning + Plan vs Actual
+3. Recipe Builder + Saved Meals
+
+Reason:
+These three create compounding value: better decisions, better preparation, and far lower daily logging friction. Together, they are the strongest path to better retention and measurable user outcomes.

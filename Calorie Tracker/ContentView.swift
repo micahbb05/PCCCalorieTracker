@@ -1,11 +1,14 @@
 // Calorie Tracker 2026
 
 import SwiftUI
+import UniformTypeIdentifiers
 import Charts
 import UIKit
 import Combine
 import CloudKit
 import WidgetKit
+import WatchConnectivity
+import UserNotifications
 
 extension Notification.Name {
     static let cloudKitAppStateDidChange = Notification.Name("cloudKitAppStateDidChange")
@@ -14,6 +17,315 @@ extension Notification.Name {
 private typealias StoredVenueMenuCache = [DiningVenue: [NutrisliceMenuService.MenuType: NutrisliceMenu]]
 private typealias StoredVenueMenuSignatureCache = [DiningVenue: [NutrisliceMenuService.MenuType: String]]
 
+private final class SmartMealReminderService {
+    static let shared = SmartMealReminderService()
+    private let remindableMealGroups: [MealGroup] = MealGroup.logDisplayOrder.filter { $0 != .snack }
+
+    private struct ReminderTarget {
+        let mealGroup: MealGroup
+        let expectedMinutes: Int
+        let fireDate: Date
+    }
+
+    private let notificationCenter = UNUserNotificationCenter.current()
+    private let notificationPrefix = "smart-meal-reminder."
+    private let deliveredReminderDaysDefaultsKey = "smartMealReminderDeliveredDaysByMealGroup"
+    private let lookbackDays = 14
+    private let minimumLoggedDays = 4
+    private let minimumFrequency = 0.30
+    private let reminderDelayMinutes = 45
+    private let catchUpDelaySeconds: TimeInterval = 90
+    private let minimumLeadTimeSeconds: TimeInterval = 60
+
+    private init() {}
+
+    func requestAuthorizationIfNeeded(completion: @escaping (Bool) -> Void) {
+        notificationCenter.getNotificationSettings { [weak self] settings in
+            guard self != nil else {
+                completion(false)
+                return
+            }
+
+            switch settings.authorizationStatus {
+            case .authorized, .provisional, .ephemeral:
+                completion(true)
+            case .notDetermined:
+                self?.notificationCenter.requestAuthorization(options: [.alert, .badge, .sound]) { granted, _ in
+                    completion(granted)
+                }
+            case .denied:
+                completion(false)
+            @unknown default:
+                completion(false)
+            }
+        }
+    }
+
+    func refreshReminders(
+        enabled: Bool,
+        now: Date,
+        calendar: Calendar,
+        dailyEntryArchive: [String: [MealEntry]],
+        todayDayIdentifier: String
+    ) {
+        let allIDs = MealGroup.allCases.map(notificationID(for:))
+        guard enabled else {
+            cancelNotificationRequests(ids: allIDs, includeDelivered: true)
+            return
+        }
+
+        notificationCenter.getNotificationSettings { [weak self] settings in
+            guard let self else { return }
+
+            let isAuthorized: Bool
+            switch settings.authorizationStatus {
+            case .authorized, .provisional, .ephemeral:
+                isAuthorized = true
+            default:
+                isAuthorized = false
+            }
+
+            guard isAuthorized else {
+                self.cancelNotificationRequests(ids: allIDs, includeDelivered: true)
+                return
+            }
+
+            self.notificationCenter.getDeliveredNotifications { notifications in
+                let deliveredTodayGroups = self.deliveredReminderGroups(
+                    from: notifications,
+                    calendar: calendar,
+                    todayDayIdentifier: todayDayIdentifier
+                )
+                let targets = self.buildReminderTargets(
+                    now: now,
+                    calendar: calendar,
+                    dailyEntryArchive: dailyEntryArchive,
+                    todayDayIdentifier: todayDayIdentifier,
+                    alreadyDeliveredGroups: deliveredTodayGroups
+                )
+
+                self.cancelNotificationRequests(ids: allIDs)
+                for target in targets {
+                    self.scheduleNotification(for: target)
+                }
+            }
+        }
+    }
+
+    private func cancelNotificationRequests(ids: [String], includeDelivered: Bool = false) {
+        notificationCenter.removePendingNotificationRequests(withIdentifiers: ids)
+        guard includeDelivered else { return }
+        notificationCenter.removeDeliveredNotifications(withIdentifiers: ids)
+    }
+
+    private func scheduleNotification(for target: ReminderTarget) {
+        let content = UNMutableNotificationContent()
+        content.title = "Time to log \(target.mealGroup.title.lowercased())?"
+        content.body = "Add your meal when you're ready."
+        content.sound = .default
+
+        let fireTimeInterval = max(target.fireDate.timeIntervalSinceNow, minimumLeadTimeSeconds)
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: fireTimeInterval, repeats: false)
+        let request = UNNotificationRequest(
+            identifier: notificationID(for: target.mealGroup),
+            content: content,
+            trigger: trigger
+        )
+        notificationCenter.add(request)
+    }
+
+    private func buildReminderTargets(
+        now: Date,
+        calendar: Calendar,
+        dailyEntryArchive: [String: [MealEntry]],
+        todayDayIdentifier: String,
+        alreadyDeliveredGroups: Set<MealGroup>
+    ) -> [ReminderTarget] {
+        let todayEntries = dailyEntryArchive[todayDayIdentifier] ?? []
+        let loggedTodayGroups = Set(todayEntries.map(\.mealGroup))
+        let storedDeliveredGroups = reminderGroupsDelivered(on: todayDayIdentifier)
+        let blockedGroups = loggedTodayGroups
+            .union(alreadyDeliveredGroups)
+            .union(storedDeliveredGroups)
+
+        let historyByGroup = historicalFirstLogMinutesByMealGroup(
+            now: now,
+            calendar: calendar,
+            dailyEntryArchive: dailyEntryArchive
+        )
+        let startOfToday = calendar.startOfDay(for: now)
+        guard
+            let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfToday),
+            let latestReminderTime = calendar.date(byAdding: .minute, value: -15, to: startOfTomorrow)
+        else {
+            return []
+        }
+
+        var targets: [ReminderTarget] = []
+        for group in remindableMealGroups {
+            guard !blockedGroups.contains(group) else { continue }
+            guard let sampleTimes = historyByGroup[group], qualifiesAsUsual(sampleTimes) else { continue }
+
+            let expectedMinutes = median(sampleTimes)
+            let triggerMinutes = min(expectedMinutes + reminderDelayMinutes, 23 * 60 + 45)
+
+            guard let baselineDate = calendar.date(byAdding: .minute, value: triggerMinutes, to: startOfToday) else {
+                continue
+            }
+
+            let fireDate: Date
+            if baselineDate <= now {
+                guard now < latestReminderTime else { continue }
+                fireDate = now.addingTimeInterval(catchUpDelaySeconds)
+            } else {
+                fireDate = baselineDate
+            }
+
+            targets.append(
+                ReminderTarget(
+                    mealGroup: group,
+                    expectedMinutes: expectedMinutes,
+                    fireDate: fireDate
+                )
+            )
+        }
+        return targets.sorted { $0.fireDate < $1.fireDate }
+    }
+
+    private func historicalFirstLogMinutesByMealGroup(
+        now: Date,
+        calendar: Calendar,
+        dailyEntryArchive: [String: [MealEntry]]
+    ) -> [MealGroup: [Int]] {
+        var historyByGroup: [MealGroup: [Int]] = [:]
+
+        for offset in 1...lookbackDays {
+            guard let day = calendar.date(byAdding: .day, value: -offset, to: now) else { continue }
+            let dayIdentifier = dayID(for: day, calendar: calendar)
+            let entries = dailyEntryArchive[dayIdentifier] ?? []
+            guard !entries.isEmpty else { continue }
+
+            var firstLogMinutesByGroup: [MealGroup: Int] = [:]
+            for entry in entries {
+                let minutes = minutesIntoDay(entry.createdAt, calendar: calendar)
+                if let existing = firstLogMinutesByGroup[entry.mealGroup] {
+                    firstLogMinutesByGroup[entry.mealGroup] = min(existing, minutes)
+                } else {
+                    firstLogMinutesByGroup[entry.mealGroup] = minutes
+                }
+            }
+
+            for (group, minutes) in firstLogMinutesByGroup {
+                historyByGroup[group, default: []].append(minutes)
+            }
+        }
+
+        return historyByGroup
+    }
+
+    private func qualifiesAsUsual(_ sampleTimes: [Int]) -> Bool {
+        guard sampleTimes.count >= minimumLoggedDays else { return false }
+        let frequency = Double(sampleTimes.count) / Double(lookbackDays)
+        return frequency >= minimumFrequency
+    }
+
+    private func notificationID(for mealGroup: MealGroup) -> String {
+        notificationPrefix + mealGroup.rawValue
+    }
+
+    private func deliveredReminderGroups(
+        from notifications: [UNNotification],
+        calendar: Calendar,
+        todayDayIdentifier: String
+    ) -> Set<MealGroup> {
+        var storedDays = storedDeliveredReminderDaysByGroup()
+
+        for notification in notifications {
+            let identifier = notification.request.identifier
+            guard let mealGroup = mealGroup(forNotificationID: identifier) else { continue }
+            storedDays[mealGroup.rawValue] = dayID(for: notification.date, calendar: calendar)
+        }
+
+        saveDeliveredReminderDaysByGroup(storedDays)
+
+        return Set(
+            storedDays.compactMap { rawValue, dayIdentifier in
+                guard dayIdentifier == todayDayIdentifier else { return nil }
+                return MealGroup(rawValue: rawValue)
+            }
+        )
+    }
+
+    private func reminderGroupsDelivered(on dayIdentifier: String) -> Set<MealGroup> {
+        Set(
+            storedDeliveredReminderDaysByGroup().compactMap { rawValue, storedDayIdentifier in
+                guard storedDayIdentifier == dayIdentifier else { return nil }
+                return MealGroup(rawValue: rawValue)
+            }
+        )
+    }
+
+    private func storedDeliveredReminderDaysByGroup() -> [String: String] {
+        UserDefaults.standard.dictionary(forKey: deliveredReminderDaysDefaultsKey) as? [String: String] ?? [:]
+    }
+
+    private func saveDeliveredReminderDaysByGroup(_ storedDays: [String: String]) {
+        UserDefaults.standard.set(storedDays, forKey: deliveredReminderDaysDefaultsKey)
+    }
+
+    private func mealGroup(forNotificationID identifier: String) -> MealGroup? {
+        guard identifier.hasPrefix(notificationPrefix) else { return nil }
+        let rawValue = String(identifier.dropFirst(notificationPrefix.count))
+        return MealGroup(rawValue: rawValue)
+    }
+
+    private func dayID(for date: Date, calendar: Calendar) -> String {
+        let startOfDay = calendar.startOfDay(for: date)
+        let components = calendar.dateComponents([.year, .month, .day], from: startOfDay)
+        return String(
+            format: "%04d-%02d-%02d",
+            components.year ?? 0,
+            components.month ?? 1,
+            components.day ?? 1
+        )
+    }
+
+    private func minutesIntoDay(_ date: Date, calendar: Calendar) -> Int {
+        let components = calendar.dateComponents([.hour, .minute], from: date)
+        return (components.hour ?? 0) * 60 + (components.minute ?? 0)
+    }
+
+    private func median(_ values: [Int]) -> Int {
+        guard !values.isEmpty else { return 0 }
+        let sorted = values.sorted()
+        let middle = sorted.count / 2
+        if sorted.count.isMultiple(of: 2) {
+            return (sorted[middle - 1] + sorted[middle]) / 2
+        }
+        return sorted[middle]
+    }
+
+    private func displayTime(for minutes: Int) -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .autoupdatingCurrent
+        let normalizedMinutes = max(0, min(minutes, 23 * 60 + 59))
+        let hour = normalizedMinutes / 60
+        let minute = normalizedMinutes % 60
+        let components = DateComponents(year: 2026, month: 1, day: 1, hour: hour, minute: minute)
+        guard let date = calendar.date(from: components) else {
+            return "your usual time"
+        }
+
+        let formatter = DateFormatter()
+        formatter.locale = .autoupdatingCurrent
+        formatter.timeZone = .autoupdatingCurrent
+        formatter.timeStyle = .short
+        formatter.dateStyle = .none
+        return formatter.string(from: date)
+    }
+
+}
+
 struct CloudSyncPayload: Codable, Equatable, Sendable {
     let hasCompletedOnboarding: Bool
     let deficitCalories: Int
@@ -21,6 +333,7 @@ struct CloudSyncPayload: Codable, Equatable, Sendable {
     let weekendDeficitCalories: Int
     let goalTypeRaw: String
     let surplusCalories: Int
+    let fixedGoalCalories: Int?
     let dailyGoalTypeArchiveData: String
     let proteinGoal: Int
     let mealEntriesData: String
@@ -38,11 +351,96 @@ struct CloudSyncPayload: Codable, Equatable, Sendable {
     let useAIBaseServings: Bool
     let calibrationStateData: String?
     let healthWeighInsData: String?
+    let syncedHealthProfileData: String?
+    let syncedTodayWorkoutsData: String?
+    let syncedHealthSourceDeviceTypeRaw: String?
+}
+
+enum CloudSyncOriginDeviceType: String, Codable, Sendable {
+    case iphone
+    case ipad
+    case mac
+    case unknown
 }
 
 struct CloudSyncEnvelope: Codable, Sendable {
     let updatedAt: Double
     let payload: CloudSyncPayload
+    let storageVersion: Int
+    let originDeviceType: CloudSyncOriginDeviceType
+
+    private enum CodingKeys: String, CodingKey {
+        case updatedAt
+        case payload
+        case storageVersion
+        case originDeviceType
+    }
+
+    init(
+        updatedAt: Double,
+        payload: CloudSyncPayload,
+        storageVersion: Int = 2,
+        originDeviceType: CloudSyncOriginDeviceType = .unknown
+    ) {
+        self.updatedAt = updatedAt
+        self.payload = payload
+        self.storageVersion = storageVersion
+        self.originDeviceType = originDeviceType
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        updatedAt = try container.decode(Double.self, forKey: .updatedAt)
+        payload = try container.decode(CloudSyncPayload.self, forKey: .payload)
+        storageVersion = try container.decodeIfPresent(Int.self, forKey: .storageVersion) ?? 1
+        originDeviceType = try container.decodeIfPresent(CloudSyncOriginDeviceType.self, forKey: .originDeviceType) ?? .unknown
+    }
+}
+
+enum CloudSyncStatusLevel: Equatable {
+    case checking
+    case uploading
+    case synced
+    case warning
+    case error
+}
+
+enum CloudSyncTrigger {
+    case launch
+    case foreground
+    case timer
+    case push
+    case manual
+}
+
+enum AppCloudSyncError: LocalizedError {
+    case accountUnavailable(CKAccountStatus)
+    case missingPayloadAsset
+    case invalidPayload
+
+    var errorDescription: String? {
+        switch self {
+        case let .accountUnavailable(status):
+            switch status {
+            case .available:
+                return nil
+            case .noAccount:
+                return "Sign into iCloud on both devices to sync your data."
+            case .restricted:
+                return "iCloud sync is restricted on this device."
+            case .couldNotDetermine:
+                return "This device could not determine your iCloud availability."
+            case .temporarilyUnavailable:
+                return "iCloud is temporarily unavailable. Try again in a moment."
+            @unknown default:
+                return "iCloud sync is unavailable on this device."
+            }
+        case .missingPayloadAsset:
+            return "The synced record is missing its payload."
+        case .invalidPayload:
+            return "The synced payload could not be decoded."
+        }
+    }
 }
 
 actor AppCloudSyncService {
@@ -56,7 +454,7 @@ actor AppCloudSyncService {
     private let subscriptionID = "app-state-private-changes"
 
     func fetchEnvelope() async throws -> CloudSyncEnvelope? {
-        guard try await isCloudAccountAvailable() else { return nil }
+        _ = try await requireCloudAccountAvailable()
 
         do {
             let record = try await fetchRecord()
@@ -64,18 +462,22 @@ actor AppCloudSyncService {
                 let asset = record[assetFieldName] as? CKAsset,
                 let fileURL = asset.fileURL
             else {
-                return nil
+                throw AppCloudSyncError.missingPayloadAsset
             }
 
             let data = try Data(contentsOf: fileURL)
-            return try JSONDecoder().decode(CloudSyncEnvelope.self, from: data)
+            do {
+                return try JSONDecoder().decode(CloudSyncEnvelope.self, from: data)
+            } catch {
+                throw AppCloudSyncError.invalidPayload
+            }
         } catch let error as CKError where error.code == .unknownItem {
             return nil
         }
     }
 
     func saveEnvelope(_ envelope: CloudSyncEnvelope) async throws {
-        guard try await isCloudAccountAvailable() else { return }
+        _ = try await requireCloudAccountAvailable()
 
         let tempURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("cloud-sync-\(UUID().uuidString).json")
@@ -93,13 +495,24 @@ actor AppCloudSyncService {
             record = CKRecord(recordType: recordType, recordID: recordID)
         }
 
-        record[assetFieldName] = CKAsset(fileURL: tempURL)
-        record[updatedAtFieldName] = envelope.updatedAt as NSNumber
-        _ = try await saveRecord(record)
+        var attemptsRemaining = 2
+        var workingRecord = record
+        while true {
+            workingRecord[assetFieldName] = CKAsset(fileURL: tempURL)
+            workingRecord[updatedAtFieldName] = envelope.updatedAt as NSNumber
+
+            do {
+                _ = try await saveRecord(workingRecord)
+                return
+            } catch let error as CKError where error.code == .serverRecordChanged && attemptsRemaining > 0 {
+                attemptsRemaining -= 1
+                workingRecord = try await fetchRecord()
+            }
+        }
     }
 
     func ensureSubscription() async throws {
-        guard try await isCloudAccountAvailable() else { return }
+        _ = try await requireCloudAccountAvailable()
 
         do {
             _ = try await fetchSubscription()
@@ -120,7 +533,7 @@ actor AppCloudSyncService {
         return notification.subscriptionID == "app-state-private-changes"
     }
 
-    private func isCloudAccountAvailable() async throws -> Bool {
+    private func cloudAccountStatus() async throws -> CKAccountStatus {
         let status: CKAccountStatus = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<CKAccountStatus, Error>) in
             container.accountStatus { status, error in
                 if let error {
@@ -131,7 +544,15 @@ actor AppCloudSyncService {
             }
         }
 
-        return status == .available
+        return status
+    }
+
+    private func requireCloudAccountAvailable() async throws -> CKAccountStatus {
+        let status = try await cloudAccountStatus()
+        guard status == .available else {
+            throw AppCloudSyncError.accountUnavailable(status)
+        }
+        return status
     }
 
     private func fetchRecord() async throws -> CKRecord {
@@ -274,6 +695,230 @@ actor AppMenuPreloadService {
     }
 }
 
+final class WatchAppSyncService: NSObject, WCSessionDelegate {
+    static let shared = WatchAppSyncService()
+
+    static let appGroupIdentifier = "group.Micah.Calorie-Tracker"
+    static let sharedSnapshotKey = "watchDailySnapshot"
+    private static let syncTimestampKey = "syncSentAt"
+
+    private let session: WCSession? = WCSession.isSupported() ? WCSession.default : nil
+    private var lastContextData: Data?
+    private var lastComplicationData: Data?
+    private var lastBackgroundUserInfoData: Data?
+    private var latestContext: [String: Any] = [:]
+
+    private struct SharedSnapshotEntry: Codable {
+        let id: UUID
+        let name: String
+        let calories: Int
+        let createdAt: Date
+    }
+
+    private struct SharedSnapshot: Codable {
+        let goalCalories: Int
+        let activityCalories: Int
+        let currentMealTitle: String
+        let goalTypeRaw: String
+        let selectedAppIconChoiceRaw: String
+        let venueMenuItems: [String: [String]]
+        let entries: [SharedSnapshotEntry]
+    }
+
+    private override init() {
+        super.init()
+        session?.delegate = self
+        session?.activate()
+    }
+
+    func push(context: [String: Any]) {
+        let enrichedContext = enrichContextWithSyncTimestamp(context)
+        let semanticContext = payloadWithoutSyncTimestamp(enrichedContext)
+        guard let encoded = normalizedPayloadData(from: semanticContext) else {
+            return
+        }
+        let realtimePayload = realtimeSyncPayload(from: enrichedContext)
+        if let sharedDefaults = UserDefaults(suiteName: Self.appGroupIdentifier) {
+            if let sharedSnapshotData = encodedSharedSnapshotData(from: enrichedContext) {
+                sharedDefaults.set(sharedSnapshotData, forKey: Self.sharedSnapshotKey)
+            }
+        }
+        guard let session else { return }
+        latestContext = enrichedContext
+        if encoded == lastContextData {
+            return
+        }
+
+        do {
+            try session.updateApplicationContext(enrichedContext)
+            lastContextData = encoded
+            transferComplicationIfNeeded(using: realtimePayload, session: session)
+            transferBackgroundUserInfoIfNeeded(using: realtimePayload, session: session)
+        } catch {
+            // Fall back to lightweight background transfers to reduce drop risk.
+            transferComplicationIfNeeded(using: realtimePayload, session: session)
+            transferBackgroundUserInfoIfNeeded(using: realtimePayload, session: session)
+        }
+    }
+
+    func session(
+        _ session: WCSession,
+        activationDidCompleteWith activationState: WCSessionActivationState,
+        error: Error?
+    ) {
+        guard error == nil, activationState == .activated, !latestContext.isEmpty else { return }
+        let realtimePayload = realtimeSyncPayload(from: latestContext)
+        do {
+            try session.updateApplicationContext(latestContext)
+            transferComplicationIfNeeded(
+                using: realtimePayload,
+                session: session
+            )
+            transferBackgroundUserInfoIfNeeded(
+                using: realtimePayload,
+                session: session
+            )
+        } catch {
+            transferComplicationIfNeeded(
+                using: realtimePayload,
+                session: session
+            )
+            transferBackgroundUserInfoIfNeeded(
+                using: realtimePayload,
+                session: session
+            )
+        }
+    }
+
+    func sessionDidBecomeInactive(_ session: WCSession) {}
+
+    func sessionDidDeactivate(_ session: WCSession) {
+        session.activate()
+    }
+
+    private func realtimeSyncPayload(from context: [String: Any]) -> [String: Any] {
+        // Keep the complication payload compact to maximize background delivery reliability.
+        [
+            "goalCalories": max(context["goalCalories"] as? Int ?? 0, 1),
+            "activityCalories": max(context["activityCalories"] as? Int ?? 0, 0),
+            "currentMealTitle": context["currentMealTitle"] as? String ?? "Lunch",
+            "goalTypeRaw": context["goalTypeRaw"] as? String ?? "deficit",
+            "selectedAppIconChoiceRaw": context["selectedAppIconChoiceRaw"] as? String ?? AppIconChoice.standard.rawValue,
+            "entries": context["entries"] as? [[String: Any]] ?? [],
+            Self.syncTimestampKey: context[Self.syncTimestampKey] as? TimeInterval ?? Date().timeIntervalSince1970
+        ]
+    }
+
+    private func enrichContextWithSyncTimestamp(_ context: [String: Any]) -> [String: Any] {
+        var enriched = context
+        enriched[Self.syncTimestampKey] = Date().timeIntervalSince1970
+        return enriched
+    }
+
+    private func normalizedPayloadData(from payload: [String: Any]) -> Data? {
+        try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+    }
+
+    private func payloadWithoutSyncTimestamp(_ payload: [String: Any]) -> [String: Any] {
+        var normalized = payload
+        normalized.removeValue(forKey: Self.syncTimestampKey)
+        return normalized
+    }
+
+    private func encodedSharedSnapshotData(from context: [String: Any]) -> Data? {
+        let goalCalories = max(context["goalCalories"] as? Int ?? 0, 1)
+        let activityCalories = max(context["activityCalories"] as? Int ?? 0, 0)
+        let currentMealTitle = context["currentMealTitle"] as? String ?? "Lunch"
+        let goalTypeRaw = context["goalTypeRaw"] as? String ?? "deficit"
+        let selectedAppIconChoiceRaw = context["selectedAppIconChoiceRaw"] as? String ?? AppIconChoice.standard.rawValue
+        let venueMenuItems = context["venueMenuItems"] as? [String: [String]] ?? [:]
+        let rawEntries = context["entries"] as? [[String: Any]] ?? []
+        let entries = rawEntries.compactMap { raw -> SharedSnapshotEntry? in
+            guard
+                let idString = raw["id"] as? String,
+                let id = UUID(uuidString: idString),
+                let name = raw["name"] as? String,
+                let calories = raw["calories"] as? Int,
+                let createdAtSeconds = raw["createdAt"] as? TimeInterval
+            else {
+                return nil
+            }
+
+            return SharedSnapshotEntry(
+                id: id,
+                name: name,
+                calories: calories,
+                createdAt: Date(timeIntervalSince1970: createdAtSeconds)
+            )
+        }
+
+        let snapshot = SharedSnapshot(
+            goalCalories: goalCalories,
+            activityCalories: activityCalories,
+            currentMealTitle: currentMealTitle,
+            goalTypeRaw: goalTypeRaw,
+            selectedAppIconChoiceRaw: selectedAppIconChoiceRaw,
+            venueMenuItems: venueMenuItems,
+            entries: entries
+        )
+        return try? JSONEncoder().encode(snapshot)
+    }
+
+    private func transferComplicationIfNeeded(using context: [String: Any], session: WCSession) {
+        guard session.isPaired, session.isWatchAppInstalled else { return }
+        guard session.isComplicationEnabled else { return }
+        guard session.remainingComplicationUserInfoTransfers > 0 else { return }
+        let semanticContext = payloadWithoutSyncTimestamp(context)
+        if let encoded = normalizedPayloadData(from: semanticContext), encoded == lastComplicationData {
+            return
+        }
+        session.transferCurrentComplicationUserInfo(context)
+        lastComplicationData = normalizedPayloadData(from: semanticContext)
+    }
+
+    private func transferBackgroundUserInfoIfNeeded(using context: [String: Any], session: WCSession) {
+        guard session.isPaired, session.isWatchAppInstalled else { return }
+        let semanticContext = payloadWithoutSyncTimestamp(context)
+        if let encoded = normalizedPayloadData(from: semanticContext), encoded == lastBackgroundUserInfoData {
+            return
+        }
+        session.transferUserInfo(context)
+        lastBackgroundUserInfoData = normalizedPayloadData(from: semanticContext)
+    }
+
+    func session(
+        _ session: WCSession,
+        didFinish userInfoTransfer: WCSessionUserInfoTransfer,
+        error: Error?
+    ) {
+        // Keeping delegate method for required protocol conformance, but removing equality checking since it's obsolete.
+    }
+
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        guard (message["request"] as? String) == "watchSnapshot" else { return }
+        guard !latestContext.isEmpty else { return }
+        session.sendMessage(latestContext, replyHandler: nil, errorHandler: nil)
+    }
+
+    func session(
+        _ session: WCSession,
+        didReceiveMessage message: [String: Any],
+        replyHandler: @escaping ([String: Any]) -> Void
+    ) {
+        guard (message["request"] as? String) == "watchSnapshot" else {
+            replyHandler([:])
+            return
+        }
+
+        if latestContext.isEmpty {
+            replyHandler([:])
+            return
+        }
+
+        replyHandler(latestContext)
+    }
+}
+
 private enum AppTab: String, CaseIterable, Identifiable {
     case today
     case history
@@ -315,6 +960,26 @@ private enum AppTab: String, CaseIterable, Identifiable {
 }
 
 struct ContentView: View {
+    private static let cloudSyncStorageVersion = 2
+    private static let dailyEntryArchiveStorageKey = "dailyEntryArchiveData"
+    private static let dailyCalorieGoalArchiveStorageKey = "dailyCalorieGoalArchiveData"
+    private static let dailyBurnedCalorieArchiveStorageKey = "dailyBurnedCalorieArchiveData"
+    private static let dailyExerciseArchiveStorageKey = "dailyExerciseArchiveData"
+    private static let dailyGoalTypeArchiveStorageKey = "dailyGoalTypeArchiveData"
+    private static let syncedHealthProfileStorageKey = "syncedHealthProfileData"
+    private static let syncedTodayWorkoutsStorageKey = "syncedTodayWorkoutsData"
+
+    private struct LaunchCacheState {
+        let todayDayIdentifier: String
+        let dailyEntryArchive: [String: [MealEntry]]
+        let dailyCalorieGoalArchive: [String: Int]
+        let dailyBurnedCalorieArchive: [String: Int]
+        let dailyExerciseArchive: [String: [ExerciseEntry]]
+        let dailyGoalTypeArchive: [String: String]
+        let cloudSyncedHealthProfile: HealthKitService.SyncedProfile?
+        let cloudSyncedTodayWorkouts: [ExerciseEntry]
+    }
+
     private struct FoodSearchResult: Identifiable {
         enum Source {
             case usda
@@ -417,10 +1082,11 @@ struct ContentView: View {
         let nutrientValues: [String: Int]
         let createdAt: Date
         let servingCount: Int
+        let displayCount: Int
 
         var id: String {
             let primaryID = entries.first?.id.uuidString ?? UUID().uuidString
-            return "\(primaryID)-\(servingCount)"
+            return "\(primaryID)-\(servingCount)-\(displayCount)"
         }
 
         var primaryEntry: MealEntry? { entries.first }
@@ -442,6 +1108,115 @@ struct ContentView: View {
         var id: String { dayIdentifier }
     }
 
+    init() {
+        let launchCache = Self.loadLaunchCacheState()
+        _dailyEntryArchive = State(initialValue: launchCache.dailyEntryArchive)
+        _dailyCalorieGoalArchive = State(initialValue: launchCache.dailyCalorieGoalArchive)
+        _dailyBurnedCalorieArchive = State(initialValue: launchCache.dailyBurnedCalorieArchive)
+        _dailyExerciseArchive = State(initialValue: launchCache.dailyExerciseArchive)
+        _dailyGoalTypeArchive = State(initialValue: launchCache.dailyGoalTypeArchive)
+        _cloudSyncedHealthProfile = State(initialValue: launchCache.cloudSyncedHealthProfile)
+        _cloudSyncedTodayWorkouts = State(initialValue: launchCache.cloudSyncedTodayWorkouts)
+        _entries = State(initialValue: launchCache.dailyEntryArchive[launchCache.todayDayIdentifier] ?? [])
+        _exercises = State(initialValue: launchCache.dailyExerciseArchive[launchCache.todayDayIdentifier] ?? [])
+        _selectedHistoryDayIdentifier = State(initialValue: launchCache.todayDayIdentifier)
+    }
+
+    private static func loadLaunchCacheState(defaults: UserDefaults = .standard) -> LaunchCacheState {
+        let snapshot = PersistentAppStateStore.shared.exportSnapshot(defaults: defaults)
+        return loadLaunchCacheState(defaults: defaults, snapshot: snapshot)
+    }
+
+    private static func loadLaunchCacheState(
+        defaults: UserDefaults = .standard,
+        snapshot: PersistentAppStateSnapshot?
+    ) -> LaunchCacheState {
+        let todayDayIdentifier = launchDayIdentifier()
+        let dailyEntryArchive = decodeArchive(
+            [String: [MealEntry]].self,
+            key: dailyEntryArchiveStorageKey,
+            defaults: defaults,
+            fallbackJSONString: snapshot?.dailyEntryArchiveData
+        ) ?? [:]
+        let dailyCalorieGoalArchive = decodeArchive(
+            [String: Int].self,
+            key: dailyCalorieGoalArchiveStorageKey,
+            defaults: defaults,
+            fallbackJSONString: snapshot?.dailyCalorieGoalArchiveData
+        ) ?? [:]
+        let dailyBurnedCalorieArchive = decodeArchive(
+            [String: Int].self,
+            key: dailyBurnedCalorieArchiveStorageKey,
+            defaults: defaults,
+            fallbackJSONString: snapshot?.dailyBurnedCalorieArchiveData
+        ) ?? [:]
+        let dailyExerciseArchive = decodeArchive(
+            [String: [ExerciseEntry]].self,
+            key: dailyExerciseArchiveStorageKey,
+            defaults: defaults,
+            fallbackJSONString: snapshot?.dailyExerciseArchiveData
+        ) ?? [:]
+        let dailyGoalTypeArchive = decodeArchive(
+            [String: String].self,
+            key: dailyGoalTypeArchiveStorageKey,
+            defaults: defaults,
+            fallbackJSONString: snapshot?.dailyGoalTypeArchiveData
+        ) ?? [:]
+        let cloudSyncedHealthProfile = decodeArchive(
+            HealthKitService.SyncedProfile.self,
+            key: syncedHealthProfileStorageKey,
+            defaults: defaults,
+            fallbackJSONString: nil
+        )
+        let cloudSyncedTodayWorkouts = (decodeArchive(
+            [ExerciseEntry].self,
+            key: syncedTodayWorkoutsStorageKey,
+            defaults: defaults,
+            fallbackJSONString: nil
+        ) ?? []).filter { entry in
+            launchDayIdentifier(for: entry.createdAt) == todayDayIdentifier
+        }
+
+        return LaunchCacheState(
+            todayDayIdentifier: todayDayIdentifier,
+            dailyEntryArchive: dailyEntryArchive,
+            dailyCalorieGoalArchive: dailyCalorieGoalArchive,
+            dailyBurnedCalorieArchive: dailyBurnedCalorieArchive,
+            dailyExerciseArchive: dailyExerciseArchive,
+            dailyGoalTypeArchive: dailyGoalTypeArchive,
+            cloudSyncedHealthProfile: cloudSyncedHealthProfile,
+            cloudSyncedTodayWorkouts: cloudSyncedTodayWorkouts
+        )
+    }
+
+    private static func decodeArchive<T: Decodable>(
+        _ type: T.Type,
+        key: String,
+        defaults: UserDefaults,
+        fallbackJSONString: String? = nil
+    ) -> T? {
+        let stored = defaults.string(forKey: key)
+        let resolved = ((stored?.isEmpty == false) ? stored : fallbackJSONString) ?? ""
+        guard
+            !resolved.isEmpty,
+            let data = resolved.data(using: .utf8)
+        else {
+            return nil
+        }
+        return try? JSONDecoder().decode(T.self, from: data)
+    }
+
+    private static func launchDayIdentifier(for date: Date = Date()) -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .autoupdatingCurrent
+        let startOfDay = calendar.startOfDay(for: date)
+        let components = calendar.dateComponents([.year, .month, .day], from: startOfDay)
+        let year = components.year ?? 0
+        let month = components.month ?? 1
+        let day = components.day ?? 1
+        return String(format: "%04d-%02d-%02d", year, month, day)
+    }
+
     private struct CalorieGraphPoint: Identifiable {
         let dayIdentifier: String
         let date: Date
@@ -457,6 +1232,34 @@ struct ContentView: View {
         let segment: Int
 
         var id: String { "\(segment)-\(point.dayIdentifier)" }
+    }
+
+    private enum WeightChangeSeries: String {
+        case expected
+        case actual
+
+        var title: String {
+            switch self {
+            case .expected: return "Expected"
+            case .actual: return "Actual"
+            }
+        }
+    }
+
+    private struct WeightChangePoint: Identifiable {
+        let date: Date
+        let change: Double
+        let series: WeightChangeSeries
+
+        var id: String {
+            "\(series.rawValue)-\(date.timeIntervalSince1970)"
+        }
+    }
+
+    private enum WeightChangeAggregation {
+        case daily
+        case weekly
+        case monthly
     }
 
     private enum EntrySource {
@@ -599,6 +1402,9 @@ struct ContentView: View {
     private static let calibrationErrorWeights: [Double] = [0.1, 0.2, 0.3, 0.4]
 
     @Environment(\.colorScheme) private var colorScheme
+    @State private var exportShareURL: URL?
+    @State private var isShowingExportShareSheet = false
+    @State private var exportErrorMessage: String?
     @Environment(\.scenePhase) private var scenePhase
 
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
@@ -606,17 +1412,22 @@ struct ContentView: View {
     @AppStorage("useWeekendDeficit") private var useWeekendDeficit: Bool = false
     @AppStorage("weekendDeficitCalories") private var storedWeekendDeficitCalories: Int = 0
     @AppStorage("goalTypeRaw") private var goalTypeRaw: String = GoalType.deficit.rawValue
+    /// Remembers whether smart adjustment (calibration) was enabled before switching to a fixed goal.
+    @AppStorage("calibrationWasEnabledBeforeFixed") private var calibrationWasEnabledBeforeFixed: Bool = true
     @AppStorage("surplusCalories") private var storedSurplusCalories: Int = 300
+    @AppStorage("fixedGoalCalories") private var storedFixedGoalCalories: Int = 2000
     @AppStorage("dailyGoalTypeArchiveData") private var storedDailyGoalTypeArchiveData: String = ""
 
     private enum GoalType: String, CaseIterable {
         case deficit
         case surplus
+        case fixed
 
         var title: String {
             switch self {
             case .deficit: return "Deficit"
             case .surplus: return "Surplus"
+            case .fixed: return "Fixed"
             }
         }
 
@@ -624,6 +1435,7 @@ struct ContentView: View {
             switch self {
             case .deficit: return "Subtract from burned to lose weight"
             case .surplus: return "Add to burned to gain weight"
+            case .fixed: return "Fixed daily intake goal"
             }
         }
     }
@@ -646,10 +1458,17 @@ struct ContentView: View {
     @AppStorage("quickAddFoodsData") private var storedQuickAddFoodsData: String = ""
     @AppStorage("calibrationStateData") private var storedCalibrationStateData: String = ""
     @AppStorage("healthWeighInsData") private var storedHealthWeighInsData: String = ""
+    @AppStorage("syncedHealthProfileData") private var storedSyncedHealthProfileData: String = ""
+    @AppStorage("syncedTodayWorkoutsData") private var storedSyncedTodayWorkoutsData: String = ""
+    @AppStorage("syncedHealthSourceDeviceTypeRaw") private var storedSyncedHealthSourceDeviceTypeRaw: String = ""
+    @AppStorage("cachedBurnedCaloriesToday") private var cachedBurnedCaloriesToday: Int = 0
+    @AppStorage("cachedCalorieGoalToday") private var cachedCalorieGoalToday: Int = 0
+    @AppStorage("cachedCaloriesDayIdentifier") private var cachedCaloriesDayIdentifier: String = ""
     @AppStorage("cloudSyncLocalModifiedAt") private var cloudSyncLocalModifiedAt: Double = 0
     /// When true, Gemini can override ambiguous base servings (e.g. \"1 each\" entrees) with its inferred base oz.
     /// When false, base servings always come from the menu's serving size.
     @AppStorage("useAIBaseServings") private var useAIBaseServings: Bool = true
+    @AppStorage("smartMealRemindersEnabled") private var smartMealRemindersEnabled: Bool = false
 
     @State private var entries: [MealEntry] = []
     @State private var exercises: [ExerciseEntry] = []
@@ -661,6 +1480,8 @@ struct ContentView: View {
     @State private var quickAddFoods: [QuickAddFood] = []
     @State private var calibrationState: CalibrationState = .default
     @State private var healthWeighIns: [HealthWeighInDay] = []
+    @State private var cloudSyncedHealthProfile: HealthKitService.SyncedProfile?
+    @State private var cloudSyncedTodayWorkouts: [ExerciseEntry] = []
     @State private var trackedNutrientKeys: [String] = ["g_protein"]
     @State private var nutrientGoals: [String: Int] = [:]
     @State private var entryNameText = ""
@@ -713,8 +1534,15 @@ struct ContentView: View {
     @State private var presentedHistoryDaySummary: HistoryDaySummary?
     @State private var isExpandedHistoryChartPresented = false
     @State private var expandedHistoryChartRange: HistoryChartRange = .thirtyDays
+    @State private var isWeightChangeComparisonPresented = false
+    @State private var weightChangeComparisonRange: NetHistoryRange = .sevenDays
+    @State private var isRefreshingWeightChangeComparison = false
     @State private var netHistoryRange: NetHistoryRange = .sevenDays
     @State private var historyDistributionRange: NetHistoryRange = .sevenDays
+    @State private var isWeeklyInsightPresented = false
+    @State private var isWeeklyInsightLoading = false
+    @State private var weeklyInsightText: String?
+    @State private var weeklyInsightErrorMessage: String?
     @State private var editingEntry: MealEntry?
     @State private var foodLogEntryPickerContext: FoodLogEntryPickerContext?
     @State private var isQuickAddManagerPresented = false
@@ -743,6 +1571,11 @@ struct ContentView: View {
     @State private var hasBootstrappedCloudSync = false
     @State private var isApplyingCloudSync = false
     @State private var cloudSyncUploadTask: Task<Void, Never>?
+    @State private var cloudSyncStatusLevel: CloudSyncStatusLevel = .checking
+    @State private var cloudSyncStatusTitle = "Checking iCloud sync"
+    @State private var cloudSyncStatusDetail = "The app will keep working locally until iCloud sync is ready."
+    @State private var cloudSyncLastSuccessAt: Date?
+    @State private var isCloudSyncInFlight = false
     @State private var calibrationEvaluationTask: Task<Void, Never>?
     @State private var lastCalibrationEvaluationAt: Date?
     @State private var isAddConfirmationPresented = false
@@ -772,6 +1605,7 @@ struct ContentView: View {
     private let openFoodFactsService = OpenFoodFactsService()
     private let usdaFoodService = USDAFoodService()
     private let aiTextMealService = AITextMealService()
+    private let weeklyInsightService = GeminiWeeklyInsightService()
     private let clockTimer = Timer.publish(every: 120, on: .main, in: .common).autoconnect()
     private let disableUSDASearchForDebug = false
 
@@ -868,6 +1702,7 @@ struct ContentView: View {
     private var deficitCalories: Int { min(max(storedDeficitCalories, 0), 2500) }
     private var surplusCalories: Int { min(max(storedSurplusCalories, 0), 2500) }
     private var weekendDeficitCalories: Int { min(max(storedWeekendDeficitCalories, 0), 2500) }
+    private var fixedGoalCalories: Int { min(max(storedFixedGoalCalories, 1), 6000) }
 
     private func goalTypeForDay(_ identifier: String) -> GoalType {
         if identifier == todayDayIdentifier {
@@ -880,6 +1715,9 @@ struct ContentView: View {
     }
 
     private func deficitForDay(_ identifier: String) -> Int {
+        if goalTypeForDay(identifier) == .fixed {
+            return 0
+        }
         guard useWeekendDeficit else {
             return goalTypeForDay(identifier) == .surplus ? surplusCalories : deficitCalories
         }
@@ -890,13 +1728,84 @@ struct ContentView: View {
         let isWeekend = (weekday == 1) || (weekday == 7)
         return isWeekend ? weekendDeficitCalories : (goalTypeForDay(identifier) == .surplus ? surplusCalories : deficitCalories)
     }
-    private var resolvedBMRProfile: BMRProfile? { healthKitService.profile?.bmrProfile }
+    private var syncedHealthSourceDeviceType: CloudSyncOriginDeviceType {
+        CloudSyncOriginDeviceType(rawValue: storedSyncedHealthSourceDeviceTypeRaw) ?? .unknown
+    }
+
+    private var effectiveHealthProfile: HealthKitService.SyncedProfile? {
+        if let profile = healthKitService.profile {
+            return profile
+        }
+        return cloudSyncedHealthProfile
+    }
+
+    private var isUsingSyncedHealthFallback: Bool {
+        healthKitService.profile == nil && cloudSyncedHealthProfile != nil
+    }
+
+    private var shouldUseIPhoneExerciseSource: Bool {
+        currentCloudOriginDeviceType != .iphone && syncedHealthSourceDeviceType == .iphone
+    }
+
+    private var effectiveTodayHealthWorkouts: [ExerciseEntry] {
+        let local = workoutsForToday(healthKitService.todayWorkouts)
+        let synced = workoutsForToday(cloudSyncedTodayWorkouts)
+
+        // Use cached iPhone-synced workouts while local HealthKit refresh is in flight to avoid launch flicker.
+        if currentCloudOriginDeviceType == .iphone {
+            if local.isEmpty {
+                return synced
+            }
+            if synced.isEmpty {
+                return local
+            }
+            return mergedWorkoutEntries(primary: local, secondary: synced)
+        }
+
+        if shouldUseIPhoneExerciseSource {
+            return synced
+        }
+
+        if local.isEmpty {
+            return synced
+        }
+        if synced.isEmpty {
+            return local
+        }
+        return mergedWorkoutEntries(primary: local, secondary: synced)
+    }
+
+    private func workoutsForToday(_ workouts: [ExerciseEntry]) -> [ExerciseEntry] {
+        workouts.filter { entry in
+            centralDayIdentifier(for: entry.createdAt) == todayDayIdentifier
+        }
+    }
+
+    private var resolvedBMRProfile: BMRProfile? { effectiveHealthProfile?.bmrProfile }
+    private var archivedSyncedBurnedCaloriesToday: Int? {
+        guard shouldUseIPhoneExerciseSource else { return nil }
+        return dailyBurnedCalorieArchive[todayDayIdentifier]
+    }
+
+    private var syncedActivityCaloriesToday: Int? {
+        guard let archivedBurned = archivedSyncedBurnedCaloriesToday else { return nil }
+        let effectiveOffset = (calibrationState.isEnabled && goalType != .fixed) ? calibrationState.calibrationOffsetCalories : 0
+        let baselineBurned = max(archivedBurned - effectiveOffset, 1)
+        let bmr = resolvedBMRProfile.flatMap(calculatedBMR(for:)) ?? ContentView.fallbackAverageBMR
+        let syncedExerciseCalories = exercises.reduce(0) { $0 + $1.calories }
+            + effectiveTodayHealthWorkouts.reduce(0) { $0 + $1.calories }
+        return max(baselineBurned - bmr - syncedExerciseCalories, 0)
+    }
+
     private var activityCaloriesToday: Int {
-        stepActivityService.estimatedCaloriesToday(profile: resolvedBMRProfile)
+        if let syncedActivityCaloriesToday {
+            return syncedActivityCaloriesToday
+        }
+        return stepActivityService.estimatedCaloriesToday(profile: resolvedBMRProfile)
     }
 
     private var reclassifiedWalkingCaloriesToday: Int {
-        let totalRequestedReclassification = (exercises + healthKitService.todayWorkouts)
+        let totalRequestedReclassification = (exercises + effectiveTodayHealthWorkouts)
             .reduce(0) { $0 + $1.reclassifiedWalkingCalories }
         return min(totalRequestedReclassification, activityCaloriesToday)
     }
@@ -905,35 +1814,84 @@ struct ContentView: View {
         max(activityCaloriesToday - reclassifiedWalkingCaloriesToday, 0)
     }
 
+    private var hasResolvedInitialLiveCalorieInputsThisLaunch: Bool {
+        healthKitService.hasLoadedFreshHealthDataThisLaunch
+            && stepActivityService.hasLoadedFreshStepDataThisLaunch
+    }
+
+    private var hasTodayArchive: Bool {
+        dailyCalorieGoalArchive[todayDayIdentifier] != nil
+            && dailyBurnedCalorieArchive[todayDayIdentifier] != nil
+    }
+
+    private var shouldDeferForHealthRefreshWithoutTodayArchive: Bool {
+        guard !hasResolvedInitialLiveCalorieInputsThisLaunch else {
+            return false
+        }
+        return !hasTodayArchive
+    }
+
+    private var cachedTodayDailyCalorieModel: DailyCalorieModel? {
+        guard cachedCaloriesDayIdentifier == todayDayIdentifier else { return nil }
+        guard cachedBurnedCaloriesToday > 0, cachedCalorieGoalToday > 0 else { return nil }
+        let effectiveOffset = (calibrationState.isEnabled && goalType != .fixed) ? calibrationState.calibrationOffsetCalories : 0
+        let cachedBMR = resolvedBMRProfile.flatMap(calculatedBMR(for:))
+        return DailyCalorieModel(
+            bmr: cachedBMR,
+            burned: cachedBurnedCaloriesToday,
+            burnedBaseline: max(cachedBurnedCaloriesToday - effectiveOffset, 1),
+            goal: cachedCalorieGoalToday,
+            deficit: deficitForDay(todayDayIdentifier),
+            usesBMR: cachedBMR != nil
+        )
+    }
+
+    private var shouldUseCachedBurnModelOnLaunch: Bool {
+        guard !hasResolvedInitialLiveCalorieInputsThisLaunch else { return false }
+        return cachedTodayDailyCalorieModel != nil
+    }
+
     private var exerciseCaloriesToday: Int {
         let manual = exercises.reduce(0) { $0 + $1.calories }
-        let health = healthKitService.todayWorkouts.reduce(0) { $0 + $1.calories }
+        let health = effectiveTodayHealthWorkouts.reduce(0) { $0 + $1.calories }
         return manual + health
     }
     private var currentDailyCalorieModel: DailyCalorieModel {
+        if shouldUseCachedBurnModelOnLaunch, let cachedModel = cachedTodayDailyCalorieModel {
+            return cachedModel
+        }
+
         // Use archived goal/burned for today while HealthKit hasn't loaded, to avoid flash of fallback value
-        if resolvedBMRProfile == nil,
+        let shouldPreferIPhoneTodayArchive = shouldUseIPhoneExerciseSource
+        let shouldUseTodayArchive = !hasResolvedInitialLiveCalorieInputsThisLaunch
+            || healthKitService.isRefreshingHealthData
+            || resolvedBMRProfile == nil
+            || shouldPreferIPhoneTodayArchive
+        if shouldUseTodayArchive,
            let archivedGoal = dailyCalorieGoalArchive[todayDayIdentifier],
            let archivedBurned = dailyBurnedCalorieArchive[todayDayIdentifier] {
-            let effectiveOffset = calibrationState.isEnabled ? calibrationState.calibrationOffsetCalories : 0
+            let effectiveOffset = (calibrationState.isEnabled && goalType != .fixed) ? calibrationState.calibrationOffsetCalories : 0
+            let archivedBMR = resolvedBMRProfile.flatMap(calculatedBMR(for:))
             return DailyCalorieModel(
-                bmr: nil,
+                bmr: archivedBMR,
                 burned: archivedBurned,
                 burnedBaseline: max(archivedBurned - effectiveOffset, 1),
                 goal: archivedGoal,
                 deficit: deficitForDay(todayDayIdentifier),
-                usesBMR: false
+                usesBMR: archivedBMR != nil
             )
         }
 
         let bmr = resolvedBMRProfile.flatMap(calculatedBMR(for:)) ?? ContentView.fallbackAverageBMR
         let burnedBaseline = max(bmr + effectiveActivityCaloriesToday + exerciseCaloriesToday, 1)
-        let effectiveOffset = calibrationState.isEnabled ? calibrationState.calibrationOffsetCalories : 0
+        let effectiveOffset = (calibrationState.isEnabled && goalType != .fixed) ? calibrationState.calibrationOffsetCalories : 0
         let burned = max(burnedBaseline + effectiveOffset, 1)
         let dayGoalType = goalTypeForDay(todayDayIdentifier)
         let amount = deficitForDay(todayDayIdentifier)
         let goal: Int
-        if dayGoalType == .surplus {
+        if dayGoalType == .fixed {
+            goal = fixedGoalCalories
+        } else if dayGoalType == .surplus {
             goal = max(burned + amount, 1)
         } else {
             goal = max(burned - amount, 1)
@@ -949,6 +1907,46 @@ struct ContentView: View {
     }
     private var burnedCaloriesToday: Int { currentDailyCalorieModel.burned }
     private var calorieGoal: Int { currentDailyCalorieModel.goal }
+    private var displayedCalorieGoal: Int? {
+        shouldDeferForHealthRefreshWithoutTodayArchive ? nil : calorieGoal
+    }
+    private var displayedCaloriesLeft: Int? {
+        shouldDeferForHealthRefreshWithoutTodayArchive ? nil : caloriesLeft
+    }
+    private var calorieHeroDisplay: (value: Int?, title: String) {
+        if shouldDeferForHealthRefreshWithoutTodayArchive {
+            return (nil, "Syncing Health activity...")
+        }
+
+        let dayGoalType = goalTypeForDay(todayDayIdentifier)
+        let consumed = totalCalories
+        let goal = calorieGoal
+        let burned = burnedCaloriesToday
+
+        switch dayGoalType {
+        case .deficit:
+            if consumed <= goal {
+                return (max(goal - consumed, 0), "Calories Left")
+            }
+            if consumed <= burned {
+                return (max(burned - consumed, 0), "Until Burned")
+            }
+            return (max(consumed - burned, 0), "Over Burned")
+        case .surplus:
+            if consumed > goal {
+                return (max(consumed - goal, 0), "Over Goal")
+            }
+            return (max(goal - consumed, 0), "Calories Left")
+        case .fixed:
+            if consumed > goal {
+                return (max(consumed - goal, 0), "Over Goal")
+            }
+            return (max(goal - consumed, 0), "Calories Left")
+        }
+    }
+    private var displayedCalorieProgress: Double {
+        shouldDeferForHealthRefreshWithoutTodayArchive ? 0 : calorieProgress
+    }
     private var calibrationOffsetCalories: Int { calibrationState.calibrationOffsetCalories }
     private var calibrationConfidence: CalibrationConfidence {
         let checks = max(calibrationState.dataQualityChecks, 1)
@@ -994,13 +1992,30 @@ struct ContentView: View {
     }
 
     private var cloudSyncPayload: CloudSyncPayload {
-        CloudSyncPayload(
+        let liveProfileData: String? = {
+            guard currentCloudOriginDeviceType == .iphone, let profile = healthKitService.profile else {
+                return storedSyncedHealthProfileData.isEmpty ? nil : storedSyncedHealthProfileData
+            }
+            guard let data = try? JSONEncoder().encode(profile) else { return nil }
+            return String(decoding: data, as: UTF8.self)
+        }()
+
+        let liveWorkoutData: String? = {
+            guard currentCloudOriginDeviceType == .iphone else {
+                return storedSyncedTodayWorkoutsData.isEmpty ? nil : storedSyncedTodayWorkoutsData
+            }
+            guard let data = try? JSONEncoder().encode(healthKitService.todayWorkouts) else { return nil }
+            return String(decoding: data, as: UTF8.self)
+        }()
+
+        return CloudSyncPayload(
             hasCompletedOnboarding: hasCompletedOnboarding,
             deficitCalories: storedDeficitCalories,
             useWeekendDeficit: useWeekendDeficit,
             weekendDeficitCalories: storedWeekendDeficitCalories,
             goalTypeRaw: goalTypeRaw,
             surplusCalories: storedSurplusCalories,
+            fixedGoalCalories: storedFixedGoalCalories,
             dailyGoalTypeArchiveData: storedDailyGoalTypeArchiveData,
             proteinGoal: legacyStoredProteinGoal,
             mealEntriesData: storedEntriesData,
@@ -1017,8 +2032,227 @@ struct ContentView: View {
             quickAddFoodsData: storedQuickAddFoodsData,
             useAIBaseServings: useAIBaseServings,
             calibrationStateData: storedCalibrationStateData,
-            healthWeighInsData: storedHealthWeighInsData
+            healthWeighInsData: storedHealthWeighInsData,
+            syncedHealthProfileData: liveProfileData,
+            syncedTodayWorkoutsData: liveWorkoutData,
+            syncedHealthSourceDeviceTypeRaw: currentCloudOriginDeviceType == .iphone
+                ? CloudSyncOriginDeviceType.iphone.rawValue
+                : (storedSyncedHealthSourceDeviceTypeRaw.isEmpty ? nil : storedSyncedHealthSourceDeviceTypeRaw)
         )
+    }
+
+    private var currentCloudOriginDeviceType: CloudSyncOriginDeviceType {
+        switch UIDevice.current.userInterfaceIdiom {
+        case .phone:
+            return .iphone
+        case .pad:
+            return .ipad
+        case .mac:
+            return .mac
+        default:
+            return .unknown
+        }
+    }
+
+    private var cloudSyncStatusTint: Color {
+        switch cloudSyncStatusLevel {
+        case .checking, .uploading:
+            return accent
+        case .synced:
+            return Color.green
+        case .warning:
+            return Color.orange
+        case .error:
+            return Color.red
+        }
+    }
+
+    private var cloudSyncLastSuccessText: String {
+        guard let cloudSyncLastSuccessAt else { return "No successful iCloud sync yet." }
+        return "Last successful sync: \(cloudSyncLastSuccessAt.formatted(date: .abbreviated, time: .shortened))"
+    }
+
+    private func setCloudSyncStatus(
+        level: CloudSyncStatusLevel,
+        title: String,
+        detail: String,
+        markSuccessAt: Date? = nil
+    ) {
+        cloudSyncStatusLevel = level
+        cloudSyncStatusTitle = title
+        cloudSyncStatusDetail = detail
+        if let markSuccessAt {
+            cloudSyncLastSuccessAt = markSuccessAt
+        }
+    }
+
+    private func cloudSyncProgressDetail(for trigger: CloudSyncTrigger) -> String {
+        switch trigger {
+        case .launch:
+            return "Checking iCloud for the latest data from your other devices."
+        case .foreground:
+            return "Refreshing iCloud data after the app became active."
+        case .timer:
+            return "Refreshing iCloud data in the background while the app is open."
+        case .push:
+            return "A CloudKit change arrived, so the app is pulling the newest data now."
+        case .manual:
+            return "Retrying iCloud sync now."
+        }
+    }
+
+    private func cloudSyncSuccessDetail(for trigger: CloudSyncTrigger, fallbackDetail: String? = nil) -> String {
+        if let fallbackDetail, !fallbackDetail.isEmpty {
+            return fallbackDetail
+        }
+
+        switch trigger {
+        case .launch:
+            return "This device finished its launch-time iCloud sync check."
+        case .foreground:
+            return "This device pulled the latest iCloud data after becoming active."
+        case .timer:
+            return "This device refreshed from iCloud while the app stayed open."
+        case .push:
+            return "A CloudKit push was received and the latest data was applied."
+        case .manual:
+            return "This device completed a manual iCloud sync refresh."
+        }
+    }
+
+    private func cloudSyncStatusPresentation(for error: Error) -> (CloudSyncStatusLevel, String, String) {
+        if let syncError = error as? AppCloudSyncError {
+            switch syncError {
+            case .accountUnavailable(.noAccount):
+                return (
+                    .warning,
+                    "iCloud sync is off",
+                    "Sign into the same iCloud account on both devices, then reopen the app."
+                )
+            case let .accountUnavailable(status):
+                return (
+                    .warning,
+                    "iCloud sync is unavailable",
+                    AppCloudSyncError.accountUnavailable(status).errorDescription ?? "This device cannot reach iCloud right now."
+                )
+            case .missingPayloadAsset:
+                return (
+                    .error,
+                    "Synced data is incomplete",
+                    "The CloudKit record exists but its payload is missing. Re-sync from another device may be required."
+                )
+            case .invalidPayload:
+                return (
+                    .error,
+                    "Synced data could not be read",
+                    "The CloudKit payload could not be decoded on this device."
+                )
+            }
+        }
+
+        if let ckError = error as? CKError {
+            switch ckError.code {
+            case .notAuthenticated:
+                return (
+                    .warning,
+                    "iCloud sign-in is required",
+                    "Sign into iCloud on this device, then open the app again."
+                )
+            case .networkUnavailable, .networkFailure, .serviceUnavailable, .requestRateLimited, .zoneBusy:
+                return (
+                    .warning,
+                    "iCloud sync is temporarily unavailable",
+                    ckError.localizedDescription
+                )
+            default:
+                return (
+                    .error,
+                    "iCloud sync failed",
+                    ckError.localizedDescription
+                )
+            }
+        }
+
+        return (
+            .error,
+            "iCloud sync failed",
+            error.localizedDescription
+        )
+    }
+
+    private func updateCloudSyncStatusAfterFailure(_ error: Error) {
+        let presentation = cloudSyncStatusPresentation(for: error)
+        setCloudSyncStatus(level: presentation.0, title: presentation.1, detail: presentation.2)
+    }
+
+    private var persistentStateSnapshot: PersistentAppStateSnapshot {
+        PersistentAppStateSnapshot(
+            hasCompletedOnboarding: hasCompletedOnboarding,
+            deficitCalories: storedDeficitCalories,
+            useWeekendDeficit: useWeekendDeficit,
+            weekendDeficitCalories: storedWeekendDeficitCalories,
+            goalTypeRaw: goalTypeRaw,
+            surplusCalories: storedSurplusCalories,
+            fixedGoalCalories: storedFixedGoalCalories,
+            dailyGoalTypeArchiveData: storedDailyGoalTypeArchiveData,
+            proteinGoal: legacyStoredProteinGoal,
+            mealEntriesData: storedEntriesData,
+            trackedNutrientsData: storedTrackedNutrientsData,
+            nutrientGoalsData: storedNutrientGoalsData,
+            lastCentralDayIdentifier: lastCentralDayIdentifier,
+            selectedAppIconChoiceRaw: selectedAppIconChoiceRaw,
+            dailyEntryArchiveData: storedDailyEntryArchiveData,
+            dailyCalorieGoalArchiveData: storedDailyCalorieGoalArchiveData,
+            dailyBurnedCalorieArchiveData: storedDailyBurnedCalorieArchiveData,
+            dailyExerciseArchiveData: storedDailyExerciseArchiveData,
+            venueMenusData: storedVenueMenusData,
+            venueMenuSignaturesData: storedVenueMenuSignaturesData,
+            quickAddFoodsData: storedQuickAddFoodsData,
+            calibrationStateData: storedCalibrationStateData,
+            healthWeighInsData: storedHealthWeighInsData,
+            cloudSyncLocalModifiedAt: cloudSyncLocalModifiedAt,
+            useAIBaseServings: useAIBaseServings
+        )
+    }
+
+    private func applyPersistentStateSnapshot(_ snapshot: PersistentAppStateSnapshot) {
+        hasCompletedOnboarding = snapshot.hasCompletedOnboarding
+        storedDeficitCalories = snapshot.deficitCalories
+        useWeekendDeficit = snapshot.useWeekendDeficit
+        storedWeekendDeficitCalories = snapshot.weekendDeficitCalories
+        goalTypeRaw = snapshot.goalTypeRaw
+        storedSurplusCalories = snapshot.surplusCalories
+        storedFixedGoalCalories = snapshot.fixedGoalCalories
+        storedDailyGoalTypeArchiveData = snapshot.dailyGoalTypeArchiveData
+        legacyStoredProteinGoal = snapshot.proteinGoal
+        storedEntriesData = snapshot.mealEntriesData
+        storedTrackedNutrientsData = snapshot.trackedNutrientsData
+        storedNutrientGoalsData = snapshot.nutrientGoalsData
+        lastCentralDayIdentifier = snapshot.lastCentralDayIdentifier
+        selectedAppIconChoiceRaw = snapshot.selectedAppIconChoiceRaw
+        storedDailyEntryArchiveData = snapshot.dailyEntryArchiveData
+        storedDailyCalorieGoalArchiveData = snapshot.dailyCalorieGoalArchiveData
+        storedDailyBurnedCalorieArchiveData = snapshot.dailyBurnedCalorieArchiveData
+        storedDailyExerciseArchiveData = snapshot.dailyExerciseArchiveData
+        storedVenueMenusData = snapshot.venueMenusData
+        storedVenueMenuSignaturesData = snapshot.venueMenuSignaturesData
+        storedQuickAddFoodsData = snapshot.quickAddFoodsData
+        storedCalibrationStateData = snapshot.calibrationStateData
+        storedHealthWeighInsData = snapshot.healthWeighInsData
+        cloudSyncLocalModifiedAt = snapshot.cloudSyncLocalModifiedAt
+        useAIBaseServings = snapshot.useAIBaseServings
+    }
+
+    private func bootstrapPersistentStateStore() {
+        let snapshot = PersistentAppStateStore.shared.bootstrapSnapshot(
+            defaults: .standard,
+            fallback: persistentStateSnapshot
+        )
+        applyPersistentStateSnapshot(snapshot)
+    }
+
+    private func persistStateSnapshot() {
+        PersistentAppStateStore.shared.saveSnapshot(persistentStateSnapshot)
     }
 
     private var currentMenu: NutrisliceMenu {
@@ -1037,7 +2271,7 @@ struct ContentView: View {
         let threshold = 0.95
         let dynamic = Set<String>(currentMenu.nutrientNullRateByKey.compactMap { key, rate in
             let normalized = key.lowercased()
-            guard normalized != "g_protein", rate >= threshold else { return nil }
+            guard normalized != "g_protein", normalized != "g_fiber", rate >= threshold else { return nil }
             return normalized
         })
         return dynamic.union(NutrientCatalog.defaultExcludedBecauseConsistentlyNull)
@@ -1224,6 +2458,7 @@ struct ContentView: View {
         if let data = try? JSONEncoder().encode(lastLoadedMenuSignatureByVenue) {
             storedVenueMenuSignaturesData = String(decoding: data, as: UTF8.self)
         }
+        persistStateSnapshot()
     }
 
     private var totalCalories: Int { entries.reduce(0) { $0 + $1.calories } }
@@ -1275,7 +2510,10 @@ struct ContentView: View {
                 calories: totalCalories,
                 nutrientValues: totalNutrients,
                 createdAt: sortedGroupEntries.first?.createdAt ?? .distantPast,
-                servingCount: sortedGroupEntries.count
+                servingCount: sortedGroupEntries.count,
+                displayCount: sortedGroupEntries.reduce(0) { partialResult, entry in
+                    partialResult + max(entry.loggedCount ?? 1, 1)
+                }
             )
         }
         .sorted { $0.createdAt > $1.createdAt }
@@ -1333,6 +2571,21 @@ struct ContentView: View {
         graphPoints(dayCount: range.dayCount)
     }
 
+    private func graphPoints(for dayIdentifiers: [String]) -> [CalorieGraphPoint] {
+        dayIdentifiers.compactMap { identifier in
+            guard let date = date(fromCentralDayIdentifier: identifier) else {
+                return nil
+            }
+            return CalorieGraphPoint(
+                dayIdentifier: identifier,
+                date: date,
+                calories: dailyCalories(for: identifier),
+                goal: calorieGoalForDay(identifier),
+                burned: burnedCaloriesForDay(identifier)
+            )
+        }
+    }
+
     private func graphPoints(dayCount: Int) -> [CalorieGraphPoint] {
         let today = centralCalendar.startOfDay(for: Date())
         // Use completed days only: last `dayCount` days, excluding today
@@ -1351,16 +2604,665 @@ struct ContentView: View {
         }
     }
 
-    private var historyStatistics: (average: Int, highest: CalorieGraphPoint?, goalHitCount: Int) {
-        let points = calorieGraphPoints
-        let nonZeroPoints = points.filter { $0.calories > 0 }
-        let total = nonZeroPoints.reduce(0) { $0 + $1.calories }
-        let highest = nonZeroPoints.max { $0.calories < $1.calories }
-        let goalHits = points.reduce(0) { partialResult, point in
-            partialResult + ((point.calories > 0 && point.calories <= point.goal) ? 1 : 0)
+    private struct WeeklyInsightWindow {
+        let label: String
+        let dayIdentifiers: [String]
+    }
+
+    private func sundayStartOfWeek(containing date: Date) -> Date {
+        let startOfDay = centralCalendar.startOfDay(for: date)
+        let weekday = centralCalendar.component(.weekday, from: startOfDay)
+        let daysFromSunday = (weekday + 6) % 7
+        return centralCalendar.date(byAdding: .day, value: -daysFromSunday, to: startOfDay) ?? startOfDay
+    }
+
+    private func dayIdentifiers(from start: Date, to endExclusive: Date) -> [String] {
+        let startOfStart = centralCalendar.startOfDay(for: start)
+        let startOfEnd = centralCalendar.startOfDay(for: endExclusive)
+        guard startOfStart < startOfEnd else { return [] }
+
+        var identifiers: [String] = []
+        var cursor = startOfStart
+        while cursor < startOfEnd {
+            identifiers.append(centralDayIdentifier(for: cursor))
+            guard let next = centralCalendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+            cursor = next
         }
-        let average = nonZeroPoints.isEmpty ? 0 : Int((Double(total) / Double(nonZeroPoints.count)).rounded())
-        return (average: average, highest: highest, goalHitCount: goalHits)
+        return identifiers
+    }
+
+    private func weeklyInsightWindows(limit: Int = 4) -> [WeeklyInsightWindow] {
+        let today = centralCalendar.startOfDay(for: Date())
+        let currentWeekStart = sundayStartOfWeek(containing: today)
+        let isSunday = centralCalendar.component(.weekday, from: today) == 1
+
+        let primaryStart: Date
+        let primaryEndExclusive: Date
+        let primaryLabel: String
+
+        if isSunday {
+            primaryStart = centralCalendar.date(byAdding: .day, value: -7, to: currentWeekStart) ?? currentWeekStart
+            primaryEndExclusive = currentWeekStart
+            primaryLabel = "Last Week"
+        } else {
+            primaryStart = currentWeekStart
+            primaryEndExclusive = today
+            primaryLabel = "Current Week"
+        }
+
+        var windows: [WeeklyInsightWindow] = []
+        let primaryIdentifiers = dayIdentifiers(from: primaryStart, to: primaryEndExclusive)
+        if !primaryIdentifiers.isEmpty {
+            windows.append(WeeklyInsightWindow(label: primaryLabel, dayIdentifiers: primaryIdentifiers))
+        }
+
+        var windowEndExclusive = primaryStart
+        guard limit > 1 else { return windows }
+
+        for index in 1..<limit {
+            guard let windowStart = centralCalendar.date(byAdding: .day, value: -7, to: windowEndExclusive) else { break }
+            let identifiers = dayIdentifiers(from: windowStart, to: windowEndExclusive)
+            guard !identifiers.isEmpty else { break }
+
+            let label: String
+            if isSunday {
+                label = "\(index + 1) Weeks Ago"
+            } else if index == 1 {
+                label = "Last Week"
+            } else {
+                label = "\(index) Weeks Ago"
+            }
+
+            windows.append(WeeklyInsightWindow(label: label, dayIdentifiers: identifiers))
+            windowEndExclusive = windowStart
+        }
+
+        return windows
+    }
+
+    private func makeWeeklyInsightSummaryPayload() -> WeeklyInsightSummaryPayload? {
+        let windowsNewestFirst = weeklyInsightWindows(limit: 4)
+        guard let currentWindow = windowsNewestFirst.first else { return nil }
+
+        let points = graphPoints(for: currentWindow.dayIdentifiers)
+        guard !points.isEmpty else { return nil }
+
+        let windowsOldestFirst = Array(windowsNewestFirst.reversed())
+        let recentTrendPoints = windowsOldestFirst.flatMap { graphPoints(for: $0.dayIdentifiers) }
+        let daysInPeriod = points.count
+        let daysInPeriodDouble = Double(daysInPeriod)
+
+        let storedWeighInsByDay: [String: Double] = Dictionary(
+            uniqueKeysWithValues: healthWeighIns.map { ($0.dayIdentifier, $0.representativePounds) }
+        )
+        let freshWeighInsByDay: [String: Double] = Dictionary(
+            uniqueKeysWithValues: healthKitService.reducedBodyMassHistory.map { ($0.dayIdentifier, $0.representativePounds) }
+        )
+        let weighInsByDay = freshWeighInsByDay.merging(storedWeighInsByDay) { fresh, _ in fresh }
+
+        let proteinKey = "g_protein"
+        let proteinGoalGrams = nutrientGoals[proteinKey] ?? max(legacyStoredProteinGoal, 1)
+
+        var mealLoggedDays = 0
+        var weightLoggedDays = 0
+
+        var reliableBurnedDays = 0
+        var compatibilityFallbackDays = 0
+        var bmrFallbackDays = 0
+
+        var proteinGramsValues: [Int] = []
+        var proteinDaysLogged = 0
+        var proteinDaysHitGoal = 0
+
+        var caloriesInValues: [Int] = []
+        var caloriesBurnedValues: [Int] = []
+        var netCaloriesValues: [Int] = []
+
+        var days: [WeeklyInsightSummaryPayload.Day] = []
+        days.reserveCapacity(daysInPeriod)
+
+        for point in points {
+            let id = point.dayIdentifier
+            let entriesForDay = entries(forDayIdentifier: id)
+            let caloriesIn = point.calories
+            if !entriesForDay.isEmpty && caloriesIn > 0 {
+                mealLoggedDays += 1
+            }
+
+            let weight = weighInsByDay[id]
+            if weight != nil {
+                weightLoggedDays += 1
+            }
+
+            let caloriesBurned = point.burned
+            let hasStoredBurned = dailyBurnedCalorieArchive[id] != nil
+            let hasCompatibilityFallback = !hasStoredBurned && dailyCalorieGoalArchive[id] != nil
+            if hasStoredBurned {
+                reliableBurnedDays += 1
+            } else if hasCompatibilityFallback {
+                compatibilityFallbackDays += 1
+            } else {
+                bmrFallbackDays += 1
+            }
+
+            let net = caloriesIn - caloriesBurned
+
+            let totals = nutrientTotals(for: id)
+            let protein = totals[proteinKey] ?? 0
+            proteinGramsValues.append(protein)
+            if protein > 0 {
+                proteinDaysLogged += 1
+            }
+            if proteinGoalGrams > 0, protein >= proteinGoalGrams {
+                proteinDaysHitGoal += 1
+            }
+
+            caloriesInValues.append(caloriesIn)
+            caloriesBurnedValues.append(caloriesBurned)
+            netCaloriesValues.append(net)
+
+            days.append(
+                WeeklyInsightSummaryPayload.Day(
+                    dayIdentifier: id,
+                    date: point.date,
+                    caloriesIn: caloriesIn,
+                    caloriesBurned: caloriesBurned,
+                    weightPounds: weight,
+                    netCalories: net
+                )
+            )
+        }
+
+        // Calorie intake alignment vs your saved per-day calorie goal.
+        var overGoalDays = 0
+        var underGoalDays = 0
+        var biggestOverage: Int?
+        var biggestUnderoage: Int?
+
+        var overGoalDayIdentifiers: [String] = []
+        var underGoalDayIdentifiers: [String] = []
+        var overageSum = 0
+        var overageCount = 0
+        var deficitDaysWhereIntakeWasOverGoal = 0
+        var surplusDaysWhereIntakeWasUnderGoal = 0
+        var goalValues: [Int] = []
+        goalValues.reserveCapacity(daysInPeriod)
+
+        for point in points {
+            let delta = point.calories - point.goal
+            let net = point.calories - point.burned
+            goalValues.append(point.goal)
+            if delta > 0 {
+                overGoalDays += 1
+                overGoalDayIdentifiers.append(point.dayIdentifier)
+                overageSum += delta
+                overageCount += 1
+                if net < 0 {
+                    deficitDaysWhereIntakeWasOverGoal += 1
+                }
+                biggestOverage = max(biggestOverage ?? delta, delta)
+            } else if delta < 0 {
+                underGoalDays += 1
+                underGoalDayIdentifiers.append(point.dayIdentifier)
+                if net > 0 {
+                    surplusDaysWhereIntakeWasUnderGoal += 1
+                }
+                biggestUnderoage = min(biggestUnderoage ?? delta, delta)
+            }
+        }
+
+        let avgCaloriesIn = Int((Double(caloriesInValues.reduce(0, +)) / daysInPeriodDouble).rounded())
+        let avgCaloriesBurned = Int((Double(caloriesBurnedValues.reduce(0, +)) / daysInPeriodDouble).rounded())
+        let avgNetCalories = Int((Double(netCaloriesValues.reduce(0, +)) / daysInPeriodDouble).rounded())
+
+        let minCaloriesIn = caloriesInValues.min() ?? 0
+        let maxCaloriesIn = caloriesInValues.max() ?? 0
+        let minCaloriesBurned = caloriesBurnedValues.min() ?? 0
+        let maxCaloriesBurned = caloriesBurnedValues.max() ?? 0
+        let minNetCalories = netCaloriesValues.min() ?? 0
+        let maxNetCalories = netCaloriesValues.max() ?? 0
+
+        let averageGoalCalories = Int((Double(goalValues.reduce(0, +)) / daysInPeriodDouble).rounded())
+
+        // Weight trend (oldest->newest).
+        let weights = days.compactMap { $0.weightPounds }
+        let startWeight = weights.first
+        let endWeight = weights.last
+        let weightChange = (startWeight != nil && endWeight != nil) ? (endWeight! - startWeight!) : nil
+
+        // Likely drivers: top foods + meal groups on over-goal days.
+        var caloriesByFoodName: [String: Int] = [:]
+        var caloriesByMealGroupRaw: [String: Int] = [:]
+        for dayID in overGoalDayIdentifiers {
+            let dayEntries = entries(forDayIdentifier: dayID)
+            for entry in dayEntries where entry.calories > 0 {
+                caloriesByFoodName[entry.name, default: 0] += entry.calories
+                caloriesByMealGroupRaw[entry.mealGroup.rawValue, default: 0] += entry.calories
+            }
+        }
+        let topFoodsOnOverGoalDays: [WeeklyInsightSummaryPayload.CalorieIntake.TopFood] = caloriesByFoodName
+            .sorted { $0.value > $1.value }
+            .prefix(5)
+            .map { WeeklyInsightSummaryPayload.CalorieIntake.TopFood(name: $0.key, calories: $0.value) }
+
+        let topMealGroupsOnOverGoalDays: [WeeklyInsightSummaryPayload.CalorieIntake.TopMealGroup] = caloriesByMealGroupRaw
+            .sorted { $0.value > $1.value }
+            .prefix(3)
+            .map { WeeklyInsightSummaryPayload.CalorieIntake.TopMealGroup(mealGroup: $0.key, calories: $0.value) }
+
+        let averageOverageOnOverGoalDays: Int? = overageCount > 0 ? Int((Double(overageSum) / Double(overageCount)).rounded()) : nil
+
+        let weekOverview = WeeklyInsightSummaryPayload.WeekOverview(
+            daysInPeriod: daysInPeriod,
+            mealLoggedDays: mealLoggedDays,
+            weightLoggedDays: weightLoggedDays
+        )
+
+        let intake = WeeklyInsightSummaryPayload.CalorieIntake(
+            averageCaloriesIn: avgCaloriesIn,
+            minCaloriesIn: minCaloriesIn,
+            maxCaloriesIn: maxCaloriesIn,
+            averageGoalCalories: averageGoalCalories,
+            overGoalDays: overGoalDays,
+            underGoalDays: underGoalDays,
+            biggestOverage: biggestOverage,
+            biggestUnderage: biggestUnderoage,
+            averageOverageOnOverGoalDays: averageOverageOnOverGoalDays,
+            topFoodsOnOverGoalDays: topFoodsOnOverGoalDays,
+            topMealGroupsOnOverGoalDays: topMealGroupsOnOverGoalDays
+        )
+
+        let activity = WeeklyInsightSummaryPayload.Activity(
+            averageCaloriesBurned: avgCaloriesBurned,
+            minCaloriesBurned: minCaloriesBurned,
+            maxCaloriesBurned: maxCaloriesBurned,
+            burnedReliability: WeeklyInsightSummaryPayload.BurnedReliability(
+                reliableBurnedDays: reliableBurnedDays,
+                compatibilityFallbackDays: compatibilityFallbackDays,
+                bmrFallbackDays: bmrFallbackDays
+            )
+        )
+
+        let balance = WeeklyInsightSummaryPayload.CalorieBalance(
+            averageNetCalories: avgNetCalories,
+            netDeficitDays: netCaloriesValues.filter { $0 < 0 }.count,
+            netSurplusDays: netCaloriesValues.filter { $0 > 0 }.count,
+            minNetCalories: minNetCalories,
+            maxNetCalories: maxNetCalories,
+            deficitDaysWhereIntakeWasOverGoal: deficitDaysWhereIntakeWasOverGoal,
+            surplusDaysWhereIntakeWasUnderGoal: surplusDaysWhereIntakeWasUnderGoal
+        )
+
+        let weightTrend = WeeklyInsightSummaryPayload.WeightTrend(
+            weightDaysUsed: weightLoggedDays,
+            startWeightPounds: startWeight,
+            endWeightPounds: endWeight,
+            weightChangePounds: weightChange
+        )
+
+        let estimatedBurnedDays = compatibilityFallbackDays + bmrFallbackDays
+        let dataQuality = WeeklyInsightSummaryPayload.DataQuality(
+            missingMealDays: max(daysInPeriod - mealLoggedDays, 0),
+            missingWeightDays: max(daysInPeriod - weightLoggedDays, 0),
+            estimatedBurnedDays: estimatedBurnedDays
+        )
+
+        let avgProtein = Int((Double(proteinGramsValues.reduce(0, +)) / daysInPeriodDouble).rounded())
+        let minProtein = proteinGramsValues.min() ?? 0
+        let maxProtein = proteinGramsValues.max() ?? 0
+
+        let macros = WeeklyInsightSummaryPayload.MacroPattern(
+            proteinGoalGrams: proteinGoalGrams > 0 ? proteinGoalGrams : nil,
+            proteinDaysLogged: proteinDaysLogged,
+            proteinDaysHitGoal: proteinDaysHitGoal,
+            averageProteinGrams: avgProtein,
+            minProteinGrams: minProtein,
+            maxProteinGrams: maxProtein
+        )
+
+        let recentWeeks: [WeeklyInsightSummaryPayload.CrossWeekPatterns.RecentWeek] = windowsOldestFirst.compactMap { window in
+            let weekPoints = graphPoints(for: window.dayIdentifiers)
+            guard let firstPoint = weekPoints.first, let lastPoint = weekPoints.last else { return nil }
+
+            let weekCaloriesIn = weekPoints.map(\.calories)
+            let weekCaloriesBurned = weekPoints.map(\.burned)
+            let weekNet = weekPoints.map { $0.calories - $0.burned }
+            let weekGoalDeltas = weekPoints.map { $0.calories - $0.goal }
+            let weekProtein = weekPoints.map { nutrientTotals(for: $0.dayIdentifier)["g_protein"] ?? 0 }
+            let mealLoggedDays = weekPoints.filter { !entries(forDayIdentifier: $0.dayIdentifier).isEmpty && $0.calories > 0 }.count
+            let exerciseEntries = weekPoints.flatMap { exercises(forDayIdentifier: $0.dayIdentifier) }
+            let exerciseDays = weekPoints.filter { !exercises(forDayIdentifier: $0.dayIdentifier).isEmpty }.count
+            let averageExerciseMinutes = exerciseDays > 0
+                ? Int((Double(exerciseEntries.reduce(0) { $0 + $1.durationMinutes }) / Double(exerciseDays)).rounded())
+                : 0
+            let weekWeights = weekPoints.compactMap { point in
+                weighInsByDay[point.dayIdentifier]
+            }
+            let weekWeightChange: Double? = {
+                guard let startWeight = weekWeights.first, let endWeight = weekWeights.last else { return nil }
+                return endWeight - startWeight
+            }()
+
+            let weekDayCountDouble = Double(weekPoints.count)
+
+            return WeeklyInsightSummaryPayload.CrossWeekPatterns.RecentWeek(
+                label: window.label,
+                startDayIdentifier: firstPoint.dayIdentifier,
+                endDayIdentifier: lastPoint.dayIdentifier,
+                averageCaloriesIn: Int((Double(weekCaloriesIn.reduce(0, +)) / weekDayCountDouble).rounded()),
+                averageCaloriesBurned: Int((Double(weekCaloriesBurned.reduce(0, +)) / weekDayCountDouble).rounded()),
+                averageNetCalories: Int((Double(weekNet.reduce(0, +)) / weekDayCountDouble).rounded()),
+                overGoalDays: weekGoalDeltas.filter { $0 > 0 }.count,
+                underGoalDays: weekGoalDeltas.filter { $0 < 0 }.count,
+                mealLoggedDays: mealLoggedDays,
+                exerciseDays: exerciseDays,
+                averageExerciseMinutes: averageExerciseMinutes,
+                averageProteinGrams: Int((Double(weekProtein.reduce(0, +)) / weekDayCountDouble).rounded()),
+                weightLoggedDays: weekWeights.count,
+                weightChangePounds: weekWeightChange
+            )
+        }
+
+        let currentWeekTrend = recentWeeks.last
+        let previousWeekTrend = recentWeeks.dropLast().last
+        let crossWeekPatterns = WeeklyInsightSummaryPayload.CrossWeekPatterns(
+            recentWeeks: recentWeeks,
+            currentVsPreviousCaloriesDelta: {
+                guard let currentWeekTrend, let previousWeekTrend else { return nil }
+                return currentWeekTrend.averageCaloriesIn - previousWeekTrend.averageCaloriesIn
+            }(),
+            currentVsPreviousNetDelta: {
+                guard let currentWeekTrend, let previousWeekTrend else { return nil }
+                return currentWeekTrend.averageNetCalories - previousWeekTrend.averageNetCalories
+            }(),
+            currentVsPreviousProteinDelta: {
+                guard let currentWeekTrend, let previousWeekTrend else { return nil }
+                return currentWeekTrend.averageProteinGrams - previousWeekTrend.averageProteinGrams
+            }(),
+            currentVsPreviousOverGoalDayDelta: {
+                guard let currentWeekTrend, let previousWeekTrend else { return nil }
+                return currentWeekTrend.overGoalDays - previousWeekTrend.overGoalDays
+            }(),
+            currentVsPreviousExerciseDayDelta: {
+                guard let currentWeekTrend, let previousWeekTrend else { return nil }
+                return currentWeekTrend.exerciseDays - previousWeekTrend.exerciseDays
+            }()
+        )
+
+        var mealTotalsByGroup: [MealGroup: Int] = [:]
+        var mealLoggedDaysByGroup: [MealGroup: Int] = [:]
+        var lateLogDayIdentifiers = Set<String>()
+        var exerciseDayIdentifiers = Set<String>()
+        var exerciseStatsByType: [ExerciseType: (days: Set<String>, sessions: Int, totalMinutes: Int, totalCalories: Int)] = [:]
+        var overGoalFoodStats: [String: (name: String, dayIdentifiers: Set<String>, totalCalories: Int, mealGroups: [String: Int])] = [:]
+
+        for point in recentTrendPoints {
+            let dayIdentifier = point.dayIdentifier
+            let dayEntries = entries(forDayIdentifier: dayIdentifier)
+            let groupedEntries = Dictionary(grouping: dayEntries, by: \.mealGroup)
+            for group in MealGroup.logDisplayOrder {
+                let groupEntries = groupedEntries[group] ?? []
+                let groupCalories = groupEntries.reduce(0) { $0 + $1.calories }
+                if groupCalories > 0 {
+                    mealTotalsByGroup[group, default: 0] += groupCalories
+                    mealLoggedDaysByGroup[group, default: 0] += 1
+                }
+            }
+
+            if dayEntries.contains(where: {
+                let hour = centralCalendar.component(.hour, from: $0.createdAt)
+                return hour >= 20
+            }) {
+                lateLogDayIdentifiers.insert(dayIdentifier)
+            }
+
+            let dayExercises = exercises(forDayIdentifier: dayIdentifier)
+            if !dayExercises.isEmpty {
+                exerciseDayIdentifiers.insert(dayIdentifier)
+            }
+            for exercise in dayExercises {
+                var stats = exerciseStatsByType[exercise.exerciseType] ?? (
+                    days: Set<String>(),
+                    sessions: 0,
+                    totalMinutes: 0,
+                    totalCalories: 0
+                )
+                stats.days.insert(dayIdentifier)
+                stats.sessions += 1
+                stats.totalMinutes += exercise.durationMinutes
+                stats.totalCalories += exercise.calories
+                exerciseStatsByType[exercise.exerciseType] = stats
+            }
+
+            if point.calories > point.goal {
+                for entry in dayEntries where entry.calories > 0 {
+                    let key = entry.name.lowercased()
+                    var stats = overGoalFoodStats[key] ?? (
+                        name: entry.name,
+                        dayIdentifiers: Set<String>(),
+                        totalCalories: 0,
+                        mealGroups: [:]
+                    )
+                    stats.dayIdentifiers.insert(dayIdentifier)
+                    stats.totalCalories += entry.calories
+                    stats.mealGroups[entry.mealGroup.rawValue, default: 0] += entry.calories
+                    overGoalFoodStats[key] = stats
+                }
+            }
+        }
+
+        let totalRecentCalories = recentTrendPoints.reduce(0) { $0 + $1.calories }
+        let eveningCalories = recentTrendPoints.reduce(0) { partialResult, point in
+            let eveningGroupCalories = entries(forDayIdentifier: point.dayIdentifier)
+                .filter { $0.mealGroup == .dinner || $0.mealGroup == .snack }
+                .reduce(0) { $0 + $1.calories }
+            return partialResult + eveningGroupCalories
+        }
+
+        let mealPatterns: [WeeklyInsightSummaryPayload.HabitPatterns.MealPattern] = MealGroup.logDisplayOrder.compactMap { group in
+            let loggedDays = mealLoggedDaysByGroup[group, default: 0]
+            let totalCalories = mealTotalsByGroup[group, default: 0]
+            guard loggedDays > 0, totalCalories > 0 else { return nil }
+            return WeeklyInsightSummaryPayload.HabitPatterns.MealPattern(
+                mealGroup: group.rawValue,
+                averageCaloriesPerLoggedDay: Int((Double(totalCalories) / Double(loggedDays)).rounded()),
+                loggedDays: loggedDays,
+                totalCalories: totalCalories
+            )
+        }
+
+        let exercisePatterns: [WeeklyInsightSummaryPayload.HabitPatterns.ExercisePattern] = ExerciseType.allCases.compactMap { type in
+            guard let stats = exerciseStatsByType[type], !stats.days.isEmpty else { return nil }
+            return WeeklyInsightSummaryPayload.HabitPatterns.ExercisePattern(
+                exerciseType: type.rawValue,
+                days: stats.days.count,
+                sessions: stats.sessions,
+                averageDurationMinutes: Int((Double(stats.totalMinutes) / Double(stats.sessions)).rounded()),
+                totalCalories: stats.totalCalories
+            )
+        }
+
+        let repeatedOverGoalFoods: [WeeklyInsightSummaryPayload.RepeatedFoodPattern] = overGoalFoodStats.values
+            .filter { $0.dayIdentifiers.count >= 2 }
+            .sorted {
+                if $0.dayIdentifiers.count == $1.dayIdentifiers.count {
+                    return $0.totalCalories > $1.totalCalories
+                }
+                return $0.dayIdentifiers.count > $1.dayIdentifiers.count
+            }
+            .prefix(5)
+            .map { stats in
+                WeeklyInsightSummaryPayload.RepeatedFoodPattern(
+                    name: stats.name,
+                    overGoalDayCount: stats.dayIdentifiers.count,
+                    totalCalories: stats.totalCalories,
+                    dominantMealGroup: stats.mealGroups.max(by: { $0.value < $1.value })?.key ?? MealGroup.snack.rawValue
+                )
+            }
+
+        let habitPatterns = WeeklyInsightSummaryPayload.HabitPatterns(
+            averageEveningCalories: Int((Double(eveningCalories) / Double(max(recentTrendPoints.count, 1))).rounded()),
+            averageEveningSharePercent: totalRecentCalories > 0 ? Int((Double(eveningCalories) / Double(totalRecentCalories) * 100.0).rounded()) : 0,
+            breakfastLoggedDays: mealLoggedDaysByGroup[.breakfast, default: 0],
+            lunchLoggedDays: mealLoggedDaysByGroup[.lunch, default: 0],
+            dinnerLoggedDays: mealLoggedDaysByGroup[.dinner, default: 0],
+            snackLoggedDays: mealLoggedDaysByGroup[.snack, default: 0],
+            lateLogDays: lateLogDayIdentifiers.count,
+            exerciseDays: exerciseDayIdentifiers.count,
+            averageExerciseMinutesOnExerciseDays: exerciseDayIdentifiers.isEmpty
+                ? 0
+                : Int((Double(exerciseStatsByType.values.reduce(0) { $0 + $1.totalMinutes }) / Double(exerciseDayIdentifiers.count)).rounded()),
+            mealPatterns: mealPatterns,
+            exercisePatterns: exercisePatterns,
+            repeatedOverGoalFoods: repeatedOverGoalFoods
+        )
+
+        return WeeklyInsightSummaryPayload(
+            days: days,
+            weekOverview: weekOverview,
+            intake: intake,
+            activity: activity,
+            balance: balance,
+            weightTrend: weightTrend,
+            dataQuality: dataQuality,
+            macros: macros,
+            crossWeekPatterns: crossWeekPatterns,
+            habitPatterns: habitPatterns,
+            loggedFoods: []
+        )
+    }
+
+    private func generateWeeklyInsight() async {
+        guard !isWeeklyInsightLoading else { return }
+        isWeeklyInsightLoading = true
+        weeklyInsightErrorMessage = nil
+
+        defer {
+            isWeeklyInsightLoading = false
+        }
+
+        guard let summary = makeWeeklyInsightSummaryPayload() else {
+            weeklyInsightText = nil
+            weeklyInsightErrorMessage = "Not enough recent data to generate an insight yet."
+            isWeeklyInsightPresented = true
+            return
+        }
+
+        do {
+            let insight = try await weeklyInsightService.generateWeeklyInsight(summary: summary)
+            weeklyInsightText = insight
+            isWeeklyInsightPresented = true
+        } catch {
+            weeklyInsightText = nil
+            weeklyInsightErrorMessage = error.localizedDescription
+            isWeeklyInsightPresented = true
+        }
+    }
+
+    private func weightChangeComparisonPoints(for range: NetHistoryRange) -> [WeightChangePoint] {
+        let aggregation = weightChangeAggregation(for: range)
+        return expectedWeightChangePoints(for: range, aggregation: aggregation)
+            + actualWeightChangePoints(for: range, aggregation: aggregation)
+    }
+
+    private func expectedWeightChangePoints(
+        for range: NetHistoryRange,
+        aggregation: WeightChangeAggregation = .daily
+    ) -> [WeightChangePoint] {
+        let dates: [Date] = dayIdentifiers(forLast: range.dayCount).compactMap { identifier in
+            guard let date = date(fromCentralDayIdentifier: identifier) else {
+                return nil
+            }
+            return date
+        }
+
+        var runningChange = 0.0
+        var points: [WeightChangePoint] = []
+        points.reserveCapacity(dates.count)
+
+        for date in dates {
+            let identifier = centralDayIdentifier(for: date)
+            if hasExpectedWeightChangeData(for: identifier) {
+                let netCalories = dailyCalories(for: identifier) - burnedCaloriesForDay(identifier)
+                runningChange += Double(netCalories) / 3500.0
+            }
+
+            points.append(
+                WeightChangePoint(
+                    date: date,
+                    change: runningChange,
+                    series: .expected
+                )
+            )
+        }
+
+        return aggregatedWeightChangePoints(points, aggregation: aggregation)
+    }
+
+    private func actualWeightChangePoints(
+        for range: NetHistoryRange,
+        aggregation: WeightChangeAggregation = .daily
+    ) -> [WeightChangePoint] {
+        let identifiers = dayIdentifiers(forLast: range.dayCount)
+        guard
+            let firstIdentifier = identifiers.first,
+            let lastIdentifier = identifiers.last,
+            let startDate = date(fromCentralDayIdentifier: firstIdentifier),
+            let lastDate = date(fromCentralDayIdentifier: lastIdentifier),
+            let endDate = centralCalendar.date(byAdding: .day, value: 1, to: lastDate)
+        else {
+            return []
+        }
+
+        let weighIns = healthWeighIns
+            .sorted { $0.selectedSampleDate < $1.selectedSampleDate }
+
+        guard let baseline = weighIns.last(where: { $0.selectedSampleDate < startDate })
+            ?? weighIns.first(where: { $0.selectedSampleDate >= startDate && $0.selectedSampleDate < endDate }) else {
+            return []
+        }
+
+        let baselineWeight = baseline.representativePounds
+        let rangedWeighIns = weighIns.filter { $0.selectedSampleDate >= startDate && $0.selectedSampleDate < endDate }
+        guard !rangedWeighIns.isEmpty else { return [] }
+
+        var points: [WeightChangePoint] = []
+
+        if baseline.selectedSampleDate < startDate {
+            points.append(
+                WeightChangePoint(
+                    date: startDate,
+                    change: 0,
+                    series: .actual
+                )
+            )
+        }
+
+        for weighIn in rangedWeighIns {
+            points.append(
+                WeightChangePoint(
+                    date: weighIn.selectedSampleDate,
+                    change: weighIn.representativePounds - baselineWeight,
+                    series: .actual
+                )
+            )
+        }
+
+        return aggregatedWeightChangePoints(points, aggregation: aggregation)
+    }
+
+    private func expectedWeightChangeSummary(for range: NetHistoryRange) -> Double {
+        expectedWeightChangePoints(for: range, aggregation: .daily).last?.change ?? 0
+    }
+
+    private func actualWeightChangeSummary(for range: NetHistoryRange) -> Double? {
+        let points = actualWeightChangePoints(for: range, aggregation: .daily)
+        guard points.count > 1 else { return nil }
+        return points.last?.change
+    }
+
+    private func hasExpectedWeightChangeData(for identifier: String) -> Bool {
+        !(dailyEntryArchive[identifier] ?? []).isEmpty
     }
 
     private var netCalorieSummary: (net: Int, hasData: Bool) {
@@ -1478,20 +3380,28 @@ struct ContentView: View {
             .onAppear(perform: handleOnAppear)
             .onChange(of: entries) { _, _ in
                 syncCurrentEntriesToArchive()
+                syncSmartMealReminders()
+                pushWatchSnapshot()
             }
             .onChange(of: exercises) { _, _ in
                 syncCurrentEntriesToArchive()
                 syncCurrentDayGoalArchive()
+                pushWatchSnapshot()
             }
             .onChange(of: healthKitService.todayWorkouts) { _, _ in
                 syncCurrentDayGoalArchive()
                 scheduleCalibrationEvaluation()
+                pushWatchSnapshot()
             }
             .onChange(of: scenePhase) { _, newPhase in
                 handleScenePhaseChange(newPhase)
+                if newPhase == .active {
+                    pushWatchSnapshot()
+                }
             }
             .onReceive(clockTimer) { _ in
                 handleClockTick()
+                pushWatchSnapshot()
             }
     }
 
@@ -1502,24 +3412,62 @@ struct ContentView: View {
             }
             .onChange(of: storedDeficitCalories) { _, _ in
                 syncCurrentDayGoalArchive()
+                persistStateSnapshot()
+                pushWatchSnapshot()
             }
             .onChange(of: useWeekendDeficit) { _, _ in
                 syncCurrentDayGoalArchive()
+                persistStateSnapshot()
+                pushWatchSnapshot()
             }
             .onChange(of: storedWeekendDeficitCalories) { _, _ in
                 syncCurrentDayGoalArchive()
+                persistStateSnapshot()
+                pushWatchSnapshot()
             }
-            .onChange(of: goalTypeRaw) { _, _ in
+            .onChange(of: smartMealRemindersEnabled) { _, newValue in
+                handleSmartMealRemindersPreferenceChange(newValue)
+            }
+            .onChange(of: goalTypeRaw) { oldValue, newValue in
+                let previousGoalType = GoalType(rawValue: oldValue) ?? .deficit
+                let newGoalType = GoalType(rawValue: newValue) ?? .deficit
+
+                if newGoalType == .fixed {
+                    calibrationWasEnabledBeforeFixed = calibrationState.isEnabled
+                    if calibrationState.isEnabled {
+                        calibrationState.isEnabled = false
+                        saveCalibrationState()
+                        calibrationEvaluationTask?.cancel()
+                    }
+                } else if previousGoalType == .fixed {
+                    if calibrationWasEnabledBeforeFixed, !calibrationState.isEnabled {
+                        calibrationState.isEnabled = true
+                        saveCalibrationState()
+                        scheduleCalibrationEvaluation(force: true)
+                    }
+                }
+
                 syncCurrentDayGoalArchive()
+                persistStateSnapshot()
+                pushWatchSnapshot()
             }
             .onChange(of: storedSurplusCalories) { _, _ in
                 syncCurrentDayGoalArchive()
+                persistStateSnapshot()
+                pushWatchSnapshot()
+            }
+            .onChange(of: storedFixedGoalCalories) { _, _ in
+                syncCurrentDayGoalArchive()
+                persistStateSnapshot()
+                pushWatchSnapshot()
             }
             .onChange(of: stepActivityService.todayStepCount) { _, _ in
                 syncCurrentDayGoalArchive()
+                pushWatchSnapshot()
             }
             .onChange(of: stepActivityService.todayDistanceMeters) { _, _ in
                 syncCurrentDayGoalArchive()
+                pushWatchSnapshot()
             }
     }
 
@@ -1538,11 +3486,14 @@ struct ContentView: View {
             }
             .onChange(of: selectedAppIconChoiceRaw) { _, newValue in
                 AppIconManager.apply(AppIconChoice(rawValue: newValue) ?? .standard)
+                syncWidgetSnapshot()
+                persistStateSnapshot()
             }
             .onChange(of: venueMenus) { _, _ in
                 normalizeTrackingState()
                 saveTrackingPreferences()
                 syncInputFieldsToTrackedNutrients()
+                pushWatchSnapshot()
             }
             .onChange(of: onboardingPage) { _, newPage in
                 guard !hasCompletedOnboarding, newPage == OnboardingPage.nutrients.rawValue else { return }
@@ -1552,10 +3503,13 @@ struct ContentView: View {
             }
             .onChange(of: cloudSyncPayload) { oldPayload, newPayload in
                 handleCloudSyncPayloadChange(oldPayload: oldPayload, newPayload: newPayload)
+                if !isApplyingCloudSync {
+                    persistStateSnapshot()
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: .cloudKitAppStateDidChange)) { _ in
                 Task(priority: .utility) {
-                    await bootstrapCloudSync()
+                    await bootstrapCloudSync(trigger: .push)
                 }
             }
     }
@@ -1572,6 +3526,7 @@ struct ContentView: View {
             deficitCalories: $storedDeficitCalories,
             goalTypeRaw: $goalTypeRaw,
             surplusCalories: $storedSurplusCalories,
+            fixedGoalCalories: $storedFixedGoalCalories,
             trackedNutrientKeys: $trackedNutrientKeys,
             nutrientGoals: $nutrientGoals,
             availableNutrients: availableNutrients,
@@ -1608,11 +3563,15 @@ struct ContentView: View {
                 selectedFoodReviewBaselineAmount = 1.0
                 selectedFoodReviewAmountText = ""
                 foodReviewItem = nil
+                hasScannedBarcodeInCurrentSheet = false
             }) { context in
                 foodReviewSheet(item: context)
             }
             .sheet(isPresented: $isExpandedHistoryChartPresented) {
                 expandedHistoryChartSheet
+            }
+            .sheet(isPresented: $isWeightChangeComparisonPresented) {
+                weightChangeComparisonSheet
             }
             .sheet(item: $presentedHistoryDaySummary) { summary in
                 historyDayDetailSheet(summary: summary)
@@ -2234,8 +4193,9 @@ struct ContentView: View {
             textPrimary: textPrimary,
             textSecondary: textSecondary,
             accent: accent,
-            onSelect: { item in
-                addQuickAddFood(item)
+            trackedNutrientKeys: trackedNutrientKeys,
+            onAddSelected: { selections in
+                addQuickAddFoods(selections, dismissPickerAfterAdd: true)
             },
             onManage: {
                 presentQuickAddManagerFromPicker()
@@ -2333,51 +4293,355 @@ struct ContentView: View {
         let timestamp = Date().timeIntervalSince1970
         cloudSyncLocalModifiedAt = timestamp
         cloudSyncUploadTask?.cancel()
+        isCloudSyncInFlight = true
+        setCloudSyncStatus(
+            level: .uploading,
+            title: "Uploading to iCloud",
+            detail: "Sending your latest changes so other devices can pick them up."
+        )
         cloudSyncUploadTask = Task {
-            try? await Task.sleep(for: .seconds(1.0))
+            do {
+                try await Task.sleep(for: .seconds(1.0))
+            } catch {
+                return
+            }
             guard !Task.isCancelled else { return }
-            try? await AppCloudSyncService.shared.saveEnvelope(
-                CloudSyncEnvelope(updatedAt: timestamp, payload: payload)
-            )
+            do {
+                try await AppCloudSyncService.shared.saveEnvelope(
+                    CloudSyncEnvelope(
+                        updatedAt: timestamp,
+                        payload: payload,
+                        storageVersion: Self.cloudSyncStorageVersion,
+                        originDeviceType: currentCloudOriginDeviceType
+                    )
+                )
+                await MainActor.run {
+                    isCloudSyncInFlight = false
+                    setCloudSyncStatus(
+                        level: .synced,
+                        title: "iCloud sync is working",
+                        detail: "Your latest changes were uploaded to iCloud.",
+                        markSuccessAt: Date(timeIntervalSince1970: timestamp)
+                    )
+                }
+            } catch {
+                await MainActor.run {
+                    isCloudSyncInFlight = false
+                    updateCloudSyncStatusAfterFailure(error)
+                }
+            }
         }
     }
 
-    private func bootstrapCloudSync() async {
+    private func mergedCloudSyncPayload(
+        primary: CloudSyncPayload,
+        secondary: CloudSyncPayload,
+        primaryDeviceType: CloudSyncOriginDeviceType,
+        secondaryDeviceType: CloudSyncOriginDeviceType
+    ) -> CloudSyncPayload {
+        let primaryIsPhone = primaryDeviceType == .iphone
+        let secondaryIsPhone = secondaryDeviceType == .iphone
+
+        guard primaryIsPhone != secondaryIsPhone else {
+            return primary
+        }
+
+        if secondaryIsPhone {
+            let preferredDayIdentifiers = Set(
+                [todayDayIdentifier, primary.lastCentralDayIdentifier, secondary.lastCentralDayIdentifier]
+                    .filter { !$0.isEmpty }
+            )
+            let mergedEntryArchiveData = mergedMealEntryArchiveData(
+                primaryData: primary.dailyEntryArchiveData,
+                secondaryData: secondary.dailyEntryArchiveData,
+                preferSecondaryDayIdentifiers: preferredDayIdentifiers
+            )
+            let mergedMealEntriesData = mergedTodayEntriesData(
+                todayIdentifier: todayDayIdentifier,
+                archiveData: mergedEntryArchiveData,
+                fallback: secondary.mealEntriesData
+            )
+            let mergedExerciseArchiveData = mergedExerciseArchiveData(
+                primaryData: primary.dailyExerciseArchiveData,
+                secondaryData: secondary.dailyExerciseArchiveData,
+                preferSecondaryDayIdentifiers: preferredDayIdentifiers
+            )
+            let mergedGoalArchiveData = mergedIntegerArchiveData(
+                primaryData: primary.dailyCalorieGoalArchiveData,
+                secondaryData: secondary.dailyCalorieGoalArchiveData,
+                preferSecondaryDayIdentifiers: preferredDayIdentifiers
+            )
+            let mergedBurnedArchiveData = mergedIntegerArchiveData(
+                primaryData: primary.dailyBurnedCalorieArchiveData,
+                secondaryData: secondary.dailyBurnedCalorieArchiveData,
+                preferSecondaryDayIdentifiers: preferredDayIdentifiers
+            )
+            let mergedGoalTypeArchiveData = mergedStringArchiveData(
+                primaryData: primary.dailyGoalTypeArchiveData,
+                secondaryData: secondary.dailyGoalTypeArchiveData,
+                preferSecondaryDayIdentifiers: preferredDayIdentifiers
+            )
+            return CloudSyncPayload(
+                hasCompletedOnboarding: primary.hasCompletedOnboarding,
+                deficitCalories: primary.deficitCalories,
+                useWeekendDeficit: primary.useWeekendDeficit,
+                weekendDeficitCalories: primary.weekendDeficitCalories,
+                goalTypeRaw: primary.goalTypeRaw,
+                surplusCalories: primary.surplusCalories,
+                fixedGoalCalories: primary.fixedGoalCalories,
+                dailyGoalTypeArchiveData: mergedGoalTypeArchiveData,
+                proteinGoal: primary.proteinGoal,
+                mealEntriesData: mergedMealEntriesData,
+                trackedNutrientsData: primary.trackedNutrientsData,
+                nutrientGoalsData: primary.nutrientGoalsData,
+                lastCentralDayIdentifier: max(primary.lastCentralDayIdentifier, secondary.lastCentralDayIdentifier),
+                selectedAppIconChoiceRaw: primary.selectedAppIconChoiceRaw,
+                dailyEntryArchiveData: mergedEntryArchiveData,
+                dailyCalorieGoalArchiveData: mergedGoalArchiveData,
+                dailyBurnedCalorieArchiveData: mergedBurnedArchiveData,
+                dailyExerciseArchiveData: mergedExerciseArchiveData,
+                venueMenusData: primary.venueMenusData,
+                venueMenuSignaturesData: primary.venueMenuSignaturesData,
+                quickAddFoodsData: primary.quickAddFoodsData,
+                useAIBaseServings: primary.useAIBaseServings,
+                calibrationStateData: secondary.calibrationStateData,
+                healthWeighInsData: secondary.healthWeighInsData,
+                syncedHealthProfileData: secondary.syncedHealthProfileData,
+                syncedTodayWorkoutsData: secondary.syncedTodayWorkoutsData,
+                syncedHealthSourceDeviceTypeRaw: secondary.syncedHealthSourceDeviceTypeRaw
+            )
+        }
+
+        return primary
+    }
+
+    private func mergedMealEntryArchiveData(
+        primaryData: String,
+        secondaryData: String,
+        preferSecondaryDayIdentifiers: Set<String>
+    ) -> String {
+        guard
+            let primaryArchive = decodedArchive(primaryData, as: [String: [MealEntry]].self),
+            let secondaryArchive = decodedArchive(secondaryData, as: [String: [MealEntry]].self)
+        else {
+            return primaryData
+        }
+
+        var merged = primaryArchive
+        for dayIdentifier in preferSecondaryDayIdentifiers {
+            let primaryEntries = primaryArchive[dayIdentifier] ?? []
+            let secondaryEntries = secondaryArchive[dayIdentifier] ?? []
+            merged[dayIdentifier] = mergedMealEntries(primary: primaryEntries, secondary: secondaryEntries)
+        }
+
+        return encodedArchive(merged, fallback: primaryData)
+    }
+
+    private func mergedTodayEntriesData(todayIdentifier: String, archiveData: String, fallback: String) -> String {
+        guard let archive = decodedArchive(archiveData, as: [String: [MealEntry]].self) else {
+            return fallback
+        }
+        let entries = archive[todayIdentifier] ?? []
+        return encodedArchive(entries, fallback: fallback)
+    }
+
+    private func mergedExerciseArchiveData(
+        primaryData: String,
+        secondaryData: String,
+        preferSecondaryDayIdentifiers: Set<String>
+    ) -> String {
+        guard
+            let primaryArchive = decodedArchive(primaryData, as: [String: [ExerciseEntry]].self),
+            let secondaryArchive = decodedArchive(secondaryData, as: [String: [ExerciseEntry]].self)
+        else {
+            return primaryData
+        }
+
+        var merged = primaryArchive
+        for dayIdentifier in preferSecondaryDayIdentifiers {
+            let primaryEntries = primaryArchive[dayIdentifier] ?? []
+            let secondaryEntries = secondaryArchive[dayIdentifier] ?? []
+            merged[dayIdentifier] = mergedExerciseEntriesForCloud(primary: primaryEntries, secondary: secondaryEntries)
+        }
+
+        return encodedArchive(merged, fallback: primaryData)
+    }
+
+    private func mergedIntegerArchiveData(
+        primaryData: String,
+        secondaryData: String,
+        preferSecondaryDayIdentifiers: Set<String>
+    ) -> String {
+        guard
+            let primaryArchive = decodedArchive(primaryData, as: [String: Int].self),
+            let secondaryArchive = decodedArchive(secondaryData, as: [String: Int].self)
+        else {
+            return primaryData
+        }
+
+        var merged = primaryArchive
+        for dayIdentifier in preferSecondaryDayIdentifiers {
+            if let secondaryValue = secondaryArchive[dayIdentifier] {
+                merged[dayIdentifier] = secondaryValue
+            }
+        }
+        return encodedArchive(merged, fallback: primaryData)
+    }
+
+    private func mergedStringArchiveData(
+        primaryData: String,
+        secondaryData: String,
+        preferSecondaryDayIdentifiers: Set<String>
+    ) -> String {
+        guard
+            let primaryArchive = decodedArchive(primaryData, as: [String: String].self),
+            let secondaryArchive = decodedArchive(secondaryData, as: [String: String].self)
+        else {
+            return primaryData
+        }
+
+        var merged = primaryArchive
+        for dayIdentifier in preferSecondaryDayIdentifiers {
+            if let secondaryValue = secondaryArchive[dayIdentifier] {
+                merged[dayIdentifier] = secondaryValue
+            }
+        }
+        return encodedArchive(merged, fallback: primaryData)
+    }
+
+    private func decodedArchive<T: Decodable>(_ raw: String, as type: T.Type) -> T? {
+        guard !raw.isEmpty, let data = raw.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(type, from: data)
+    }
+
+    private func encodedArchive<T: Encodable>(_ value: T, fallback: String) -> String {
+        guard let data = try? JSONEncoder().encode(value) else { return fallback }
+        return String(decoding: data, as: UTF8.self)
+    }
+
+    private func mergedMealEntries(primary: [MealEntry], secondary: [MealEntry]) -> [MealEntry] {
+        var seen = Set<UUID>()
+        var merged: [MealEntry] = []
+
+        for entry in (secondary + primary).sorted(by: { $0.createdAt > $1.createdAt }) {
+            guard !seen.contains(entry.id) else { continue }
+            seen.insert(entry.id)
+            merged.append(entry)
+        }
+
+        return merged
+    }
+
+    private func mergedExerciseEntriesForCloud(primary: [ExerciseEntry], secondary: [ExerciseEntry]) -> [ExerciseEntry] {
+        var seenIDs = Set<UUID>()
+        var seenMergeKeys = Set<String>()
+        var merged: [ExerciseEntry] = []
+
+        for entry in (secondary + primary).sorted(by: { $0.createdAt > $1.createdAt }) {
+            let mergeKey = workoutMergeKey(for: entry)
+            guard !seenIDs.contains(entry.id), !seenMergeKeys.contains(mergeKey) else { continue }
+            seenIDs.insert(entry.id)
+            seenMergeKeys.insert(mergeKey)
+            merged.append(entry)
+        }
+
+        return merged
+    }
+
+    private func bootstrapCloudSync(trigger: CloudSyncTrigger = .foreground) async {
+        guard !isCloudSyncInFlight else { return }
         defer {
             hasBootstrappedCloudSync = true
+            isCloudSyncInFlight = false
         }
+
+        isCloudSyncInFlight = true
+        setCloudSyncStatus(
+            level: .checking,
+            title: "Checking iCloud sync",
+            detail: cloudSyncProgressDetail(for: trigger)
+        )
+
+        var subscriptionWarning: String?
 
         do {
             try await AppCloudSyncService.shared.ensureSubscription()
         } catch {
-            // Keep subscription setup silent; launch should not fail on notification issues.
+            subscriptionWarning = "Sync can still work, but CloudKit background pushes may be delayed on this device."
         }
 
         let localPayload = cloudSyncPayload
         let localUpdatedAt = cloudSyncLocalModifiedAt
+        let localDeviceType = currentCloudOriginDeviceType
 
         do {
             if let cloudEnvelope = try await AppCloudSyncService.shared.fetchEnvelope() {
-                if cloudEnvelope.updatedAt > localUpdatedAt {
+                let cloudIsNewer = cloudEnvelope.updatedAt > localUpdatedAt
+                let primaryPayload = cloudIsNewer ? cloudEnvelope.payload : localPayload
+                let secondaryPayload = cloudIsNewer ? localPayload : cloudEnvelope.payload
+                let primaryDeviceType = cloudIsNewer ? cloudEnvelope.originDeviceType : localDeviceType
+                let secondaryDeviceType = cloudIsNewer ? localDeviceType : cloudEnvelope.originDeviceType
+                let mergedPayload = mergedCloudSyncPayload(
+                    primary: primaryPayload,
+                    secondary: secondaryPayload,
+                    primaryDeviceType: primaryDeviceType,
+                    secondaryDeviceType: secondaryDeviceType
+                )
+                let mergedUpdatedAt = max(localUpdatedAt, cloudEnvelope.updatedAt)
+
+                if mergedPayload != localPayload || mergedUpdatedAt > localUpdatedAt {
                     await MainActor.run {
-                        applyCloudSyncPayload(cloudEnvelope.payload, updatedAt: cloudEnvelope.updatedAt)
+                        applyCloudSyncPayload(mergedPayload, updatedAt: mergedUpdatedAt)
                     }
-                } else if localPayload != cloudEnvelope.payload || localUpdatedAt > cloudEnvelope.updatedAt {
+                }
+
+                if cloudEnvelope.payload != mergedPayload
+                    || cloudEnvelope.storageVersion < Self.cloudSyncStorageVersion
+                    || cloudEnvelope.originDeviceType != localDeviceType
+                    || localUpdatedAt > cloudEnvelope.updatedAt {
                     let timestamp = max(localUpdatedAt, Date().timeIntervalSince1970)
                     cloudSyncLocalModifiedAt = timestamp
                     try await AppCloudSyncService.shared.saveEnvelope(
-                        CloudSyncEnvelope(updatedAt: timestamp, payload: localPayload)
+                        CloudSyncEnvelope(
+                            updatedAt: timestamp,
+                            payload: mergedPayload,
+                            storageVersion: Self.cloudSyncStorageVersion,
+                            originDeviceType: localDeviceType
+                        )
                     )
                 }
+                setCloudSyncStatus(
+                    level: .synced,
+                    title: "iCloud sync is working",
+                    detail: cloudSyncSuccessDetail(
+                        for: trigger,
+                        fallbackDetail: subscriptionWarning
+                    ),
+                    markSuccessAt: Date(timeIntervalSince1970: mergedUpdatedAt)
+                )
             } else {
                 let timestamp = max(localUpdatedAt, Date().timeIntervalSince1970)
                 cloudSyncLocalModifiedAt = timestamp
                 try await AppCloudSyncService.shared.saveEnvelope(
-                    CloudSyncEnvelope(updatedAt: timestamp, payload: localPayload)
+                    CloudSyncEnvelope(
+                        updatedAt: timestamp,
+                        payload: localPayload,
+                        storageVersion: Self.cloudSyncStorageVersion,
+                        originDeviceType: localDeviceType
+                    )
+                )
+                setCloudSyncStatus(
+                    level: .synced,
+                    title: "iCloud sync is working",
+                    detail: cloudSyncSuccessDetail(
+                        for: trigger,
+                        fallbackDetail: subscriptionWarning
+                    ),
+                    markSuccessAt: Date(timeIntervalSince1970: timestamp)
                 )
             }
         } catch {
-            // Keep cloud sync silent; the app still works fully offline/local-only.
+            updateCloudSyncStatusAfterFailure(error)
         }
     }
 
@@ -2391,6 +4655,9 @@ struct ContentView: View {
         storedWeekendDeficitCalories = payload.weekendDeficitCalories
         goalTypeRaw = payload.goalTypeRaw
         storedSurplusCalories = payload.surplusCalories
+        if let fixedGoalCalories = payload.fixedGoalCalories {
+            storedFixedGoalCalories = fixedGoalCalories
+        }
         storedDailyGoalTypeArchiveData = payload.dailyGoalTypeArchiveData
         legacyStoredProteinGoal = payload.proteinGoal
         storedEntriesData = payload.mealEntriesData
@@ -2408,19 +4675,28 @@ struct ContentView: View {
         useAIBaseServings = payload.useAIBaseServings
         storedCalibrationStateData = payload.calibrationStateData ?? ""
         storedHealthWeighInsData = payload.healthWeighInsData ?? ""
+        storedSyncedHealthProfileData = payload.syncedHealthProfileData ?? ""
+        storedSyncedTodayWorkoutsData = payload.syncedTodayWorkoutsData ?? ""
+        storedSyncedHealthSourceDeviceTypeRaw = payload.syncedHealthSourceDeviceTypeRaw ?? ""
         cloudSyncLocalModifiedAt = updatedAt
 
         loadTrackingPreferences()
         loadDailyEntryArchive()
         loadCalibrationState()
+        if goalType == .fixed, calibrationState.isEnabled {
+            calibrationState.isEnabled = false
+            saveCalibrationState()
+        }
         loadHealthWeighIns()
         loadQuickAddFoods()
+        loadCloudSyncedHealthState()
         loadVenueMenus()
         selectedMenuType = menuService.currentMenuType()
         applyCentralTimeTransitions(forceMenuReload: false)
         syncInputFieldsToTrackedNutrients()
         AppIconManager.apply(selectedAppIconChoice)
         syncCurrentDayGoalArchive()
+        persistStateSnapshot()
 
         isApplyingCloudSync = false
     }
@@ -2430,11 +4706,17 @@ struct ContentView: View {
             return
         }
 
+        bootstrapPersistentStateStore()
         sanitizeStoredGoals()
         loadTrackingPreferences()
         loadDailyEntryArchive()
         loadCalibrationState()
+        if goalType == .fixed, calibrationState.isEnabled {
+            calibrationState.isEnabled = false
+            saveCalibrationState()
+        }
         loadHealthWeighIns()
+        loadCloudSyncedHealthState()
         loadQuickAddFoods()
         loadVenueMenus()
         selectedMenuType = menuService.currentMenuType()
@@ -2442,7 +4724,7 @@ struct ContentView: View {
             await preloadMenuForNutrientDiscovery()
         }
         Task(priority: .utility) {
-            await bootstrapCloudSync()
+            await bootstrapCloudSync(trigger: .launch)
         }
         applyCentralTimeTransitions(forceMenuReload: false)
         syncInputFieldsToTrackedNutrients()
@@ -2456,6 +4738,58 @@ struct ContentView: View {
         }
         syncCurrentDayGoalArchive()
         scheduleCalibrationEvaluation()
+        persistStateSnapshot()
+        bootstrapSmartMealReminders()
+        pushWatchSnapshot()
+    }
+
+    private func pushWatchSnapshot() {
+        WatchAppSyncService.shared.push(context: makeWatchSnapshotContext())
+    }
+
+    private func makeWatchSnapshotContext() -> [String: Any] {
+        let mealType = menuService.currentMenuType()
+        let mealTitle = mealType.title
+
+        var venueMenuItems: [String: [String]] = [:]
+        for venue in DiningVenue.allCases {
+            let items: [String]
+            if venue.supportedMenuTypes.contains(mealType) {
+                items = menu(for: venue, menuType: mealType)
+                    .lines
+                    .flatMap(\.items)
+                    .map(\.name)
+                    .prefix(20)
+                    .map { $0 }
+            } else {
+                items = []
+            }
+            venueMenuItems[venue.rawValue] = items
+        }
+
+        let recentEntries = entries
+            .sorted(by: { $0.createdAt > $1.createdAt })
+            .prefix(12)
+            .map { entry in
+                [
+                    "id": entry.id.uuidString,
+                    "name": entry.name,
+                    "calories": entry.calories,
+                    "createdAt": entry.createdAt.timeIntervalSince1970
+                ] as [String: Any]
+            }
+
+        let activityCalories = max(effectiveActivityCaloriesToday + exerciseCaloriesToday, 0)
+
+        return [
+            "goalCalories": calorieGoal,
+            "activityCalories": activityCalories,
+            "currentMealTitle": mealTitle,
+            "goalTypeRaw": goalType.rawValue,
+            "selectedAppIconChoiceRaw": selectedAppIconChoiceRaw,
+            "venueMenuItems": venueMenuItems,
+            "entries": recentEntries
+        ]
     }
 
     private var isPCCMenuUITestMode: Bool {
@@ -2644,11 +4978,12 @@ struct ContentView: View {
             }
         }
         Task(priority: .utility) {
-            await bootstrapCloudSync()
+            await bootstrapCloudSync(trigger: .foreground)
         }
         syncCurrentDayGoalArchive()
         syncHistorySelection(preferToday: true)
         scheduleCalibrationEvaluation()
+        syncSmartMealReminders()
         Task {
             await preloadMenuForNutrientDiscovery()
         }
@@ -2664,10 +4999,55 @@ struct ContentView: View {
             }
         }
         Task(priority: .utility) {
-            await bootstrapCloudSync()
+            await bootstrapCloudSync(trigger: .timer)
         }
         syncCurrentDayGoalArchive()
         scheduleCalibrationEvaluation()
+        syncSmartMealReminders()
+    }
+
+    private func bootstrapSmartMealReminders() {
+        guard smartMealRemindersEnabled else {
+            syncSmartMealReminders()
+            return
+        }
+
+        SmartMealReminderService.shared.requestAuthorizationIfNeeded { granted in
+            DispatchQueue.main.async {
+                if !granted {
+                    smartMealRemindersEnabled = false
+                    return
+                }
+                syncSmartMealReminders()
+            }
+        }
+    }
+
+    private func handleSmartMealRemindersPreferenceChange(_ isEnabled: Bool) {
+        guard isEnabled else {
+            syncSmartMealReminders()
+            return
+        }
+
+        SmartMealReminderService.shared.requestAuthorizationIfNeeded { granted in
+            DispatchQueue.main.async {
+                if !granted {
+                    smartMealRemindersEnabled = false
+                    return
+                }
+                syncSmartMealReminders()
+            }
+        }
+    }
+
+    private func syncSmartMealReminders() {
+        SmartMealReminderService.shared.refreshReminders(
+            enabled: smartMealRemindersEnabled,
+            now: Date(),
+            calendar: centralCalendar,
+            dailyEntryArchive: dailyEntryArchive,
+            todayDayIdentifier: todayDayIdentifier
+        )
     }
 
     @ViewBuilder
@@ -2818,11 +5198,12 @@ struct ContentView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
+                    weeklyInsightButton
                     historyCalendarCard
                     historyGraphCard
-                    historyStatisticsCard
                     netCalorieHistoryCard
                     historyMealDistributionCard
+                    weightChangeComparisonButton
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
@@ -2999,37 +5380,6 @@ struct ContentView: View {
 
     private var quickAddTabView: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top, spacing: 12) {
-                tabHeader(
-                    title: AddDestination.quickAdd.title,
-                    subtitle: AddDestination.quickAdd.subtitle
-                )
-
-                Spacer(minLength: 8)
-
-                Button {
-                    presentQuickAddManagerFromPicker()
-                    Haptics.impact(.light)
-                } label: {
-                    Text("Manage")
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(
-                            Capsule(style: .continuous)
-                                .fill(surfacePrimary.opacity(0.94))
-                        )
-                        .overlay(
-                            Capsule(style: .continuous)
-                                .stroke(textSecondary.opacity(0.14), lineWidth: 1)
-                        )
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 18)
-            .padding(.bottom, 6)
-
             QuickAddPickerView(
                 quickAddFoods: quickAddFoods,
                 surfacePrimary: surfacePrimary,
@@ -3037,8 +5387,9 @@ struct ContentView: View {
                 textPrimary: textPrimary,
                 textSecondary: textSecondary,
                 accent: accent,
-                onSelect: { item in
-                    addQuickAddFood(item)
+                trackedNutrientKeys: trackedNutrientKeys,
+                onAddSelected: { selections in
+                    addQuickAddFoods(selections, dismissPickerAfterAdd: false)
                 },
                 onManage: {
                     presentQuickAddManagerFromPicker()
@@ -3180,12 +5531,15 @@ struct ContentView: View {
                             deficitCalories: $storedDeficitCalories,
                             goalTypeRaw: $goalTypeRaw,
                             surplusCalories: $storedSurplusCalories,
+                            fixedGoalCalories: $storedFixedGoalCalories,
                             useWeekendDeficit: $useWeekendDeficit,
                             weekendDeficitCalories: $storedWeekendDeficitCalories,
                             trackedNutrientKeys: trackedNutrientKeys,
                             nutrientGoals: $nutrientGoals,
                             healthAuthorizationState: healthKitService.authorizationState,
-                            healthProfile: healthKitService.profile,
+                            healthProfile: effectiveHealthProfile,
+                            isUsingSyncedHealthFallback: isUsingSyncedHealthFallback,
+                            syncedHealthSourceLabel: syncedHealthSourceDeviceType == .iphone ? "iPhone" : nil,
                             bmrCalories: currentDailyCalorieModel.bmr,
                             burnedCaloriesToday: burnedCaloriesToday,
                             activeBurnedCaloriesToday: effectiveActivityCaloriesToday + exerciseCaloriesToday,
@@ -3244,7 +5598,18 @@ struct ContentView: View {
                         trackedNutrientKeys: $trackedNutrientKeys,
                         availableNutrients: availableNutrients,
                         selectedAppIconChoiceRaw: $selectedAppIconChoiceRaw,
-                        useAIBaseServings: $useAIBaseServings
+                        useAIBaseServings: $useAIBaseServings,
+                        smartMealRemindersEnabled: $smartMealRemindersEnabled,
+                        cloudSyncStatusTitle: cloudSyncStatusTitle,
+                        cloudSyncStatusDetail: cloudSyncStatusDetail,
+                        cloudSyncStatusTint: cloudSyncStatusTint,
+                        cloudSyncLastSuccessText: cloudSyncLastSuccessText,
+                        isCloudSyncInFlight: isCloudSyncInFlight,
+                        onRetryCloudSync: {
+                            Task(priority: .utility) {
+                                await bootstrapCloudSync(trigger: .manual)
+                            }
+                        }
                     )
                 }
                 .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 4, trailing: 0))
@@ -3270,6 +5635,36 @@ struct ContentView: View {
                                 .padding(18)
                             }
                             .buttonStyle(.plain)
+
+                            Divider()
+                                .overlay(Color.secondary.opacity(0.18))
+
+                            Button {
+                                do {
+                                    exportShareURL = try Self.makeUserDataExportFileURL()
+                                    isShowingExportShareSheet = true
+                                    exportErrorMessage = nil
+                                } catch {
+                                    exportErrorMessage = "Couldn’t generate export. Please try again."
+                                }
+                            } label: {
+                                HStack {
+                                    Label("Export Data", systemImage: "square.and.arrow.up")
+                                        .foregroundStyle(.primary)
+                                    Spacer()
+                                }
+                                .padding(18)
+                            }
+                            .buttonStyle(.plain)
+                            .sheet(isPresented: $isShowingExportShareSheet, onDismiss: {
+                                exportShareURL = nil
+                            }) {
+                                if let exportShareURL {
+                                    ShareSheet(activityItems: [exportShareURL])
+                                } else {
+                                    EmptyView()
+                                }
+                            }
 
                             Divider()
                                 .overlay(Color.secondary.opacity(0.18))
@@ -3319,6 +5714,377 @@ struct ContentView: View {
         .safeAreaInset(edge: .bottom) {
             Color.clear.frame(height: 110)
         }
+        .alert("Export Data", isPresented: Binding(
+            get: { exportErrorMessage != nil },
+            set: { if !$0 { exportErrorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(exportErrorMessage ?? "")
+        }
+    }
+
+    private struct UserDataExportPayloadV2: Codable {
+        let schema: String
+        let exportedAt: Date
+        let app: AppInfo
+        let settings: Settings
+        let days: [DaySummary]
+        let meals: [MealLog]
+        let exercises: [ExerciseLog]
+        let weighIns: [WeighInLog]
+        let quickAddFoods: [QuickAddFood]
+        let analysis: Analysis
+
+        struct AppInfo: Codable {
+            let bundleID: String
+            let version: String
+            let build: String
+        }
+
+        struct Settings: Codable {
+            let goalTypeRaw: String
+            let deficitCalories: Int
+            let useWeekendDeficit: Bool
+            let weekendDeficitCalories: Int
+            let surplusCalories: Int
+            let fixedGoalCalories: Int
+            let proteinGoal: Int
+            let useAIBaseServings: Bool
+            let trackedNutrientKeys: [String]
+            let nutrientGoals: [String: Int]
+        }
+
+        struct DaySummary: Codable {
+            let dayIdentifier: String
+            let caloriesConsumed: Int?
+            let caloriesBurned: Int?
+            let calorieGoal: Int?
+            let goalTypeRaw: String?
+            let mealCount: Int?
+            let exerciseCount: Int?
+            let weighInPounds: Double?
+        }
+
+        struct MealLog: Codable {
+            let dayIdentifier: String
+            let createdAt: Date
+            let mealGroup: String
+            let name: String
+            let calories: Int
+            let proteinG: Int
+            let nutrientValues: [String: Int]
+            let loggedCount: Int
+        }
+
+        struct ExerciseLog: Codable {
+            let dayIdentifier: String?
+            let createdAt: Date
+            let exerciseType: String
+            let displayTitle: String
+            let durationMinutes: Int
+            let distanceMiles: Double?
+            let calories: Int
+        }
+
+        struct WeighInLog: Codable {
+            let dayIdentifier: String
+            let representativePounds: Double
+            let selectedSampleDate: Date
+            let selectionMethod: String
+            let sampleCount: Int
+            let samples: [Sample]
+
+            struct Sample: Codable {
+                let timestamp: Date
+                let pounds: Double
+            }
+        }
+
+        struct Analysis: Codable {
+            let calorieAccuracy: CalorieAccuracy
+            let smartAdjustment: SmartAdjustment
+
+            struct CalorieAccuracy: Codable {
+                /// Mean absolute daily error from calibration, in calories.
+                let meanAbsoluteDailyErrorCalories: Double?
+                /// Root-mean-square daily error from calibration, in calories.
+                let rmsDailyErrorCalories: Double?
+                /// Most recent daily errors (as stored), newest last.
+                let recentDailyErrorsCalories: [Double]
+            }
+
+            struct SmartAdjustment: Codable {
+                let isEnabled: Bool
+                let calibrationOffsetCalories: Int
+                let appliedWeekCount: Int
+                let lastAppliedWeekID: String?
+                let lastRunDate: Date?
+                let lastRunStatus: String
+                let lastSkipReason: String?
+                let dataQualityChecks: Int
+                let dataQualityPasses: Int
+                let dataQualityPassRate: Double?
+            }
+        }
+    }
+
+    private struct ShareSheet: UIViewControllerRepresentable {
+        let activityItems: [Any]
+        var applicationActivities: [UIActivity]? = nil
+        var excludedActivityTypes: [UIActivity.ActivityType]? = nil
+
+        func makeUIViewController(context: Context) -> UIActivityViewController {
+            let vc = UIActivityViewController(activityItems: activityItems, applicationActivities: applicationActivities)
+            vc.excludedActivityTypes = excludedActivityTypes
+            return vc
+        }
+
+        func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+    }
+
+    @MainActor
+    private static func makeUserDataExportFileURL() throws -> URL {
+        let bundle = Bundle.main
+        let bundleID = bundle.bundleIdentifier ?? "unknown"
+        let version = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
+        let build = bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
+
+        let snapshot = PersistentAppStateStore.shared.exportSnapshot(defaults: .standard)
+        let decoded = decodeSnapshotForAI(snapshot)
+
+        let payload = UserDataExportPayloadV2(
+            schema: "calorie-tracker-export/v2",
+            exportedAt: Date(),
+            app: .init(bundleID: bundleID, version: version, build: build),
+            settings: decoded.settings,
+            days: decoded.days,
+            meals: decoded.meals,
+            exercises: decoded.exercises,
+            weighIns: decoded.weighIns,
+            quickAddFoods: decoded.quickAddFoods,
+            analysis: decoded.analysis
+        )
+
+        let encoder = JSONEncoder()
+        // Keep export stable and human/AI-readable; also preserves struct ordering (analysis at bottom).
+        encoder.outputFormatting = [.prettyPrinted]
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode(payload)
+
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        let ts = formatter.string(from: payload.exportedAt)
+            .replacingOccurrences(of: ":", with: "-")
+        let filename = "calorie-tracker-export-\(ts).json"
+
+        let fm = FileManager.default
+        let base = (try? fm.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true))
+            ?? fm.temporaryDirectory
+        let url = base.appendingPathComponent(filename)
+        try data.write(to: url, options: [.atomic])
+        return url
+    }
+
+    @MainActor
+    private static func decodeSnapshotForAI(
+        _ snapshot: PersistentAppStateSnapshot?
+    ) -> (
+        settings: UserDataExportPayloadV2.Settings,
+        days: [UserDataExportPayloadV2.DaySummary],
+        meals: [UserDataExportPayloadV2.MealLog],
+        exercises: [UserDataExportPayloadV2.ExerciseLog],
+        weighIns: [UserDataExportPayloadV2.WeighInLog],
+        quickAddFoods: [QuickAddFood],
+        analysis: UserDataExportPayloadV2.Analysis
+    ) {
+        guard let snapshot else {
+            return (
+                settings: .init(
+                    goalTypeRaw: "unknown",
+                    deficitCalories: 0,
+                    useWeekendDeficit: false,
+                    weekendDeficitCalories: 0,
+                    surplusCalories: 0,
+                    fixedGoalCalories: 0,
+                    proteinGoal: 0,
+                    useAIBaseServings: false,
+                    trackedNutrientKeys: [],
+                    nutrientGoals: [:]
+                ),
+                days: [],
+                meals: [],
+                exercises: [],
+                weighIns: [],
+                quickAddFoods: [],
+                analysis: .init(
+                    calorieAccuracy: .init(
+                        meanAbsoluteDailyErrorCalories: nil,
+                        rmsDailyErrorCalories: nil,
+                        recentDailyErrorsCalories: []
+                    ),
+                    smartAdjustment: .init(
+                        isEnabled: false,
+                        calibrationOffsetCalories: 0,
+                        appliedWeekCount: 0,
+                        lastAppliedWeekID: nil,
+                        lastRunDate: nil,
+                        lastRunStatus: "unknown",
+                        lastSkipReason: nil,
+                        dataQualityChecks: 0,
+                        dataQualityPasses: 0,
+                        dataQualityPassRate: nil
+                    )
+                )
+            )
+        }
+
+        let dayEntries: [String: [MealEntry]] = decodeJSONString(snapshot.dailyEntryArchiveData) ?? [:]
+        let dayBurned: [String: Int] = decodeJSONString(snapshot.dailyBurnedCalorieArchiveData) ?? [:]
+        let dayGoal: [String: Int] = decodeJSONString(snapshot.dailyCalorieGoalArchiveData) ?? [:]
+        let dayGoalType: [String: String] = decodeJSONString(snapshot.dailyGoalTypeArchiveData) ?? [:]
+        let dayExercises: [String: [ExerciseEntry]] = decodeJSONString(snapshot.dailyExerciseArchiveData) ?? [:]
+        let trackedKeys: [String] = decodeJSONString(snapshot.trackedNutrientsData) ?? []
+        let nutrientGoals: [String: Int] = decodeJSONString(snapshot.nutrientGoalsData) ?? [:]
+        let quickAdds: [QuickAddFood] = decodeJSONString(snapshot.quickAddFoodsData) ?? []
+        let weighIns: [HealthWeighInDay] = decodeJSONString(snapshot.healthWeighInsData) ?? []
+        let calibration: CalibrationState = decodeJSONString(snapshot.calibrationStateData) ?? .default
+
+        let settings = UserDataExportPayloadV2.Settings(
+            goalTypeRaw: snapshot.goalTypeRaw,
+            deficitCalories: snapshot.deficitCalories,
+            useWeekendDeficit: snapshot.useWeekendDeficit,
+            weekendDeficitCalories: snapshot.weekendDeficitCalories,
+            surplusCalories: snapshot.surplusCalories,
+            fixedGoalCalories: snapshot.fixedGoalCalories,
+            proteinGoal: snapshot.proteinGoal,
+            useAIBaseServings: snapshot.useAIBaseServings,
+            trackedNutrientKeys: trackedKeys,
+            nutrientGoals: nutrientGoals
+        )
+
+        var meals: [UserDataExportPayloadV2.MealLog] = []
+        meals.reserveCapacity(dayEntries.values.reduce(0) { $0 + $1.count })
+        for (dayID, entries) in dayEntries {
+            for e in entries {
+                let count = max(1, e.loggedCount ?? 1)
+                meals.append(.init(
+                    dayIdentifier: dayID,
+                    createdAt: e.createdAt,
+                    mealGroup: e.mealGroup.rawValue,
+                    name: e.name,
+                    calories: e.calories,
+                    proteinG: e.protein,
+                    nutrientValues: e.nutrientValues,
+                    loggedCount: count
+                ))
+            }
+        }
+        meals.sort { $0.createdAt > $1.createdAt }
+
+        var exercises: [UserDataExportPayloadV2.ExerciseLog] = []
+        exercises.reserveCapacity(dayExercises.values.reduce(0) { $0 + $1.count })
+        for (dayID, items) in dayExercises {
+            for ex in items {
+                exercises.append(.init(
+                    dayIdentifier: dayID,
+                    createdAt: ex.createdAt,
+                    exerciseType: ex.exerciseType.rawValue,
+                    displayTitle: ex.displayTitle,
+                    durationMinutes: ex.durationMinutes,
+                    distanceMiles: ex.distanceMiles,
+                    calories: ex.calories
+                ))
+            }
+        }
+        exercises.sort { $0.createdAt > $1.createdAt }
+
+        let weighInLogs: [UserDataExportPayloadV2.WeighInLog] = weighIns.map { day in
+            .init(
+                dayIdentifier: day.dayIdentifier,
+                representativePounds: day.representativePounds,
+                selectedSampleDate: day.selectedSampleDate,
+                selectionMethod: day.selectionMethod.rawValue,
+                sampleCount: day.sampleCount,
+                samples: day.samples.map { .init(timestamp: $0.timestamp, pounds: $0.pounds) }
+            )
+        }.sorted { $0.selectedSampleDate > $1.selectedSampleDate }
+
+        let weighInByDay = Dictionary(uniqueKeysWithValues: weighInLogs.map { ($0.dayIdentifier, $0.representativePounds) })
+
+        let allDays = Set(dayEntries.keys)
+            .union(dayBurned.keys)
+            .union(dayGoal.keys)
+            .union(dayGoalType.keys)
+            .union(dayExercises.keys)
+            .union(weighInByDay.keys)
+
+        let days: [UserDataExportPayloadV2.DaySummary] = allDays.sorted().map { dayID in
+            let entries = dayEntries[dayID] ?? []
+            let consumed = entries.reduce(0) { partial, item in
+                partial + item.calories * max(1, item.loggedCount ?? 1)
+            }
+            let hasConsumed = !entries.isEmpty
+            let exerciseCount = dayExercises[dayID]?.count
+            return .init(
+                dayIdentifier: dayID,
+                caloriesConsumed: hasConsumed ? consumed : nil,
+                caloriesBurned: dayBurned[dayID],
+                calorieGoal: dayGoal[dayID],
+                goalTypeRaw: dayGoalType[dayID],
+                mealCount: entries.isEmpty ? nil : entries.count,
+                exerciseCount: (exerciseCount ?? 0) > 0 ? exerciseCount : nil,
+                weighInPounds: weighInByDay[dayID]
+            )
+        }
+
+        let recentErrors = calibration.recentDailyErrors
+        let absErrors = recentErrors.map { abs($0) }
+        let meanAbs = absErrors.isEmpty ? nil : (absErrors.reduce(0, +) / Double(absErrors.count))
+        let rms: Double? = {
+            guard !recentErrors.isEmpty else { return nil }
+            let meanSq = recentErrors.map { $0 * $0 }.reduce(0, +) / Double(recentErrors.count)
+            return sqrt(meanSq)
+        }()
+        let passRate: Double? = {
+            guard calibration.dataQualityChecks > 0 else { return nil }
+            return Double(calibration.dataQualityPasses) / Double(calibration.dataQualityChecks)
+        }()
+
+        let analysis = UserDataExportPayloadV2.Analysis(
+            calorieAccuracy: .init(
+                meanAbsoluteDailyErrorCalories: meanAbs,
+                rmsDailyErrorCalories: rms,
+                recentDailyErrorsCalories: recentErrors
+            ),
+            smartAdjustment: .init(
+                isEnabled: calibration.isEnabled,
+                calibrationOffsetCalories: calibration.calibrationOffsetCalories,
+                appliedWeekCount: calibration.appliedWeekCount,
+                lastAppliedWeekID: calibration.lastAppliedWeekID,
+                lastRunDate: calibration.lastRunDate,
+                lastRunStatus: calibration.lastRunStatus.rawValue,
+                lastSkipReason: calibration.lastSkipReason,
+                dataQualityChecks: calibration.dataQualityChecks,
+                dataQualityPasses: calibration.dataQualityPasses,
+                dataQualityPassRate: passRate
+            )
+        )
+
+        return (
+            settings: settings,
+            days: days,
+            meals: meals,
+            exercises: exercises,
+            weighIns: weighInLogs,
+            quickAddFoods: quickAdds,
+            analysis: analysis
+        )
+    }
+
+    private static func decodeJSONString<T: Decodable>(_ jsonString: String) -> T? {
+        guard !jsonString.isEmpty, let data = jsonString.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(T.self, from: data)
     }
 
     private func pageHeader(title: String, subtitle: String) -> some View {
@@ -3531,11 +6297,11 @@ struct ContentView: View {
                     let caloriePalette = calorieBarPalette(consumed: totalCalories, goal: calorieGoal, burned: burnedCaloriesToday)
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("\(caloriesLeft)")
+                            Text(calorieHeroDisplay.value.map(String.init) ?? "--")
                                 .font(.system(size: 56, weight: .bold, design: .rounded))
                                 .monospacedDigit()
                                 .foregroundStyle(.white)
-                            Text("Calories Left")
+                            Text(calorieHeroDisplay.title)
                                 .font(.system(size: 20, weight: .medium, design: .rounded))
                                 .foregroundStyle(Color.white.opacity(0.70))
                         }
@@ -3549,7 +6315,7 @@ struct ContentView: View {
                     }
 
                     GeometryReader { proxy in
-                        let fillWidth = proxy.size.width * calorieProgress
+                        let fillWidth = proxy.size.width * displayedCalorieProgress
                         ZStack(alignment: .leading) {
                             Capsule()
                                 .fill(Color.white.opacity(0.10))
@@ -3561,9 +6327,9 @@ struct ContentView: View {
                                         endPoint: .trailing
                                     )
                                 )
-                                .frame(width: max(fillWidth, calorieProgress > 0 ? 8 : 0))
+                                .frame(width: max(fillWidth, displayedCalorieProgress > 0 ? 8 : 0))
                         }
-                        .animation(.easeInOut(duration: 0.5), value: calorieProgress)
+                        .animation(.easeInOut(duration: 0.5), value: displayedCalorieProgress)
                     }
                     .frame(height: 20)
 
@@ -3573,7 +6339,7 @@ struct ContentView: View {
                             .monospacedDigit()
                             .foregroundStyle(Color.white.opacity(0.72))
                         Spacer()
-                        Text("Goal: \(calorieGoal)")
+                        Text("Goal: \(displayedCalorieGoal.map(String.init) ?? "--")")
                             .font(.system(size: 18, weight: .medium, design: .rounded))
                             .monospacedDigit()
                             .foregroundStyle(Color.white.opacity(0.72))
@@ -3691,7 +6457,12 @@ struct ContentView: View {
             let dayCalories = dayEntries.reduce(0) { $0 + $1.calories }
             let dayGoal = calorieGoalForDay(identifier)
             let dayBurned = burnedCaloriesForDay(identifier)
-            let dayDotColor = historyBarColor(calories: dayCalories, goal: dayGoal, burned: dayBurned)
+            let dayDotColor = historyBarColor(
+                calories: dayCalories,
+                goal: dayGoal,
+                burned: dayBurned,
+                goalType: goalTypeForDay(identifier)
+            )
 
             Button {
                 presentedHistoryDaySummary = historySummary(for: identifier)
@@ -3730,7 +6501,12 @@ struct ContentView: View {
         let dayGoalType = goalTypeForDay(summary.dayIdentifier)
         let nutrientTotals = nutrientTotals(for: summary.dayIdentifier)
         let dayMealDistribution = mealDistributionData(for: summary.dayIdentifier)
-        let calorieColor = historyBarColor(calories: summary.totalCalories, goal: dayGoal, burned: dayBurned)
+        let calorieColor = historyBarColor(
+            calories: summary.totalCalories,
+            goal: dayGoal,
+            burned: dayBurned,
+            goalType: dayGoalType
+        )
         let rawProgress = Double(summary.totalCalories) / Double(max(dayGoal, 1))
         let barProgress = min(max(rawProgress, 0), 1)
         let statusText: String
@@ -3738,6 +6514,17 @@ struct ContentView: View {
         if summary.totalCalories == 0 {
             statusText = "No Intake"
             statusColor = textSecondary
+        } else if dayGoalType == .fixed {
+            if summary.totalCalories <= dayGoal {
+                statusText = "Under Goal"
+                statusColor = Color.green
+            } else if summary.totalCalories < dayBurned {
+                statusText = "Above Goal"
+                statusColor = Color.yellow
+            } else {
+                statusText = "Over Burned"
+                statusColor = Color.red
+            }
         } else if summary.totalCalories < dayBurned {
             // Under burned = in deficit; adapted to that day's goal type
             if dayGoalType == .deficit && summary.totalCalories > dayGoal {
@@ -3929,26 +6716,6 @@ struct ContentView: View {
         .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.15))
     }
 
-    private var historyStatisticsCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("7-Day Statistics")
-                .font(.headline.weight(.semibold))
-                .foregroundStyle(textPrimary)
-
-            HStack(spacing: 12) {
-                statTile(title: "Average", value: "\(historyStatistics.average)", detail: "cal/day")
-                statTile(
-                    title: "Highest",
-                    value: "\(historyStatistics.highest?.calories ?? 0)",
-                    detail: historyStatistics.highest?.date.formatted(.dateTime.month(.abbreviated).day()) ?? "No data"
-                )
-                statTile(title: "Goal Hits", value: "\(historyStatistics.goalHitCount)", detail: "last 7 days")
-            }
-        }
-        .padding(18)
-        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.15))
-    }
-
     private var netCalorieHistoryCard: some View {
         let summary = netCalorieSummary
         let netColor = netCalorieColor(summary.net)
@@ -4084,6 +6851,298 @@ struct ContentView: View {
         .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.15))
     }
 
+    private var weightChangeComparisonButton: some View {
+        Button {
+            weightChangeComparisonRange = .sevenDays
+            isWeightChangeComparisonPresented = true
+            Haptics.selection()
+        } label: {
+            HStack(spacing: 14) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Compare Weight Change")
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(textPrimary)
+                        .multilineTextAlignment(.leading)
+                    Text("See expected vs actual change from calorie balance and weigh-ins.")
+                        .font(.subheadline)
+                        .foregroundStyle(textSecondary)
+                        .multilineTextAlignment(.leading)
+                }
+
+                Spacer(minLength: 12)
+
+                Image(systemName: "arrow.right")
+                    .font(.footnote.weight(.bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 34, height: 34)
+                    .background(
+                        Circle()
+                            .fill(accent)
+                    )
+            }
+            .frame(minHeight: 84)
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                accent.opacity(colorScheme == .dark ? 0.20 : 0.12),
+                                surfacePrimary
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(accent.opacity(0.35), lineWidth: 1.5)
+            )
+        }
+        .buttonStyle(.plain)
+        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .pressableCardStyle()
+    }
+
+    private var weeklyInsightButton: some View {
+        Button {
+            Haptics.selection()
+            Task {
+                await generateWeeklyInsight()
+            }
+        } label: {
+            HStack(spacing: 14) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("View Weekly Insights")
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(textPrimary)
+                        .multilineTextAlignment(.leading)
+                    Text(isWeeklyInsightLoading ? "Analyzing this week (Sun-Sat)…" : "Get a brief AI summary of your current calendar week.")
+                        .font(.subheadline)
+                        .foregroundStyle(textSecondary)
+                        .multilineTextAlignment(.leading)
+                }
+
+                Spacer(minLength: 12)
+
+                Image(systemName: "arrow.right")
+                    .font(.footnote.weight(.bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 34, height: 34)
+                    .background(
+                        Circle()
+                            .fill(accent)
+                    )
+            }
+            .frame(minHeight: 84)
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                accent.opacity(colorScheme == .dark ? 0.20 : 0.12),
+                                surfacePrimary
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(accent.opacity(0.35), lineWidth: 1.5)
+            )
+        }
+        .buttonStyle(.plain)
+        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .pressableCardStyle()
+        .disabled(isWeeklyInsightLoading)
+        .sheet(isPresented: $isWeeklyInsightPresented) {
+            NavigationStack {
+                ZStack {
+                    LinearGradient(
+                        colors: [backgroundTop, backgroundBottom],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .ignoresSafeArea()
+
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 18) {
+                            HStack(spacing: 10) {
+                                Image(systemName: "sparkles")
+                                    .font(.title2.weight(.semibold))
+                                    .foregroundStyle(accent)
+                                Text("Weekly Insight")
+                                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                                    .foregroundStyle(textPrimary)
+                            }
+
+                            if let text = weeklyInsightText, !text.isEmpty {
+                                let sections = Self.splitWeeklyInsightIntoSections(text)
+                                VStack(alignment: .leading, spacing: 12) {
+                                    ForEach(Array(sections.enumerated()), id: \.offset) { _, section in
+                                        VStack(alignment: .leading, spacing: 6) {
+                                            Text(section.title)
+                                                .font(.system(size: 18, weight: .bold, design: .rounded))
+                                                .foregroundStyle(textPrimary)
+                                                .multilineTextAlignment(.leading)
+                                                .fixedSize(horizontal: false, vertical: true)
+
+                                            weeklyInsightSectionBodyView(section.body)
+                                        }
+                                    }
+                                }
+                            } else if let error = weeklyInsightErrorMessage {
+                                Text(error)
+                                    .font(.body)
+                                    .foregroundStyle(.red)
+                                    .multilineTextAlignment(.leading)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            } else {
+                                Text("No recent data to analyze yet. Log food, exercise, and weigh-ins to see insights here.")
+                                    .font(.body)
+                                    .foregroundStyle(textSecondary)
+                                    .multilineTextAlignment(.leading)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        .padding(22)
+                    }
+                }
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") {
+                            isWeeklyInsightPresented = false
+                        }
+                        .font(.body.weight(.semibold))
+                    }
+                }
+            }
+        }
+    }
+
+    private struct WeeklyInsightSection {
+        let title: String
+        let body: String
+    }
+
+    @ViewBuilder
+    private func weeklyInsightSectionBodyView(_ body: String) -> some View {
+        let rawLines = body.split(whereSeparator: \.isNewline).map { String($0) }
+        let bulletPrefixCandidates = ["- ", "• ", "* "]
+
+        let bulletTexts: [String] = rawLines.compactMap { line in
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            for prefix in bulletPrefixCandidates {
+                if trimmed.hasPrefix(prefix) {
+                    return String(trimmed.dropFirst(prefix.count)).trimmingCharacters(in: .whitespacesAndNewlines)
+                }
+            }
+            return nil
+        }
+
+        if !bulletTexts.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(bulletTexts.indices, id: \.self) { idx in
+                    let bulletText = bulletTexts[idx]
+                    HStack(alignment: .top, spacing: 10) {
+                        Text("•")
+                            .font(.body)
+                            .foregroundStyle(textPrimary)
+                            .padding(.top, 2)
+
+                        if let attributed = try? AttributedString(markdown: bulletText) {
+                            Text(attributed)
+                                .font(.body)
+                                .foregroundStyle(textPrimary)
+                                .multilineTextAlignment(.leading)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .fixedSize(horizontal: false, vertical: true)
+                        } else {
+                            Text(bulletText)
+                                .font(.body)
+                                .foregroundStyle(textPrimary)
+                                .multilineTextAlignment(.leading)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+        } else {
+            if let attributed = try? AttributedString(markdown: body) {
+                Text(attributed)
+                    .font(.body)
+                    .foregroundStyle(textPrimary)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text(body)
+                    .font(.body)
+                    .foregroundStyle(textPrimary)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private static func splitWeeklyInsightIntoSections(_ text: String) -> [WeeklyInsightSection] {
+        let headings = [
+            "Week Overview",
+            "Calorie Intake",
+            "Activity & Calories Burned",
+            "Calorie Balance",
+            "Weight Trend",
+            "Logging & Data Quality",
+            "Macros / Nutrient Pattern"
+        ]
+
+        // Remove common markdown wrappers around headings so matching is reliable.
+        var normalized = text
+        for heading in headings {
+            normalized = normalized.replacingOccurrences(of: "**\(heading)**", with: heading)
+            normalized = normalized.replacingOccurrences(of: "## \(heading)", with: heading)
+            normalized = normalized.replacingOccurrences(of: "# \(heading)", with: heading)
+        }
+
+        // Find the first occurrence of each heading, then build segments between them.
+        var occurrences: [(heading: String, range: Range<String.Index>)] = []
+        for heading in headings {
+            if let range = normalized.range(of: heading) {
+                occurrences.append((heading: heading, range: range))
+            }
+        }
+        occurrences.sort { $0.range.lowerBound < $1.range.lowerBound }
+
+        // If we failed to detect headings, just show everything under a default title.
+        guard !occurrences.isEmpty else {
+            return [WeeklyInsightSection(title: "Weekly Insight", body: text.trimmingCharacters(in: .whitespacesAndNewlines))]
+        }
+
+        var sections: [WeeklyInsightSection] = []
+        sections.reserveCapacity(occurrences.count)
+
+        for i in 0..<occurrences.count {
+            let current = occurrences[i]
+            let bodyStart = current.range.upperBound
+            let bodyEnd = (i + 1 < occurrences.count) ? occurrences[i + 1].range.lowerBound : normalized.endIndex
+            var body = String(normalized[bodyStart..<bodyEnd])
+            body = body.trimmingCharacters(in: .whitespacesAndNewlines)
+            sections.append(WeeklyInsightSection(title: current.heading, body: body))
+        }
+
+        return sections
+    }
+
     private var expandedHistoryChartSheet: some View {
         NavigationStack {
             ZStack {
@@ -4165,6 +7224,138 @@ struct ContentView: View {
                     .foregroundStyle(textPrimary)
                 }
             }
+        }
+    }
+
+    private var weightChangeComparisonSheet: some View {
+        let points = weightChangeComparisonPoints(for: weightChangeComparisonRange)
+        let expectedChange = expectedWeightChangeSummary(for: weightChangeComparisonRange)
+        let actualChange = actualWeightChangeSummary(for: weightChangeComparisonRange)
+
+        return NavigationStack {
+            ZStack {
+                LinearGradient(
+                    colors: [backgroundTop, backgroundBottom],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        HStack {
+                            Text("Weight Change")
+                                .font(.system(size: 30, weight: .bold, design: .rounded))
+                                .foregroundStyle(textPrimary)
+                            Spacer()
+                            Menu {
+                                ForEach(NetHistoryRange.allCases) { range in
+                                    Button {
+                                        weightChangeComparisonRange = range
+                                        Haptics.selection()
+                                    } label: {
+                                        if range == weightChangeComparisonRange {
+                                            Label(range.title, systemImage: "checkmark")
+                                        } else {
+                                            Text(range.title)
+                                        }
+                                    }
+                                }
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Text(weightChangeComparisonRange.title)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                    Image(systemName: "chevron.down")
+                                        .font(.caption.weight(.bold))
+                                }
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(textPrimary)
+                                .frame(width: 158)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 10)
+                                .background(
+                                    Capsule(style: .continuous)
+                                        .fill(surfacePrimary.opacity(0.94))
+                                )
+                                .overlay(
+                                    Capsule(style: .continuous)
+                                        .stroke(textSecondary.opacity(0.16), lineWidth: 1)
+                                )
+                            }
+                        }
+
+                        Text("Expected uses logged calorie net and a 3,500 calorie-per-pound estimate. Actual uses Apple Health weigh-ins.")
+                            .font(.subheadline)
+                            .foregroundStyle(textSecondary)
+
+                        HStack(spacing: 12) {
+                            statTile(
+                                title: "Expected",
+                                value: formattedWeightChange(expectedChange),
+                                detail: weightChangeComparisonRange.title
+                            )
+
+                            statTile(
+                                title: "Actual",
+                                value: actualChange.map(formattedWeightChange) ?? "--",
+                                detail: actualChange == nil ? "Need weigh-ins" : weightChangeComparisonRange.title
+                            )
+                        }
+
+                        VStack(alignment: .leading, spacing: 14) {
+                            HStack(spacing: 14) {
+                                weightChangeLegendChip(title: "Expected", color: color(for: .expected))
+                                weightChangeLegendChip(title: "Actual", color: color(for: .actual))
+                                Spacer()
+                                if isRefreshingWeightChangeComparison {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                }
+                            }
+
+                            weightChangeChart(
+                                points: points,
+                                range: weightChangeComparisonRange
+                            )
+                            .frame(height: 320)
+
+                            if actualChange == nil {
+                                Text("Log weigh-ins in Apple Health to compare actual change against the expected trend.")
+                                    .font(.caption)
+                                    .foregroundStyle(textSecondary)
+                            }
+                        }
+                        .padding(18)
+                        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.15))
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 32)
+                }
+                .scrollIndicators(.hidden)
+            }
+            .task {
+                await refreshWeightChangeComparisonIfNeeded()
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Close") {
+                        isWeightChangeComparisonPresented = false
+                    }
+                    .foregroundStyle(textPrimary)
+                }
+            }
+        }
+    }
+
+    private func weightChangeLegendChip(title: String, color: Color) -> some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(color)
+                .frame(width: 8, height: 8)
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(textSecondary)
         }
     }
 
@@ -4275,18 +7466,79 @@ struct ContentView: View {
         }
     }
 
-    private func chartXAxisValues(for points: [CalorieGraphPoint]) -> [Date] {
-        guard !points.isEmpty else { return [] }
-        guard points.count > 4 else { return points.map(\.date) }
+    private func weightChangeChart(points: [WeightChangePoint], range: NetHistoryRange) -> some View {
+        let sortedDates = points.map(\.date).sorted()
+        let yAxisValues = weightChangeYAxisValues(for: points)
+        let yDomain = weightChangeYDomain(for: points)
+        let showsActualMarkers = weightChangeAggregation(for: range) == .daily
 
-        let targetMarks = min(4, points.count)
-        let lastIndex = points.count - 1
+        return Chart {
+            RuleMark(y: .value("No Change", 0.0))
+                .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                .foregroundStyle(textSecondary.opacity(0.35))
+
+            ForEach(points) { point in
+                LineMark(
+                    x: .value("Day", point.date, unit: .day),
+                    y: .value("Weight Change", point.change),
+                    series: .value("Series", point.series.title)
+                )
+                .interpolationMethod(.catmullRom)
+                .lineStyle(StrokeStyle(lineWidth: point.series == .expected ? 3 : 2.5, lineCap: .round, lineJoin: .round))
+                .foregroundStyle(color(for: point.series))
+
+                if point.series == .actual && showsActualMarkers {
+                    PointMark(
+                        x: .value("Day", point.date, unit: .day),
+                        y: .value("Weight Change", point.change)
+                    )
+                    .symbolSize(40)
+                    .foregroundStyle(color(for: point.series))
+                }
+            }
+        }
+        .chartXAxis {
+            AxisMarks(values: chartXAxisValues(for: sortedDates)) { value in
+                AxisValueLabel {
+                    if let date = value.as(Date.self) {
+                        Text(adaptiveChartLabel(for: date, totalPoints: range.dayCount))
+                    }
+                }
+                .foregroundStyle(textSecondary)
+            }
+        }
+        .chartYAxis {
+            AxisMarks(position: .leading, values: yAxisValues) { value in
+                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.6))
+                    .foregroundStyle(textSecondary.opacity(0.10))
+                AxisValueLabel {
+                    if let doubleValue = value.as(Double.self) {
+                        Text(weightAxisLabel(for: doubleValue))
+                    }
+                }
+                .foregroundStyle(textSecondary)
+            }
+        }
+        .chartYScale(domain: yDomain)
+        .chartLegend(.hidden)
+    }
+
+    private func chartXAxisValues(for points: [CalorieGraphPoint]) -> [Date] {
+        chartXAxisValues(for: points.map(\.date))
+    }
+
+    private func chartXAxisValues(for dates: [Date]) -> [Date] {
+        guard !dates.isEmpty else { return [] }
+        guard dates.count > 4 else { return dates }
+
+        let targetMarks = min(4, dates.count)
+        let lastIndex = dates.count - 1
         let step = max(1, lastIndex / max(targetMarks - 1, 1))
         var indices = Array(stride(from: 0, through: lastIndex, by: step))
         if indices.last != lastIndex {
             indices.append(lastIndex)
         }
-        return indices.map { points[$0].date }
+        return indices.map { dates[$0] }
     }
 
     private func chartYAxisValues(for points: [CalorieGraphPoint]) -> [Int] {
@@ -4312,6 +7564,74 @@ struct ContentView: View {
         return result
     }
 
+    private func weightChangeAggregation(for range: NetHistoryRange) -> WeightChangeAggregation {
+        switch range {
+        case .sevenDays, .thirtyDays:
+            return .daily
+        case .sixMonths:
+            return .weekly
+        case .oneYear, .twoYears:
+            return .monthly
+        }
+    }
+
+    private func aggregatedWeightChangePoints(
+        _ points: [WeightChangePoint],
+        aggregation: WeightChangeAggregation
+    ) -> [WeightChangePoint] {
+        guard aggregation != .daily else { return points }
+        guard !points.isEmpty else { return [] }
+
+        let grouped = Dictionary(grouping: points) { point in
+            aggregatedWeightBucketDate(for: point.date, aggregation: aggregation)
+        }
+
+        return grouped.keys.sorted().compactMap { bucketDate in
+            guard let bucketPoints = grouped[bucketDate], let lastPoint = bucketPoints.max(by: { $0.date < $1.date }) else {
+                return nil
+            }
+
+            return WeightChangePoint(
+                date: bucketDate,
+                change: lastPoint.change,
+                series: lastPoint.series
+            )
+        }
+    }
+
+    private func aggregatedWeightBucketDate(for date: Date, aggregation: WeightChangeAggregation) -> Date {
+        switch aggregation {
+        case .daily:
+            return centralCalendar.startOfDay(for: date)
+        case .weekly:
+            let startOfDay = centralCalendar.startOfDay(for: date)
+            return centralCalendar.dateInterval(of: .weekOfYear, for: startOfDay)?.start ?? startOfDay
+        case .monthly:
+            let startOfDay = centralCalendar.startOfDay(for: date)
+            return centralCalendar.dateInterval(of: .month, for: startOfDay)?.start ?? startOfDay
+        }
+    }
+
+    private func weightChangeYDomain(for points: [WeightChangePoint]) -> ClosedRange<Double> {
+        let minValue = min(points.map(\.change).min() ?? 0, 0)
+        let maxValue = max(points.map(\.change).max() ?? 0, 0)
+        let span = max(maxValue - minValue, 0.6)
+        let padding = max(span * 0.15, 0.2)
+        return (minValue - padding)...(maxValue + padding)
+    }
+
+    private func weightChangeYAxisValues(for points: [WeightChangePoint]) -> [Double] {
+        let domain = weightChangeYDomain(for: points)
+        let lower = roundedWeightTick(domain.lowerBound)
+        let upper = roundedWeightTick(domain.upperBound)
+        let middle = roundedWeightTick((lower + upper) / 2)
+        return Array(Set([lower, middle, 0, upper])).sorted()
+    }
+
+    private func roundedWeightTick(_ value: Double) -> Double {
+        (value * 2).rounded() / 2
+    }
+
     private func adaptiveChartLabel(for date: Date, totalPoints: Int) -> String {
         if totalPoints <= 30 {
             return date.formatted(.dateTime.month(.abbreviated).day())
@@ -4319,24 +7639,74 @@ struct ContentView: View {
         return date.formatted(.dateTime.month(.abbreviated))
     }
 
-    private func historyBarColor(for point: CalorieGraphPoint) -> Color {
-        historyBarColor(calories: point.calories, goal: point.goal, burned: point.burned)
+    private func weightAxisLabel(for value: Double) -> String {
+        let sign = value > 0 ? "+" : ""
+        return "\(sign)\(value.formatted(.number.precision(.fractionLength(1))))"
     }
 
-    private func historyBarColor(calories: Int, goal: Int, burned: Int) -> Color {
+    private func formattedWeightChange(_ value: Double) -> String {
+        let sign = value > 0 ? "+" : ""
+        return "\(sign)\(value.formatted(.number.precision(.fractionLength(1)))) lb"
+    }
+
+    private func color(for series: WeightChangeSeries) -> Color {
+        switch series {
+        case .expected:
+            return accent
+        case .actual:
+            return .green
+        }
+    }
+
+    private func historyBarColor(for point: CalorieGraphPoint) -> Color {
+        historyBarColor(
+            calories: point.calories,
+            goal: point.goal,
+            burned: point.burned,
+            goalType: goalTypeForDay(point.dayIdentifier)
+        )
+    }
+
+    private enum CalorieGoalState {
+        case green
+        case yellow
+        case red
+    }
+
+    private func historyBarColor(calories: Int, goal: Int, burned: Int, goalType: GoalType) -> Color {
+        color(for: calorieGoalState(consumed: calories, goal: goal, burned: burned, goalType: goalType))
+    }
+
+    private func calorieGoalState(consumed: Int, goal: Int, burned: Int, goalType: GoalType) -> CalorieGoalState {
         let safeGoal = max(goal, 1)
         let safeBurned = max(burned, 1)
+        let consumedValue = max(consumed, 0)
+
+        if goalType == .fixed {
+            if consumedValue <= safeGoal { return .green }
+            if consumedValue < safeBurned { return .yellow }
+            return .red
+        }
+
         let isSurplus = safeGoal > safeBurned
 
         if isSurplus {
-            if calories < safeBurned { return Color.yellow }
-            if calories <= safeGoal { return Color.green }
-            return Color.red
+            if consumedValue < safeBurned { return .yellow }
+            if consumedValue <= safeGoal { return .green }
+            return .red
         } else {
             // Deficit: goal < burned. Green = at or below goal, yellow = between goal and burned, red = over burned
-            if calories > safeBurned { return Color.red }
-            if calories <= safeGoal { return Color.green }
-            return Color.yellow
+            if consumedValue > safeBurned { return .red }
+            if consumedValue <= safeGoal { return .green }
+            return .yellow
+        }
+    }
+
+    private func color(for state: CalorieGoalState) -> Color {
+        switch state {
+        case .green: return Color.green
+        case .yellow: return Color.yellow
+        case .red: return Color.red
         }
     }
 
@@ -4430,33 +7800,14 @@ struct ContentView: View {
     private static let barRed = Color(red: 0.95, green: 0.26, blue: 0.21)
 
     private func calorieBarPalette(consumed: Int, goal: Int, burned: Int) -> (start: Color, end: Color) {
-        let safeGoal = max(goal, 1)
-        let safeBurned = max(burned, 1)
-        let consumedValue = max(consumed, 0)
-        let isSurplus = safeGoal > safeBurned
-
-        if isSurplus {
-            if consumedValue < safeBurned {
-                return (Self.barYellow, Self.barYellow)
-            }
-            if consumedValue <= safeGoal {
-                return (Self.barGreen, Self.barGreen)
-            }
-            return (Self.barRed, Self.barRed)
-        }
-
-        if safeBurned == safeGoal {
-            if consumedValue <= safeGoal { return (Self.barGreen, Self.barGreen) }
-            return (Self.barRed, Self.barRed)
-        }
-
-        if consumedValue <= safeGoal {
+        switch calorieGoalState(consumed: consumed, goal: goal, burned: burned, goalType: goalType) {
+        case .green:
             return (Self.barGreen, Self.barGreen)
-        }
-        if consumedValue <= safeBurned {
+        case .yellow:
             return (Self.barYellow, Self.barYellow)
+        case .red:
+            return (Self.barRed, Self.barRed)
         }
-        return (Self.barRed, Self.barRed)
     }
 
     @ViewBuilder
@@ -4569,18 +7920,19 @@ struct ContentView: View {
 
     @ViewBuilder
     private var exerciseLogSection: some View {
-        let allExercises = exercises + healthKitService.todayWorkouts
+        let allExercises = exercises + effectiveTodayHealthWorkouts
         let exerciseCalTotal = allExercises.reduce(0) { $0 + $1.calories }
+        let hasStepData = stepActivityService.todayStepCount > 0
         Section {
-            if allExercises.isEmpty && effectiveActivityCaloriesToday == 0 {
-                Text("No exercise logged.")
+            if allExercises.isEmpty && !hasStepData {
+                Text(isUsingSyncedHealthFallback ? "No synced workouts from iPhone yet today." : "No exercise logged.")
                     .foregroundStyle(textSecondary)
                     .listRowBackground(surfacePrimary)
             } else {
                 ForEach(allExercises.sorted(by: { $0.createdAt > $1.createdAt })) { entry in
                     exerciseLogRow(entry, isDeletable: exercises.contains(where: { $0.id == entry.id }))
                 }
-                if effectiveActivityCaloriesToday > 0 {
+                if hasStepData {
                     HStack(spacing: 12) {
                         Image(systemName: "figure.walk")
                             .font(.body)
@@ -4602,6 +7954,18 @@ struct ContentView: View {
                     }
                     .listRowBackground(surfacePrimary)
                 }
+            }
+
+            if isUsingSyncedHealthFallback {
+                HStack(spacing: 10) {
+                    Image(systemName: "iphone")
+                        .foregroundStyle(accent)
+                    Text("Showing synced exercise data from iPhone.")
+                        .font(.caption)
+                        .foregroundStyle(textSecondary)
+                    Spacer(minLength: 0)
+                }
+                .listRowBackground(surfacePrimary)
             }
 
             Button {
@@ -4629,6 +7993,49 @@ struct ContentView: View {
             .padding(.top, 8)
             .foregroundStyle(textSecondary)
         }
+    }
+
+    private func loadCloudSyncedHealthState() {
+        if
+            !storedSyncedHealthProfileData.isEmpty,
+            let data = storedSyncedHealthProfileData.data(using: .utf8),
+            let decoded = try? JSONDecoder().decode(HealthKitService.SyncedProfile.self, from: data)
+        {
+            cloudSyncedHealthProfile = decoded
+        } else {
+            cloudSyncedHealthProfile = nil
+        }
+
+        if
+            !storedSyncedTodayWorkoutsData.isEmpty,
+            let data = storedSyncedTodayWorkoutsData.data(using: .utf8),
+            let decoded = try? JSONDecoder().decode([ExerciseEntry].self, from: data)
+        {
+            cloudSyncedTodayWorkouts = decoded
+        } else {
+            cloudSyncedTodayWorkouts = []
+        }
+    }
+
+    private func mergedWorkoutEntries(primary: [ExerciseEntry], secondary: [ExerciseEntry]) -> [ExerciseEntry] {
+        var seen = Set<String>()
+        var merged: [ExerciseEntry] = []
+
+        for entry in (primary + secondary).sorted(by: { $0.createdAt > $1.createdAt }) {
+            let key = workoutMergeKey(for: entry)
+            guard !seen.contains(key) else { continue }
+            seen.insert(key)
+            merged.append(entry)
+        }
+
+        return merged
+    }
+
+    private func workoutMergeKey(for entry: ExerciseEntry) -> String {
+        let roundedTimestamp = Int(entry.createdAt.timeIntervalSince1970.rounded())
+        let distanceBucket = Int(((entry.distanceMiles ?? 0) * 100).rounded())
+        let name = (entry.customName ?? "").lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        return "\(entry.exerciseType.rawValue)|\(name)|\(entry.durationMinutes)|\(entry.calories)|\(distanceBucket)|\(roundedTimestamp)"
     }
 
     private func exerciseLogRow(_ entry: ExerciseEntry, isDeletable: Bool) -> some View {
@@ -4748,8 +8155,8 @@ struct ContentView: View {
                         .font(.body.weight(.semibold))
                         .foregroundStyle(textPrimary)
 
-                    if entry.servingCount > 1 {
-                        Text("x\(entry.servingCount)")
+                    if entry.displayCount > 1 {
+                        Text("x\(entry.displayCount)")
                             .font(.caption2.monospacedDigit().weight(.semibold))
                             .foregroundStyle(textSecondary)
                             .frame(minWidth: 22, minHeight: 22)
@@ -6226,11 +9633,13 @@ struct ContentView: View {
             }
             let scaledNutrients = pair.item.nutrientValues.mapValues { Int((Double($0) * multiplier).rounded()) }
             let scaledCalories = Int((Double(pair.item.calories) * multiplier).rounded())
+            let loggedCount = pair.item.isCountBased ? inferredLoggedItemCount(from: pair.oz) : 1
             return MealEntry(
                 id: UUID(),
                 name: pair.item.name,
                 calories: scaledCalories,
                 nutrientValues: scaledNutrients,
+                loggedCount: loggedCount > 1 ? loggedCount : nil,
                 createdAt: now,
                 mealGroup: mealGrp
             )
@@ -6257,11 +9666,13 @@ struct ContentView: View {
 
             let scaledNutrients = pair.item.nutrientValues.mapValues { Int((Double($0) * multiplier).rounded()) }
             let scaledCalories = Int((Double(pair.item.calories) * multiplier).rounded())
+            let loggedCount = pair.item.isCountBased ? inferredLoggedItemCount(from: pair.oz) : 1
             return MealEntry(
                 id: UUID(),
                 name: MealEntry.normalizedName(pair.item.name),
                 calories: scaledCalories,
                 nutrientValues: scaledNutrients,
+                loggedCount: loggedCount > 1 ? loggedCount : nil,
                 createdAt: now,
                 mealGroup: mealGrp
             )
@@ -6292,12 +9703,14 @@ struct ContentView: View {
                 scaledNutrients[key] = Int((Double(value) * multiplier).rounded())
             }
             let scaledCalories = Int((Double(item.calories) * multiplier).rounded())
+            let loggedCount = item.isCountBased ? inferredLoggedItemCount(from: oz) : 1
             expandedSelections.append(
                 MealEntry(
                     id: UUID(),
                     name: item.name,
                     calories: scaledCalories,
                     nutrientValues: scaledNutrients,
+                    loggedCount: loggedCount > 1 ? loggedCount : nil,
                     createdAt: now,
                     mealGroup: mealGrp
                 )
@@ -6421,7 +9834,6 @@ struct ContentView: View {
         do {
             let product = try await openFoodFactsService.fetchProduct(for: barcode)
             isBarcodeLookupInFlight = false
-            hasScannedBarcodeInCurrentSheet = false
             selectedFoodReviewMultiplier = 1.0
             DispatchQueue.main.async {
                 openFoodReview(for: product)
@@ -6677,29 +10089,42 @@ struct ContentView: View {
         let now = Date()
         let resolvedMealGroup = mealGroup(for: now, source: item.entrySource)
         let scaledCalories = Int((Double(item.calories) * multiplier).rounded())
-        let newEntries = (0..<quantity).map { _ in
-            MealEntry(
-                id: UUID(),
-                name: editedName,
-                calories: scaledCalories,
-                nutrientValues: scaledNutrients,
-                createdAt: now,
-                mealGroup: resolvedMealGroup
-            )
+        let selectedCount = inferredLoggedItemCount(from: selectedServingAmount)
+        let shouldStoreAsCountedSingleEntry = item.isCountBased && quantity == 1 && selectedCount > 1
+        let newEntries: [MealEntry]
+        if shouldStoreAsCountedSingleEntry {
+            newEntries = [
+                MealEntry(
+                    id: UUID(),
+                    name: editedName,
+                    calories: scaledCalories,
+                    nutrientValues: scaledNutrients,
+                    loggedCount: selectedCount,
+                    createdAt: now,
+                    mealGroup: resolvedMealGroup
+                )
+            ]
+        } else {
+            newEntries = (0..<quantity).map { _ in
+                MealEntry(
+                    id: UUID(),
+                    name: editedName,
+                    calories: scaledCalories,
+                    nutrientValues: scaledNutrients,
+                    createdAt: now,
+                    mealGroup: resolvedMealGroup
+                )
+            }
         }
 
         withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
             entries.append(contentsOf: newEntries)
         }
 
-        if case .quickAdd = item.entrySource, let quickAddID = item.quickAddID {
-            persistQuickAddServingBase(id: quickAddID, amount: selectedServingAmount)
-        }
-
         foodReviewItem = nil
         foodReviewNameText = ""
         if case .quickAdd = item.entrySource {
-            // Quick Add serving baseline persists directly to the saved quick-add item.
+            // Quick Add serving edits in review are one-off for this add.
         } else {
             foodReviewSliderBaselineBySignature[signature] = max(roundToServingSelectorIncrement(selectedFoodReviewBaselineAmount), 0)
             foodReviewSliderValueBySignature[signature] = min(max(selectedFoodReviewMultiplier, 0.25), 1.75)
@@ -6819,6 +10244,18 @@ struct ContentView: View {
         if storedDeficitCalories < 0 {
             storedDeficitCalories = 0
         }
+        if storedSurplusCalories < 0 {
+            storedSurplusCalories = 0
+        }
+        if storedFixedGoalCalories < 1 {
+            storedFixedGoalCalories = 1
+        }
+        if storedFixedGoalCalories > 6000 {
+            storedFixedGoalCalories = 6000
+        }
+        if GoalType(rawValue: goalTypeRaw) == nil {
+            goalTypeRaw = GoalType.deficit.rawValue
+        }
     }
 
     private func normalizeTrackingState() {
@@ -6858,6 +10295,7 @@ struct ContentView: View {
         if let goalsData = try? JSONEncoder().encode(nutrientGoals) {
             storedNutrientGoalsData = String(decoding: goalsData, as: UTF8.self)
         }
+        persistStateSnapshot()
     }
 
     private func syncInputFieldsToTrackedNutrients() {
@@ -6883,6 +10321,7 @@ struct ContentView: View {
     private func saveCalibrationState() {
         guard let data = try? JSONEncoder().encode(calibrationState) else { return }
         storedCalibrationStateData = String(decoding: data, as: UTF8.self)
+        persistStateSnapshot()
     }
 
     private func loadHealthWeighIns() {
@@ -6900,6 +10339,21 @@ struct ContentView: View {
     private func saveHealthWeighIns() {
         guard let data = try? JSONEncoder().encode(healthWeighIns) else { return }
         storedHealthWeighInsData = String(decoding: data, as: UTF8.self)
+        persistStateSnapshot()
+    }
+
+    private func refreshWeightChangeComparisonIfNeeded() async {
+        guard !isRefreshingWeightChangeComparison else { return }
+        guard healthKitService.authorizationState == .connected else { return }
+
+        isRefreshingWeightChangeComparison = true
+        defer { isRefreshingWeightChangeComparison = false }
+
+        let reducedWeights = await healthKitService.fetchReducedBodyMassHistory(days: NetHistoryRange.twoYears.dayCount)
+        guard !reducedWeights.isEmpty else { return }
+
+        healthWeighIns = reducedWeights
+        saveHealthWeighIns()
     }
 
     private func loadDailyEntryArchive() {
@@ -6929,6 +10383,7 @@ struct ContentView: View {
         }
 
         storedEntriesData = String(decoding: data, as: UTF8.self)
+        persistStateSnapshot()
     }
 
     private func saveDailyEntryArchive() {
@@ -6936,6 +10391,7 @@ struct ContentView: View {
             return
         }
         storedDailyEntryArchiveData = String(decoding: data, as: UTF8.self)
+        persistStateSnapshot()
     }
 
     private func loadDailyCalorieGoalArchive() {
@@ -6956,6 +10412,7 @@ struct ContentView: View {
             return
         }
         storedDailyCalorieGoalArchiveData = String(decoding: data, as: UTF8.self)
+        persistStateSnapshot()
     }
 
     private func loadDailyBurnedCalorieArchive() {
@@ -6976,6 +10433,7 @@ struct ContentView: View {
             return
         }
         storedDailyBurnedCalorieArchiveData = String(decoding: data, as: UTF8.self)
+        persistStateSnapshot()
     }
 
     private func loadDailyExerciseArchive() {
@@ -6995,6 +10453,7 @@ struct ContentView: View {
             return
         }
         storedDailyExerciseArchiveData = String(decoding: data, as: UTF8.self)
+        persistStateSnapshot()
     }
 
     private func loadDailyGoalTypeArchive() {
@@ -7014,6 +10473,7 @@ struct ContentView: View {
             return
         }
         storedDailyGoalTypeArchiveData = String(decoding: data, as: UTF8.self)
+        persistStateSnapshot()
     }
 
     private func syncCurrentEntriesToArchive() {
@@ -7050,10 +10510,18 @@ struct ContentView: View {
                 name: MealEntry.normalizedName($0.name),
                 calories: $0.calories,
                 nutrientValues: $0.nutrientValues,
+                loggedCount: $0.loggedCount,
                 createdAt: $0.createdAt,
                 mealGroup: $0.mealGroup
             )
         }
+    }
+
+    private func inferredLoggedItemCount(from amount: Double) -> Int {
+        let rounded = Int(amount.rounded())
+        guard rounded > 1 else { return 1 }
+        guard abs(amount - Double(rounded)) <= 0.05 else { return 1 }
+        return rounded
     }
 
     private func entries(forDayIdentifier identifier: String) -> [MealEntry] {
@@ -7146,7 +10614,11 @@ struct ContentView: View {
 
         let burned = burnedCaloriesForDay(identifier)
         let amount = deficitForDay(identifier)
-        if goalTypeForDay(identifier) == .surplus {
+        let dayGoalType = goalTypeForDay(identifier)
+        if dayGoalType == .fixed {
+            return max(fixedGoalCalories, 1)
+        }
+        if dayGoalType == .surplus {
             return max(burned + amount, 1)
         } else {
             return max(burned - amount, 1)
@@ -7168,10 +10640,20 @@ struct ContentView: View {
     }
 
     private func syncCurrentDayGoalArchive() {
+        // Keep cached burned/goal stable until the first Health refresh resolves for this launch.
+        if !healthKitService.hasLoadedFreshHealthDataThisLaunch {
+            return
+        }
+        if shouldDeferForHealthRefreshWithoutTodayArchive {
+            return
+        }
         dailyExerciseArchive[todayDayIdentifier] = exercises
         dailyCalorieGoalArchive[todayDayIdentifier] = calorieGoal
         dailyBurnedCalorieArchive[todayDayIdentifier] = burnedCaloriesToday
         dailyGoalTypeArchive[todayDayIdentifier] = goalType.rawValue
+        cachedCaloriesDayIdentifier = todayDayIdentifier
+        cachedBurnedCaloriesToday = burnedCaloriesToday
+        cachedCalorieGoalToday = calorieGoal
         saveDailyExerciseArchive()
         saveDailyCalorieGoalArchive()
         saveDailyBurnedCalorieArchive()
@@ -7206,6 +10688,8 @@ struct ContentView: View {
             burnedCalories: max(burnedCaloriesToday, 0),
             caloriesLeft: max(caloriesLeft, 0),
             progress: progress,
+            goalTypeRaw: goalType.rawValue,
+            selectedAppIconChoiceRaw: selectedAppIconChoiceRaw,
             trackedNutrients: Array(nutrientSummaries)
         )
         WidgetSnapshotStore.save(snapshot)
@@ -7213,6 +10697,7 @@ struct ContentView: View {
 
     private func scheduleCalibrationEvaluation(force: Bool = false) {
         guard calibrationState.isEnabled else { return }
+        guard goalType != .fixed else { return }
         guard healthKitService.authorizationState == .connected else { return }
         if !force, let last = lastCalibrationEvaluationAt, Date().timeIntervalSince(last) < 60 * 60 * 6 {
             return
@@ -7233,6 +10718,8 @@ struct ContentView: View {
 
     private func evaluateWeeklyCalibrationIfNeeded(referenceDate: Date) {
         guard calibrationState.isEnabled else { return }
+        guard goalType != .fixed else { return }
+        let minimumWeeklyWeighIns = 3
         let weekID = calibrationWeekID(for: referenceDate)
         if calibrationState.lastAppliedWeekID == weekID {
             return
@@ -7257,12 +10744,12 @@ struct ContentView: View {
             guard !spikeExcludedDays.contains(dayID) else { return nil }
             return weightByDay[dayID]
         }
-        guard validPriorWeights.count >= 5 else {
-            markCalibrationSkipped(reason: "Need at least 5 valid Health weigh-ins in the prior week.")
+        guard validPriorWeights.count >= minimumWeeklyWeighIns else {
+            markCalibrationSkipped(reason: "Need at least \(minimumWeeklyWeighIns) valid Health weigh-ins in the prior week.")
             return
         }
-        guard validCurrentWeights.count >= 5 else {
-            markCalibrationSkipped(reason: "Need at least 5 valid Health weigh-ins in the current week.")
+        guard validCurrentWeights.count >= minimumWeeklyWeighIns else {
+            markCalibrationSkipped(reason: "Need at least \(minimumWeeklyWeighIns) valid Health weigh-ins in the current week.")
             return
         }
 
@@ -7473,6 +10960,8 @@ struct ContentView: View {
         let goalMet: Bool
         if dayGoalType == .surplus {
             goalMet = total > 0 && total >= burned && total <= goal
+        } else if dayGoalType == .fixed {
+            goalMet = total > 0 && total <= goal
         } else {
             goalMet = total > 0 && total <= goal
         }
@@ -7523,6 +11012,11 @@ struct ContentView: View {
                 // Surplus larger than goal
                 return .red
             }
+        case .fixed:
+            if net <= 0 {
+                return .green
+            }
+            return .yellow
         }
     }
 
@@ -7798,6 +11292,7 @@ struct ContentView: View {
             return
         }
         storedQuickAddFoodsData = String(decoding: data, as: UTF8.self)
+        persistStateSnapshot()
     }
 
     private func presentQuickAddManagerFromPicker() {
@@ -7834,6 +11329,42 @@ struct ContentView: View {
         }
     }
 
+    private func addQuickAddFoods(
+        _ selections: [(item: QuickAddFood, quantity: Int, multiplier: Double)],
+        dismissPickerAfterAdd: Bool
+    ) {
+        let now = Date()
+        let mealGrp = genericMealGroup(for: now)
+        var newEntries: [MealEntry] = []
+
+        for (item, quantity, multiplier) in selections {
+            guard quantity > 0 else { continue }
+            let normalizedName = MealEntry.normalizedName(item.name)
+            let itemEntries = (0..<quantity).map { _ in
+                MealEntry(
+                    id: UUID(),
+                    name: normalizedName,
+                    calories: Int((Double(item.calories) * multiplier).rounded()),
+                    nutrientValues: item.nutrientValues.mapValues { Int((Double($0) * multiplier).rounded()) },
+                    createdAt: now,
+                    mealGroup: mealGrp
+                )
+            }
+            newEntries.append(contentsOf: itemEntries)
+        }
+
+        guard !newEntries.isEmpty else { return }
+
+        if dismissPickerAfterAdd && isQuickAddPickerPresented {
+            isQuickAddPickerPresented = false
+        }
+
+        withAnimation(.easeInOut(duration: 0.25)) {
+            entries.append(contentsOf: newEntries)
+        }
+        showAddConfirmation()
+    }
+
     @MainActor
     private func showAddConfirmation() {
         addConfirmationTask?.cancel()
@@ -7854,21 +11385,6 @@ struct ContentView: View {
                 }
             }
         }
-    }
-
-    private func persistQuickAddServingBase(id: UUID, amount: Double) {
-        guard let index = quickAddFoods.firstIndex(where: { $0.id == id }) else { return }
-        let existing = quickAddFoods[index]
-        let updated = QuickAddFood(
-            id: existing.id,
-            name: existing.name,
-            calories: existing.calories,
-            nutrientValues: existing.nutrientValues,
-            servingAmount: amount,
-            servingUnit: existing.servingUnit,
-            createdAt: existing.createdAt
-        )
-        quickAddFoods[index] = updated
     }
 
     @MainActor

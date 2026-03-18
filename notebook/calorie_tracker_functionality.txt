@@ -1,0 +1,387 @@
+CALORIE TRACKER - FULL FUNCTIONALITY DOCUMENTATION
+
+Project Name:
+Calorie Tracker
+
+Primary Platform:
+iOS (SwiftUI)
+
+Additional Components:
+- iOS Widget extension
+- Firebase Functions backend (TypeScript)
+- Firebase Hosting site (privacy page + Nutrislice proxy routing)
+- Separate web demo/sandbox app (Vite + TypeScript)
+
+======================================================================
+1) PRODUCT OVERVIEW
+======================================================================
+Calorie Tracker is a calorie and nutrient logging app designed around daily intake targets that adapt to calories burned. It supports manual food logging, reusable quick-add foods, barcode lookup, USDA food search, dining-menu import, AI-assisted photo/text logging, HealthKit integration, step-based activity adjustments, workout calories, and historical trend analysis.
+
+The app is structured around five core tabs:
+- Today
+- History
+- Add
+- Profile
+- Settings
+
+It includes onboarding, background refresh, widget snapshots, and optional CloudKit private-database sync for user state.
+
+======================================================================
+2) CORE USER FLOWS
+======================================================================
+2.1 Onboarding Flow (4 slides)
+The first-launch onboarding captures foundational setup:
+1. Welcome summary of app capabilities.
+2. Apple Health connection (height, weight, sex, age).
+3. Goal type and target amount:
+   - Deficit mode (burned - deficit)
+   - Surplus mode (burned + surplus)
+4. Nutrients to track (controls input fields, progress cards, goals).
+
+Onboarding can be skipped. Completion state is stored and used to switch into the normal tabbed shell.
+
+2.2 Daily Logging
+Users can add food from multiple sources:
+- Manual entry
+- PCC/Nutrislice menu import
+- USDA search
+- Barcode scan (Open Food Facts)
+- Quick Add saved foods
+- AI Smart Log (photo and text)
+
+Every logged item becomes a MealEntry with:
+- name
+- calories
+- nutrient map
+- timestamp
+- meal group (breakfast/lunch/dinner/snack)
+- optional quantity aggregation metadata
+
+2.3 Today Dashboard
+The Today tab shows:
+- Total consumed calories
+- Burned calories (BMR + activity + exercise +/- calibration offset)
+- Goal calories (based on deficit/surplus mode)
+- Calories left
+- Progress indicators for tracked nutrients
+- Food log (aggregated and editable)
+- Exercise log
+- Meal distribution visuals
+
+2.4 History
+The History tab provides:
+- Calendar-based day selection
+- Day summaries (goal met, total calories, entries)
+- Expandable day detail views
+- Multi-range charts (30d, 6m, 1y, 2y)
+- Net calorie views and trend statistics
+- Historical meal-distribution analysis
+
+2.5 Profile / Goals
+The Profile tab handles:
+- Deficit/surplus goal values
+- Optional weekend-specific goal override
+- Nutrient goals for selected tracked nutrients
+- Body profile status from HealthKit
+- BMR and burn context
+- Smart Adjustment (weekly calibration) status and controls
+
+2.6 Settings
+Settings includes:
+- Nutrient tracking selection
+- AI base-serving behavior toggle for ambiguous menu items
+- App icon choice (standard/pink)
+
+======================================================================
+3) FOOD ENTRY SOURCES IN DETAIL
+======================================================================
+3.1 Manual Entry
+Manual form accepts calories plus selected nutrient values. Entry is validated (non-empty meaningful nutrition) before insertion.
+
+3.2 PCC Dining Menu (Nutrislice)
+Supported venues:
+- Four Winds
+- Varsity
+- Grab N Go
+
+Supported meal windows depend on venue and time:
+- Breakfast/Lunch/Dinner where applicable
+- Menu type auto-selection by time-of-day logic
+
+Menu parsing:
+- Reads station headers and item rows
+- Extracts calories and nutrient values
+- Extracts serving amount/unit
+- Stores per-venue/per-meal cache and daily signatures
+
+Selection behavior:
+- Multi-select with quantity
+- Per-item serving multipliers
+- Add selected items into daily entries
+
+3.3 Plate Portion Estimation for Menu Items (AI)
+From selected menu items, users can take/pick a plate photo.
+Backend returns:
+- portion ounces per item OR count per count-based items
+- optional inferred base serving ounces for ambiguous units
+
+Client opens an interactive result screen where user can:
+- Remove detected items
+- Adjust serving size/count
+- Review total calories/nutrients for the full plate
+- Confirm and add adjusted entries to log
+
+3.4 USDA Search
+Searches through backend proxy endpoint, then ranks and deduplicates relevant results.
+Result review supports serving-size adjustment before adding.
+
+3.5 Barcode Scan (Open Food Facts)
+Uses camera scanner and barcode lookup.
+If product has usable nutrition data, user gets a review screen with editable serving-based scaling before adding.
+
+3.6 Quick Add Foods
+Users can create reusable foods with:
+- name
+- calories
+- nutrient values
+- serving amount and unit
+
+Quick Add supports:
+- search
+- create/edit/delete
+- one-tap add with serving adjustment flow
+- creating quick-adds from imported menu/barcode/USDA contexts
+
+3.7 AI Smart Log
+Two AI pathways:
+- AI food photo analysis
+- AI meal text analysis
+
+AI outputs structured items with serving + nutrient data.
+Items are normalized and can be pushed into the same serving-review and add flow as other sources.
+
+======================================================================
+4) CALORIE MODEL AND METRICS
+======================================================================
+4.1 Burned Calories Model
+Burned calories are computed from:
+- Basal Metabolic Rate (BMR) from Health profile if complete
+- Fallback average BMR when profile is incomplete
+- Step activity calories (net walking model)
+- Exercise calories (manual + HealthKit workouts)
+- Smart Adjustment offset (weekly calibration)
+
+4.2 Goal Calculation
+Goal type options:
+- Deficit: goal = burned - deficit amount
+- Surplus: goal = burned + surplus amount
+
+Optional weekend override:
+- Separate weekend amount for Saturday/Sunday
+
+Historical days pull from archived daily values when available.
+
+4.3 Exercise Calories
+Exercise supports:
+- Weight lifting
+- Running
+- Cycling
+- Swimming
+- Direct custom calories
+
+Computation uses MET and/or distance models depending on available input.
+Running includes overlap-handling logic to avoid double-counting walking-equivalent calories already covered by steps.
+
+4.4 Meal Grouping
+Entries are grouped into:
+- Breakfast
+- Lunch
+- Dinner
+- Snack
+
+Group can be inferred from time or explicitly set/edited.
+
+======================================================================
+5) HEALTH AND ACTIVITY INTEGRATIONS
+======================================================================
+5.1 HealthKit Profile Sync
+When authorized, app reads:
+- Biological sex
+- Age
+- Height
+- Weight
+
+This profile drives BMR calculation and improves activity estimates.
+
+5.2 HealthKit Workouts
+Today’s workouts are mapped into ExerciseEntry records with mapped icon/title/type and calorie logic.
+
+5.3 Motion / Step Tracking
+StepActivityService reads today’s steps (and distance when available).
+If distance missing, it estimates from stride length derived from height.
+It then estimates net walking calories and feeds daily burn model.
+
+======================================================================
+6) SMART ADJUSTMENT (WEEKLY CALIBRATION)
+======================================================================
+Purpose:
+Auto-correct burned-calorie model using recent weigh-in trends from HealthKit body mass history.
+
+State tracked:
+- enabled/disabled
+- current offset calories
+- recent daily errors
+- run history/status
+- skip reasons
+- data-quality pass/check counts
+
+Behavior:
+- Runs on schedule/gating conditions
+- Uses recent weight trajectory and modeled energy balance
+- Applies bounded weekly offset adjustments
+- Stores confidence and run metadata for Profile display
+
+======================================================================
+7) DATA STORAGE, STATE, AND ARCHIVING
+======================================================================
+Primary local persistence uses AppStorage/UserDefaults with JSON-string archives for complex types.
+
+Stored domains include:
+- Current entries and exercises
+- Daily archives for entries/exercises/goals/burned values/goal type
+- Tracked nutrients and nutrient goals
+- Quick add foods
+- Menu caches/signatures and selection multipliers
+- Calibration state
+- Health weigh-in reduction data
+- App icon and AI serving preferences
+- Onboarding completion
+
+Daily rollover behavior:
+- Detects central-day transitions
+- Archives prior day safely
+- Loads current day state
+- Resets/refreshes menu caches where needed
+
+======================================================================
+8) CLOUD SYNC (CLOUDKIT PRIVATE DB)
+======================================================================
+Cloud sync is implemented via a private CloudKit record storing a JSON payload asset.
+
+Sync behavior:
+- Bootstraps on app lifecycle entry
+- Ensures a private DB subscription exists
+- Fetches latest envelope with updatedAt timestamp
+- Applies newer remote payload locally or uploads local payload when newer
+- Watches for remote notification and triggers state refresh
+
+Conflict strategy:
+Timestamp-based latest-write resolution at envelope level.
+
+======================================================================
+9) WIDGET SYSTEM
+======================================================================
+Widget snapshots are written to app-group shared defaults and consumed by widget timelines.
+
+Snapshot contains:
+- consumed calories
+- goal calories
+- burned calories
+- calories left
+- progress
+- selected icon variant
+- up to 3 tracked nutrient summaries
+
+Refresh paths:
+- Explicit sync after relevant app state changes
+- App launch background task
+- Background fetch
+- Widget timeline refreshes
+
+Widget UI includes multiple families with ring/progress visual states tied to goal-vs-burn logic.
+
+======================================================================
+10) BACKEND (FIREBASE FUNCTIONS)
+======================================================================
+Backend base URL:
+https://us-central1-calorie-tracker-364e3.cloudfunctions.net
+
+10.1 searchUSDAFoods (GET)
+- Proxies USDA FoodData Central search using server-side USDA_API_KEY
+- Maps nutrient IDs into app nutrient keys
+- Returns filtered food list with serving context
+
+10.2 estimatePlatePortions (POST)
+- Uses Gemini (gemini-2.5-flash) with image + food context
+- Requests structured JSON output for portion oz/count/base servings
+- Runs two inferences and averages outputs for stability
+- Includes robust parse fallbacks and normalization rules
+
+10.3 analyzeFoodPhoto (POST)
+- Uses Gemini vision prompt for either food-photo mode or nutrition-label mode
+- Returns normalized items with serving and nutrient fields
+
+10.4 analyzeFoodText (POST)
+- Uses Gemini with web search tool for meal-text nutrition lookup
+- Returns normalized item array with serving and nutrients
+
+10.5 proxyNutrislice (GET)
+- Proxies Nutrislice API requests to avoid client-side access issues
+- Used by hosting rewrites for /api/nutrislice/**
+
+Notes:
+- CORS headers are handled per endpoint.
+- Secrets used: USDA_API_KEY, GEMINI_API_KEY.
+
+======================================================================
+11) MENU + AI PORTIONING RULES (IMPORTANT APP LOGIC)
+======================================================================
+- Count-based foods and measured foods are treated differently.
+- Explicit units (oz/g/cup/tbsp/tsp) are considered authoritative for base serving.
+- Ambiguous units (serving/each/item) can optionally use AI-inferred base servings.
+- User setting "Let AI adjust base servings" controls whether inferred base-serving overrides are applied.
+
+This design prevents AI from overriding precise menu units while still improving ambiguous items.
+
+======================================================================
+12) ERROR HANDLING AND UX FEEDBACK
+======================================================================
+The app includes:
+- Loading states and retry actions for menu/search/API flows
+- Inline error messaging and toast-style notifications
+- Haptic feedback for success/warning/selection
+- Keyboard-aware sheet behavior and dismissal protections
+
+======================================================================
+13) WEB DEMO APP (SEPARATE FROM IOS APP)
+======================================================================
+A separate Vite TypeScript demo exists under webapp/.
+It provides:
+- Dashboard-like calorie/macro summary
+- LocalStorage meal tracking and goal editing
+- Nutrislice menu browsing and add-to-tracker behavior
+
+This is a sandbox/demo implementation and not the full iOS app feature set.
+
+======================================================================
+14) NON-FUNCTIONAL CHARACTERISTICS
+======================================================================
+- Heavy use of SwiftUI compositional sheets and full-screen flows.
+- Background refresh support for menus/widgets.
+- Local-first architecture with optional cloud sync.
+- Strong typed models for entries, nutrients, exercise, calibration, and AI result parsing.
+- Multiple automated stress/regression scripts present in repo for quality checks.
+
+======================================================================
+15) FUNCTIONAL SUMMARY
+======================================================================
+Calorie Tracker is a full-stack nutrition tracking system with:
+- Rich multi-source food logging
+- Adaptive daily goals based on burn model
+- HealthKit and step/workout integration
+- AI-assisted photo/text/portion workflows
+- Robust historical analytics
+- Widget ecosystem
+- Cloud-backed server features and optional CloudKit state sync
+
+The architecture is intentionally modular: iOS client for UX/state, Firebase Functions for external API/AI orchestration, and shared data snapshots for widgets/background updates.

@@ -1,0 +1,4 @@
+module GoogleUtilities_Environment {
+umbrella "/Users/micah/Library/Developer/Xcode/DerivedData/Calorie_Tracker-gnavpovwzsrsdjcoenyhmbxwwqpf/SourcePackages/checkouts/GoogleUtilities/GoogleUtilities/Environment/Public"
+export *
+}

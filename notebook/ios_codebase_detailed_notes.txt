@@ -1,0 +1,533 @@
+Calorie Tracker iOS Codebase - Detailed Technical Notebook
+Generated: 2026-03-12 (America/New_York)
+Workspace: /Users/micah/Documents/Calorie Tracker
+
+================================================================================
+1) High-Level Summary
+================================================================================
+
+This repository contains an iOS calorie-tracking app built with SwiftUI, plus a
+WidgetKit extension and Firebase Functions backend.
+
+Primary app goals:
+- Log foods and nutrient totals throughout the day.
+- Compute daily intake targets from burned calories +/- deficit/surplus settings.
+- Pull/estimate nutrition from multiple sources:
+  - Manual entry
+  - PCC (Nutrislice) dining menus
+  - USDA backend search
+  - Open Food Facts barcode lookup
+  - AI text meal parsing
+  - AI food photo parsing
+  - AI plate portion estimation for menu items
+- Integrate Health/steps/workouts for energy expenditure.
+- Persist state locally + sync app state to iCloud (CloudKit private DB).
+- Power home/lock-screen widgets via App Group snapshot sharing.
+
+Core architectural shape:
+- Single large stateful root (`ContentView.swift`) as orchestrator.
+- Feature views are mostly stateless/presentational with bindings/callbacks.
+- Data persistence primarily through `@AppStorage` String-backed JSON blobs.
+- External IO via service types (`*Service.swift`) with async/await networking.
+- Background refresh via app delegate fetch + Health observer updates.
+
+================================================================================
+2) Repository Layout
+================================================================================
+
+Top-level relevant folders:
+- `Calorie Tracker/` -> main iOS app target.
+- `Calorie Tracker Widgets/` -> widget extension target.
+- `Calorie TrackerUITests/` -> UI/integration/stress tests.
+- `functions/` -> Firebase Functions TypeScript backend.
+
+Other top-level files:
+- `Calorie Tracker.xcodeproj` project configuration.
+- `Calorie-Tracker-Info.plist` app plist additions.
+- `Calorie-Tracker-Widgets-Info.plist` widget extension plist.
+- `README.md` project run/deploy notes.
+
+================================================================================
+3) Build + Target Configuration (from project.pbxproj)
+================================================================================
+
+App target (`Calorie Tracker`):
+- Bundle ID: `Micah.Calorie-Tracker`
+- Marketing version: `1.1`
+- Build version: `14`
+- Deployment target: `iOS 26.2`
+- Devices: iPhone + iPad (`1,2`)
+- Entitlements file: `Calorie Tracker/Calorie Tracker.entitlements`
+
+Widget target (`Calorie Tracker Widgets`):
+- Bundle ID: `Micah.Calorie-Tracker.widgets`
+- Marketing version: `1.1`
+- Build version: `14`
+- Deployment target: `iOS 26.2`
+- Entitlements file: `Calorie Tracker Widgets/Calorie Tracker Widgets.entitlements`
+
+UI tests target:
+- Bundle ID: `Micah.Calorie-TrackerUITests`
+- Marketing version: `1.0`
+- Build version: `14`
+- Deployment target: `iOS 26.2`
+
+Plist/entitlement highlights:
+- URL scheme deep link: `calorietracker://...`
+- Background modes: `fetch`, `remote-notification`
+- App entitlement includes:
+  - HealthKit
+  - CloudKit (iCloud container `iCloud.$(CFBundleIdentifier)`)
+  - App Group `group.Micah.Calorie-Tracker`
+- Widget entitlement includes App Group `group.Micah.Calorie-Tracker`
+
+================================================================================
+4) Runtime Lifecycle + Entry Points
+================================================================================
+
+Main app entry file: `Calorie Tracker/Calorie_TrackerApp.swift`
+
+Important startup behavior:
+1. `@main Calorie_TrackerApp` launches `ContentView` in dark mode preference.
+2. `AppDelegate` registers for remote notifications.
+3. Enables minimum background fetch interval.
+4. Starts `HealthKitBackgroundObserver` (Health sample observers).
+5. Kicks one background snapshot refresh task at launch.
+
+Background refresh pathways:
+- `application(_:performFetchWithCompletionHandler:)`
+  concurrently preloads menus and refreshes widget snapshot.
+- `application(_:didReceiveRemoteNotification:fetchCompletionHandler:)`
+  listens for CloudKit app-state-change notification and posts
+  `.cloudKitAppStateDidChange` in-process.
+
+================================================================================
+5) Root Orchestration (`ContentView.swift`)
+================================================================================
+
+`ContentView.swift` (~8k lines) is the app's central state machine.
+
+5.1 Embedded systems inside ContentView file
+- `AppCloudSyncService` (actor)
+  - CloudKit record fetch/save for serialized app state payload.
+  - Private DB record ID: `user-state`, record type `AppState`.
+  - Stores payload via CKAsset JSON + numeric `updatedAt` field.
+  - Ensures private DB subscription for silent push updates.
+- `AppMenuPreloadService` (actor)
+  - Preloads per-venue menu caches to UserDefaults.
+
+5.2 Major app state classes in ContentView
+- Persistent app settings via many `@AppStorage` keys.
+- Volatile UI state (`@State`) for tabs, sheets, loaders, selection, keyboard,
+  errors, AI results, search tasks, etc.
+- Observable services:
+  - `@StateObject StepActivityService`
+  - `@StateObject HealthKitService`
+
+5.3 Core responsibilities in ContentView
+- Tab navigation for Today / History / Add / Profile / Settings.
+- Data entry lifecycle (manual, menu, quick-add, barcode, USDA, AI).
+- Daily archive migration/rotation by day identifier.
+- Goal computation and calorie model updates.
+- Chart and history rendering data prep.
+- Menu load caching and signature management.
+- Cloud sync bootstrap/apply/upload scheduling.
+- Widget snapshot synchronization.
+- Weekly calibration logic using weigh-ins + recent errors.
+
+5.4 Notable persistence keys used by ContentView
+- Onboarding + goals:
+  - `hasCompletedOnboarding`
+  - `goalTypeRaw` (`deficit`/`surplus`)
+  - `deficitCalories`, `surplusCalories`
+  - `useWeekendDeficit`, `weekendDeficitCalories`
+- Core data blobs (JSON string-backed):
+  - `mealEntriesData`
+  - `trackedNutrientsData`
+  - `nutrientGoalsData`
+  - `dailyEntryArchiveData`
+  - `dailyCalorieGoalArchiveData`
+  - `dailyBurnedCalorieArchiveData`
+  - `dailyExerciseArchiveData`
+  - `dailyGoalTypeArchiveData`
+  - `venueMenusData`, `venueMenuSignaturesData`
+  - `quickAddFoodsData`
+  - `calibrationStateData`
+  - `healthWeighInsData`
+- UI/settings:
+  - `selectedAppIconChoice`
+  - `useAIBaseServings`
+- Cloud sync metadata:
+  - `cloudSyncLocalModifiedAt`
+
+5.5 ContentView feature domains
+- Food logging and aggregation:
+  - Merges same-food entries for display blocks.
+  - Supports edit/delete single or grouped entries.
+- USDA + OFF search ranking:
+  - Merges search results and relevance scores.
+- Menu workflows:
+  - Venue + meal type selection with signature-based refresh.
+  - Multi-item selection with quantity/multiplier maps.
+- AI workflows:
+  - Photo analysis for detected foods.
+  - Text meal analysis into items.
+  - Plate estimate flow (item-level serving oz/count adjustments).
+- History + analytics:
+  - Day/month selection, chart ranges, bar colors from goal context.
+- Calibration:
+  - Weekly cadence, weighted recent errors, skip reasons, confidence label.
+
+================================================================================
+6) Domain Model Layer (`Models.swift`)
+================================================================================
+
+`MealGroup`
+- Enum: breakfast/lunch/dinner/snack
+- Contains display title and log sort rank.
+
+`BMRSex`, `BMRProfile`
+- Sex enum + body profile struct used for BMR calculations.
+- `BMRProfile.isComplete` gate.
+
+`MealEntry`
+- Primary logged food model.
+- Fields: id, normalized name, calories, nutrientValues, loggedCount, createdAt,
+  mealGroup.
+- Defensive decode behavior:
+  - clamps negatives
+  - backfills protein from nutrient map
+  - infers meal group by logged timestamp if missing.
+
+`QuickAddFood`
+- Reusable saved food template with serving baseline.
+- Enforces minimum serving amount and normalized serving unit.
+
+`ExerciseType`, `ExerciseEntry`
+- Exercise models for manual + HealthKit-mapped workouts.
+- Supports optional custom name/symbol and reclassified walking calories.
+
+`NutrientDefinition`
+- Metadata schema for nutrient UI/goal controls.
+
+`CalibrationState`
+- Stores weekly smart-adjustment state:
+  - enabled flag
+  - calorie offset
+  - recent errors
+  - run status metadata
+  - data quality counters.
+
+`HealthWeighIn*` models
+- Keep per-day representative weight sample with sample metadata.
+
+================================================================================
+7) Service Layer (Network/Platform)
+================================================================================
+
+7.1 Menu services
+- `NutrisliceMenuService.swift`
+  - Defines `DiningVenue` and `MenuItem/MenuLine/NutrisliceMenu`.
+  - Venue-specific supported meal types and URL path rules.
+  - Fetches daily menu from Nutrislice API endpoint.
+  - Parses station headers + items into app structures.
+  - Computes nutrient null-rate statistics across returned week.
+  - Menu type schedule heuristic:
+    - before ~10:45 -> breakfast
+    - before 16:00 -> lunch
+    - else dinner
+
+7.2 Food sources
+- `USDAFoodService.swift`
+  - Calls backend endpoint `searchUSDAFoods`.
+  - Backend base default:
+    `https://us-central1-calorie-tracker-364e3.cloudfunctions.net`
+  - Query via GET `?query=...`, maps/normalizes serving units.
+
+- `OpenFoodFactsService.swift`
+  - Directly calls OFF API v2 `/product/{barcode}`.
+  - Parses dynamic nutriments and maps to internal nutrient keys.
+  - Prefers serving values when serving metadata exists.
+
+7.3 AI services
+- `AITextMealService.swift`
+  - POST `analyzeFoodText` with `mealText`.
+- `AIFoodPhotoService.swift`
+  - POST `analyzeFoodPhoto` with base64 + mimeType.
+- `GeminiPlateEstimateService.swift`
+  - POST `estimatePlatePortions` with image + selected menu items.
+  - Expects `ozByFoodName`, `countByFoodName`, `baseOzByFoodName`, `rawText`.
+
+7.4 Activity + health services
+- `StepActivityService.swift`
+  - CoreMotion pedometer integration (query + live updates).
+  - Estimates active calories from distance * weight * coefficient.
+  - If no distance, estimates from stride length * step count.
+
+- `HealthKitService.swift`
+  - Requests/read-only Health data authorization.
+  - Pulls profile (sex, DoB, height, body mass).
+  - Pulls today's workouts and reduced daily body-mass history.
+  - Publishes authorization status + profile + workouts + errors.
+
+- `ExerciseCalorieService.swift`
+  - MET and distance-economy based exercise calorie estimation.
+  - Running includes walking-equivalent overlap logic so walking burn from step
+    model is not double-counted.
+
+- `HealthKitWorkoutMapper.swift`
+  - Maps many HK activity types to app presentation + `ExerciseType` buckets.
+  - Chooses calories from HK or estimated depending on activity class.
+
+7.5 Background/widget bridge
+- `BackgroundWidgetRefreshService.swift`
+  - Recomputes widget snapshot from UserDefaults + Health + steps.
+  - Persists daily goal/burned archives.
+  - Writes snapshot into App Group via `WidgetSnapshotStore`.
+- `HealthKitBackgroundObserver` inside same file
+  - Registers HK observer queries and triggers snapshot refresh on updates.
+
+================================================================================
+8) Shared Snapshot + Widgets
+================================================================================
+
+App side snapshot model/store:
+- `Calorie Tracker/WidgetSnapshotStore.swift`
+  - `WidgetCalorieSnapshot` contains calories + selected icon + tracked nutrients.
+  - App Group key: `widget.calorieSnapshot`.
+  - Calls `WidgetCenter.reloadTimelines` for both widget kinds.
+
+Widget extension:
+- `Calorie Tracker Widgets/CalorieTrackerWidgets.swift`
+  - Duplicated local snapshot model for decoding App Group data.
+  - `CalorieWidgetProvider` timeline refresh every ~10 minutes.
+  - Supports families:
+    - systemSmall/systemMedium
+    - accessoryCircular/accessoryRectangular/accessoryInline
+  - Includes ring/bar color logic tied to deficit/surplus condition and app icon
+    theme choice.
+
+================================================================================
+9) UI Layer: Feature Views and Responsibilities
+================================================================================
+
+9.1 Core screens
+- `ContentView.swift`
+  - Entire multi-tab app shell + feature orchestrator.
+- `MenuSheetView.swift`
+  - PCC menu browser with search, line expansion, selection quantities,
+    per-item serving/multiplier adjuster, and AI plate entry points.
+- `QuickAddEditorView.swift`
+  - Create/edit quick-add food with nutrient fields, serving baseline,
+    barcode import, USDA import, and PCC menu import.
+- `PlateEstimateResultView.swift`
+  - List-first AI plate result editor with per-item adjuster sheets,
+    total nutrition card, swipe-delete.
+- `EditMealEntrySheet.swift`
+  - Manual editing of logged meal entry, nutrients, quantity, meal group.
+
+9.2 Supporting flow views
+- `OnboardingFlowView.swift`
+  - 4-slide onboarding: welcome, health connection, deficit/surplus, nutrients.
+- `ProfileGoalsView.swift`
+  - Goal and profile control center, includes smart adjustment panel.
+- `AppSettingsTabView.swift`
+  - Nutrient selection, AI base-serving toggle, app icon choice.
+- `AddExerciseSheet.swift`
+  - Add manual exercise (duration/distance/custom calories).
+
+9.3 Reusable components
+- `DeficitGoalEditor.swift` -> plus/minus + direct field for goal calories.
+- `NutrientSelectionList.swift` -> selectable nutrient list UI.
+- `HorizontalServeSlider.swift`, `VerticalServeSlider.swift`,
+  `PlateAdjustSlider.swift` -> serving control sliders and unit inflection helpers.
+- `MealDistributionRingView.swift` -> segmented calorie ring visualization.
+- `View+Extensions.swift` -> card/input style helpers + nutrient grid card.
+
+9.4 System bridge views
+- `BarcodeScannerView.swift` -> AVCapture barcode scanner wrapper.
+- `PlateImagePickerView.swift` -> camera/photo picker wrapper returning JPEG data.
+
+9.5 Quick-add management views
+- `QuickAddManagerView.swift` -> search/edit/delete quick-add library.
+- `QuickAddPickerView.swift` -> one-tap quick-add selection sheet.
+- `QuickAddMenuImportView.swift` -> import single item from menu into quick-add.
+
+9.6 App appearance/util
+- `AppTheme.swift` -> accent + sheet gradient constants.
+- `AppIconChoice.swift` + `AppIconManager` -> alternate app icon switching.
+- `Haptics.swift` -> central UI haptic wrappers.
+
+================================================================================
+10) Cloud + Sync Behavior
+================================================================================
+
+Cloud state synchronization:
+- Encodes local app state into `CloudSyncPayload`.
+- Wraps with `CloudSyncEnvelope(updatedAt, payload)`.
+- Saves/loads as CKAsset JSON in user private CloudKit DB.
+- Establishes DB subscription for change notifications.
+- App delegate routes silent pushes into in-app notification.
+- ContentView gates applying payload with conflict protection flags
+  (`hasBootstrappedCloudSync`, `isApplyingCloudSync`, upload tasks).
+
+Menu preloading/cache:
+- Actor `AppMenuPreloadService` iterates all venues + menu types.
+- Fetches only when cache is empty or signature changed.
+- Persists back into string-backed JSON defaults.
+
+================================================================================
+11) Nutrient System Details
+================================================================================
+
+Source of truth: `NutrientCatalog.swift`
+- Provides known nutrient metadata:
+  key, display name, unit, default goal, min/max, step.
+- Defines preferred display order.
+- Defines non-trackable keys (`calories`, `re_vitamin_a`).
+- Has default exclusions for consistently-null menu nutrients.
+- Accepts imported nutrient values only for known keys and clamps >= 0.
+- Fallback parser can generate unknown nutrient definitions from token patterns.
+
+================================================================================
+12) Activity + Calorie Model Details
+================================================================================
+
+Daily burned calories concept combines:
+- BMR (from Health profile or fallback average).
+- Exercise calories (manual + Health workouts).
+- Step-based activity calories (walking model).
+- Optional calibration offset (`CalibrationState.calibrationOffsetCalories`).
+
+Then daily goal depends on goal type:
+- deficit: goal = burned - deficitAmount
+- surplus: goal = burned + surplusAmount
+
+Weekend override:
+- Optional alternate deficit/surplus value for Saturday/Sunday.
+
+Double-count mitigation:
+- Running workouts have `reclassifiedWalkingCalories` deducted from step-derived
+  activity calories up to available amount.
+
+================================================================================
+13) Backend Contract Surface (as used by iOS)
+================================================================================
+
+Functions code location: `functions/src/index.ts`
+Exported endpoints relevant to iOS:
+- `searchUSDAFoods`
+- `estimatePlatePortions`
+- `analyzeFoodPhoto`
+- `analyzeFoodText`
+- `proxyNutrislice` (mainly hosting rewrite/proxy use)
+
+Other backend notes:
+- Uses Firebase Functions v2 HTTP handlers.
+- Secrets used: `USDA_API_KEY`, `GEMINI_API_KEY`.
+- `README.md` indicates backend and hosting integration patterns.
+
+================================================================================
+14) Testing Coverage (UI Tests)
+================================================================================
+
+File: `Calorie TrackerUITests/Calorie_TrackerUITests.swift`
+
+Test themes:
+- PCC menu search anchoring/scroll behavior.
+- Last-category visibility above bottom tab bar.
+- Rapid tab switching stress.
+- Excessive text-entry stress.
+- 2000-interaction monkey stress with success-rate assertion >= 0.99.
+- End-to-end happy path for PCC menu search flow.
+
+UITest-specific launch arg:
+- `-UITEST_PCC_MENU YES` to force/stabilize PCC menu scenario.
+
+================================================================================
+15) Privacy Manifest Notes
+================================================================================
+
+Both app and widget privacy manifests (`PrivacyInfo.xcprivacy`) declare:
+- No tracking.
+- Accessed API category: UserDefaults.
+- Reason code includes `CA92.1`.
+
+================================================================================
+16) File-by-File Index (iOS Targets)
+================================================================================
+
+Main app files (`Calorie Tracker/`):
+- `Calorie_TrackerApp.swift`: app entry, AppDelegate, background fetch hooks.
+- `ContentView.swift`: root app orchestrator, state, tabs, cloud sync, archives.
+- `Models.swift`: domain models for food/exercise/profile/calibration/weigh-ins.
+- `NutrientCatalog.swift`: nutrient metadata and import/goal defaults.
+- `NutrisliceMenuService.swift`: dining venues + Nutrislice fetch/parse logic.
+- `USDAFoodService.swift`: USDA backend search client.
+- `OpenFoodFactsService.swift`: OFF barcode product client.
+- `AITextMealService.swift`: AI meal text analysis client.
+- `AIFoodPhotoService.swift`: AI image food analysis client.
+- `GeminiPlateEstimateService.swift`: AI plate portion estimator client.
+- `HealthKitService.swift`: Health auth/profile/workouts/weigh-ins.
+- `StepActivityService.swift`: CoreMotion steps/distance + active calorie estimate.
+- `ExerciseCalorieService.swift`: exercise calorie algorithms.
+- `HealthKitWorkoutMapper.swift`: HK workout -> app exercise model mapping.
+- `BackgroundWidgetRefreshService.swift`: snapshot recompute + HK observers.
+- `WidgetSnapshotStore.swift`: App Group snapshot save/load + widget timeline kick.
+- `MenuSheetView.swift`: PCC menu selection UI with AI integration.
+- `PlateEstimateResultView.swift`: AI plate result review/adjust/add.
+- `QuickAddEditorView.swift`: quick-add create/edit/import screen.
+- `QuickAddManagerView.swift`: quick-add list/manage screen.
+- `QuickAddPickerView.swift`: quick-add picker sheet.
+- `QuickAddMenuImportView.swift`: menu item import to quick-add.
+- `EditMealEntrySheet.swift`: existing meal edit UI.
+- `AddExerciseSheet.swift`: manual exercise entry UI.
+- `ProfileGoalsView.swift`: goals/profile/calibration controls.
+- `OnboardingFlowView.swift`: onboarding wizard.
+- `AppSettingsTabView.swift`: settings tab content.
+- `NutrientSelectionList.swift`: nutrient list chooser component.
+- `DeficitGoalEditor.swift`: numeric deficit/surplus editor.
+- `MealDistributionRingView.swift`: meal-share ring visualization.
+- `HorizontalServeSlider.swift`: horizontal serving slider + unit helpers.
+- `VerticalServeSlider.swift`: vertical serving slider.
+- `PlateAdjustSlider.swift`: plate estimate adjustment slider.
+- `PlateImagePickerView.swift`: camera/library picker.
+- `BarcodeScannerView.swift`: barcode scanner camera view controller wrapper.
+- `View+Extensions.swift`: common style modifiers + nutrient card component.
+- `AppTheme.swift`: accent and gradient constants.
+- `AppIconChoice.swift`: icon options + apply helper.
+- `Haptics.swift`: haptic feedback helper.
+
+Widget files (`Calorie Tracker Widgets/`):
+- `CalorieTrackerWidgets.swift`: provider, entry, UI for all widget families.
+- `PrivacyInfo.xcprivacy`: widget privacy declaration.
+- `Calorie Tracker Widgets.entitlements`: App Group entitlement.
+
+UI test files (`Calorie TrackerUITests/`):
+- `Calorie_TrackerUITests.swift`: regression + stress + e2e UI tests.
+
+================================================================================
+17) Practical Mental Model for Future Changes
+================================================================================
+
+When changing behavior, think in this order:
+1. Does this belong in pure data/model (`Models`, `NutrientCatalog`) or in UI?
+2. If it crosses network boundaries, add/modify a dedicated service file.
+3. Update `ContentView` only for orchestration/wiring/state transitions.
+4. Persisted field changes require:
+   - default initialization
+   - encode/decode migration handling
+   - cloud sync payload updates if needed
+   - widget refresh impact review
+5. For calories/burned logic changes, verify interaction between:
+   - BMR
+   - step calories
+   - exercise calories
+   - reclassified walking overlap
+   - calibration offset
+6. If UI is in menu/quick-add/plate flows, validate using UITests and by checking
+   search + keyboard + bottom-bar overlap behavior.
+
+================================================================================
+End of notebook.
+================================================================================

@@ -32,7 +32,7 @@ final class HealthKitService: ObservableObject {
         }
     }
 
-    struct SyncedProfile: Equatable {
+    struct SyncedProfile: Codable, Equatable {
         let age: Int
         let sex: BMRSex
         let heightFeet: Int
@@ -61,6 +61,8 @@ final class HealthKitService: ObservableObject {
     @Published private(set) var authorizationState: AuthorizationState = .notConnected
     @Published private(set) var profile: SyncedProfile?
     @Published private(set) var lastErrorMessage: String?
+    @Published private(set) var isRefreshingHealthData: Bool = false
+    @Published private(set) var hasLoadedFreshHealthDataThisLaunch: Bool = false
 
     /// Today's workouts from Health, mapped to ExerciseEntry for calorie integration.
     @Published private(set) var todayWorkouts: [ExerciseEntry] = []
@@ -84,9 +86,15 @@ final class HealthKitService: ObservableObject {
     }
 
     func refreshIfPossible() async {
+        isRefreshingHealthData = true
+        hasLoadedFreshHealthDataThisLaunch = false
+        defer { isRefreshingHealthData = false }
+
         guard HKHealthStore.isHealthDataAvailable() else {
             authorizationState = .unavailable
             profile = nil
+            todayWorkouts = []
+            reducedBodyMassHistory = []
             return
         }
 
@@ -96,12 +104,15 @@ final class HealthKitService: ObservableObject {
             guard authorizationState == .connected else {
                 profile = nil
                 todayWorkouts = []
+                hasLoadedFreshHealthDataThisLaunch = true
                 return
             }
             await loadHealthData()
+            hasLoadedFreshHealthDataThisLaunch = true
         } catch {
             lastErrorMessage = error.localizedDescription
             authorizationState = .notConnected
+            hasLoadedFreshHealthDataThisLaunch = true
         }
     }
 
@@ -151,15 +162,22 @@ final class HealthKitService: ObservableObject {
     }
 
     private func loadHealthData() async {
-        profile = await fetchProfile()
-        todayWorkouts = await fetchTodayWorkouts()
-        reducedBodyMassHistory = await fetchReducedBodyMassHistory(days: 21)
+        let fetchedProfile = await fetchProfile()
+        async let fetchedWorkouts = fetchTodayWorkouts(profile: fetchedProfile?.bmrProfile)
+        async let fetchedReducedBodyMassHistory = fetchReducedBodyMassHistory(days: 21)
+
+        let workouts = await fetchedWorkouts
+        let history = await fetchedReducedBodyMassHistory
+
+        profile = fetchedProfile
+        todayWorkouts = workouts
+        reducedBodyMassHistory = history
         lastErrorMessage = nil
     }
 
     func refreshWorkouts() async {
         guard authorizationState == .connected else { return }
-        todayWorkouts = await fetchTodayWorkouts()
+        todayWorkouts = await fetchTodayWorkouts(profile: profile?.bmrProfile)
     }
 
     func fetchReducedBodyMassHistory(days: Int = 21) async -> [HealthWeighInDay] {
@@ -192,8 +210,9 @@ final class HealthKitService: ObservableObject {
         let orderedDayIDs = grouped.keys.sorted()
         return orderedDayIDs.compactMap { dayID in
             guard let daySamples = grouped[dayID], !daySamples.isEmpty else { return nil }
+            let preferredDaySamples = Self.preferredIPhoneSamples(from: daySamples)
 
-            let sortedByTime = daySamples.sorted { $0.startDate < $1.startDate }
+            let sortedByTime = preferredDaySamples.sorted { $0.startDate < $1.startDate }
             let metadata = sortedByTime.map {
                 HealthWeighInSampleMetadata(
                     timestamp: $0.startDate,
@@ -235,19 +254,19 @@ final class HealthKitService: ObservableObject {
         }
     }
 
-    private func fetchTodayWorkouts() async -> [ExerciseEntry] {
+    private func fetchTodayWorkouts(profile: BMRProfile?) async -> [ExerciseEntry] {
         let workoutType = HKObjectType.workoutType()
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .autoupdatingCurrent
         let startOfToday = calendar.startOfDay(for: Date())
         let predicate = HKQuery.predicateForSamples(withStart: startOfToday, end: Date(), options: .strictStartDate)
-        let profileSnapshot = profile?.bmrProfile
 
         return await withCheckedContinuation { continuation in
             let query = HKSampleQuery(sampleType: workoutType, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)]) { _, samples, _ in
                 let workouts = (samples as? [HKWorkout]) ?? []
-                let entries = workouts.map { workout -> ExerciseEntry in
-                    HealthKitWorkoutMapper.makeExerciseEntry(from: workout, profile: profileSnapshot)
+                let preferredWorkouts = Self.preferredIPhoneSamples(from: workouts)
+                let entries = preferredWorkouts.map { workout -> ExerciseEntry in
+                    HealthKitWorkoutMapper.makeExerciseEntry(from: workout, profile: profile)
                 }
                 continuation.resume(returning: entries)
             }
@@ -306,12 +325,32 @@ final class HealthKitService: ObservableObject {
         let predicate = HKQuery.predicateForSamples(withStart: nil, end: Date())
 
         return await withCheckedContinuation { continuation in
-            let query = HKSampleQuery(sampleType: quantityType, predicate: predicate, limit: 1, sortDescriptors: [sortDescriptor]) { _, samples, _ in
-                let value = (samples?.first as? HKQuantitySample)?.quantity.doubleValue(for: unit)
+            let query = HKSampleQuery(sampleType: quantityType, predicate: predicate, limit: 200, sortDescriptors: [sortDescriptor]) { _, samples, _ in
+                let quantitySamples = (samples as? [HKQuantitySample]) ?? []
+                let preferredSamples = Self.preferredIPhoneSamples(from: quantitySamples)
+                let value = preferredSamples.first?.quantity.doubleValue(for: unit)
                 continuation.resume(returning: value)
             }
             healthStore.execute(query)
         }
+    }
+
+    nonisolated private static func preferredIPhoneSamples<T: HKSample>(from samples: [T]) -> [T] {
+        let iPhoneSamples = samples.filter { isIPhoneSourceRevision($0.sourceRevision) }
+        return iPhoneSamples.isEmpty ? samples : iPhoneSamples
+    }
+
+    nonisolated private static func isIPhoneSourceRevision(_ sourceRevision: HKSourceRevision) -> Bool {
+        if let productType = sourceRevision.productType?.lowercased(), productType.contains("iphone") {
+            return true
+        }
+        if sourceRevision.source.name.lowercased().contains("iphone") {
+            return true
+        }
+        if sourceRevision.source.bundleIdentifier.lowercased().contains("iphone") {
+            return true
+        }
+        return false
     }
 
     private func mapSex(_ sex: HKBiologicalSex) -> BMRSex? {

@@ -1,0 +1,59 @@
+{
+  "" : {
+    "diagnostics" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/Calorie Tracker Watch-primary.dia",
+    "emit-module-dependencies" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/Calorie Tracker Watch-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/Calorie Tracker Watch-primary-emit-module.dia",
+    "pch" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/Calorie Tracker Watch-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/Calorie Tracker Watch-primary.swiftdeps"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker Watch/CalorieTrackerWatchMVPApp.swift" : {
+    "const-values" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/CalorieTrackerWatchMVPApp.swiftconstvalues",
+    "dependencies" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/CalorieTrackerWatchMVPApp.d",
+    "diagnostics" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/CalorieTrackerWatchMVPApp.dia",
+    "index-unit-output-path" : "/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/CalorieTrackerWatchMVPApp.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/CalorieTrackerWatchMVPApp.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/CalorieTrackerWatchMVPApp.o",
+    "swift-dependencies" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/CalorieTrackerWatchMVPApp.swiftdeps",
+    "swiftmodule" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/CalorieTrackerWatchMVPApp~partial.swiftmodule"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker Watch/DashboardView.swift" : {
+    "const-values" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/DashboardView.swiftconstvalues",
+    "dependencies" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/DashboardView.d",
+    "diagnostics" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/DashboardView.dia",
+    "index-unit-output-path" : "/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/DashboardView.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/DashboardView.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/DashboardView.o",
+    "swift-dependencies" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/DashboardView.swiftdeps",
+    "swiftmodule" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/DashboardView~partial.swiftmodule"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker Watch/WatchCalorieStore.swift" : {
+    "const-values" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/WatchCalorieStore.swiftconstvalues",
+    "dependencies" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/WatchCalorieStore.d",
+    "diagnostics" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/WatchCalorieStore.dia",
+    "index-unit-output-path" : "/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/WatchCalorieStore.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/WatchCalorieStore.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/WatchCalorieStore.o",
+    "swift-dependencies" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/WatchCalorieStore.swiftdeps",
+    "swiftmodule" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/WatchCalorieStore~partial.swiftmodule"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker Watch/WatchSyncService.swift" : {
+    "const-values" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/WatchSyncService.swiftconstvalues",
+    "dependencies" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/WatchSyncService.d",
+    "diagnostics" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/WatchSyncService.dia",
+    "index-unit-output-path" : "/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/WatchSyncService.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/WatchSyncService.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/WatchSyncService.o",
+    "swift-dependencies" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/WatchSyncService.swiftdeps",
+    "swiftmodule" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/WatchSyncService~partial.swiftmodule"
+  },
+  "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "const-values" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/GeneratedAssetSymbols.swiftconstvalues",
+    "dependencies" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/GeneratedAssetSymbols.d",
+    "diagnostics" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/GeneratedAssetSymbols.dia",
+    "index-unit-output-path" : "/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/GeneratedAssetSymbols.o",
+    "swift-dependencies" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/GeneratedAssetSymbols.swiftdeps",
+    "swiftmodule" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Debug-iphonesimulator/Calorie Tracker Watch.build/Objects-normal/x86_64/GeneratedAssetSymbols~partial.swiftmodule"
+  }
+}

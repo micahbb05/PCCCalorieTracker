@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const CALIBRATION_ERROR_WEIGHTS = [0.1, 0.2, 0.3, 0.4];
+const MINIMUM_WEEKLY_WEIGH_INS = 3;
 
 function clamp(value, lower, upper) {
   return Math.min(Math.max(value, lower), upper);
@@ -102,13 +103,13 @@ function evaluateWeek(state, week) {
   const validPrior = week.priorWeights.filter((value, idx) => value != null && !excludedPrior.has(idx));
   const validCurrent = week.currentWeights.filter((value, idx) => value != null && !excludedCurrent.has(idx));
 
-  if (validPrior.length < 5) {
+  if (validPrior.length < MINIMUM_WEEKLY_WEIGH_INS) {
     result.status = "skipped";
-    result.skipReason = "Need at least 5 valid Health weigh-ins in the prior week.";
+    result.skipReason = `Need at least ${MINIMUM_WEEKLY_WEIGH_INS} valid Health weigh-ins in the prior week.`;
   }
-  if (result.status === "applied" && validCurrent.length < 5) {
+  if (result.status === "applied" && validCurrent.length < MINIMUM_WEEKLY_WEIGH_INS) {
     result.status = "skipped";
-    result.skipReason = "Need at least 5 valid Health weigh-ins in the current week.";
+    result.skipReason = `Need at least ${MINIMUM_WEEKLY_WEIGH_INS} valid Health weigh-ins in the current week.`;
   }
 
   const intakeLoggedDays = week.intakeByDay.filter((value) => value > 0).length;
@@ -340,10 +341,10 @@ const scenarios = [
   },
   {
     name: "spike-filter-removes-too-many-weighins",
-    expectation: "Should skip when spikes leave fewer than 5 valid current-week weigh-ins.",
+    expectation: "Should skip when spikes leave fewer than 3 valid current-week weigh-ins.",
     weeks: [makeWeek({
       priorWeights: [200, 200.2, 199.8, 200.1, 199.9, 200.0, 200.1],
-      currentWeights: [200.0, 194.0, 200.0, 194.0, 200.0, 194.0, 200.0],
+      currentWeights: [194.0, 200.0, 194.0, 200.0, 194.0, 200.0, 194.0],
       intakePerDay: 2500,
       burnPerDay: 2500,
     })],
@@ -443,9 +444,9 @@ const scenarios = [
   },
   {
     name: "prior-week-weighins-below-minimum",
-    expectation: "Should skip when prior week has fewer than 5 valid values.",
+    expectation: "Should skip when prior week has fewer than 3 valid values.",
     weeks: [makeWeek({
-      priorWeights: [200, null, 200, null, null, 200, null],
+      priorWeights: [200, null, 200, null, null, null, null],
       currentWeights: [199.7, 199.6, 199.5, 199.6, 199.5, 199.4, 199.5],
       intakePerDay: 2300,
       burnPerDay: 2500,

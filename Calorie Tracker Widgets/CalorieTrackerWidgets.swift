@@ -19,6 +19,8 @@ struct WidgetCalorieSnapshot: Codable, Equatable {
     let burnedCalories: Int
     let caloriesLeft: Int
     let progress: Double
+    let goalTypeRaw: String
+    let selectedAppIconChoiceRaw: String
     let trackedNutrients: [TrackedNutrient]
 
     private enum CodingKeys: String, CodingKey {
@@ -28,6 +30,8 @@ struct WidgetCalorieSnapshot: Codable, Equatable {
         case burnedCalories
         case caloriesLeft
         case progress
+        case goalTypeRaw
+        case selectedAppIconChoiceRaw
         case trackedNutrients
     }
 
@@ -38,6 +42,8 @@ struct WidgetCalorieSnapshot: Codable, Equatable {
         burnedCalories: Int,
         caloriesLeft: Int,
         progress: Double,
+        goalTypeRaw: String,
+        selectedAppIconChoiceRaw: String,
         trackedNutrients: [TrackedNutrient]
     ) {
         self.updatedAt = updatedAt
@@ -46,6 +52,8 @@ struct WidgetCalorieSnapshot: Codable, Equatable {
         self.burnedCalories = burnedCalories
         self.caloriesLeft = caloriesLeft
         self.progress = progress
+        self.goalTypeRaw = goalTypeRaw
+        self.selectedAppIconChoiceRaw = selectedAppIconChoiceRaw
         self.trackedNutrients = trackedNutrients
     }
 
@@ -57,7 +65,16 @@ struct WidgetCalorieSnapshot: Codable, Equatable {
         burnedCalories = try container.decode(Int.self, forKey: .burnedCalories)
         caloriesLeft = try container.decode(Int.self, forKey: .caloriesLeft)
         progress = try container.decode(Double.self, forKey: .progress)
+        goalTypeRaw = try container.decodeIfPresent(String.self, forKey: .goalTypeRaw)
+            ?? Self.inferredGoalTypeRaw(goalCalories: goalCalories, burnedCalories: burnedCalories)
+        selectedAppIconChoiceRaw = try container.decodeIfPresent(String.self, forKey: .selectedAppIconChoiceRaw) ?? "standard"
         trackedNutrients = try container.decodeIfPresent([TrackedNutrient].self, forKey: .trackedNutrients) ?? []
+    }
+
+    private static func inferredGoalTypeRaw(goalCalories: Int, burnedCalories: Int) -> String {
+        if goalCalories > burnedCalories { return "surplus" }
+        if goalCalories == burnedCalories { return "fixed" }
+        return "deficit"
     }
 }
 
@@ -76,7 +93,37 @@ enum WidgetSnapshotStore {
         else {
             return nil
         }
-        return snapshot
+
+        if isCurrentDay(snapshot.updatedAt) {
+            return snapshot
+        }
+
+        let safeGoal = max(snapshot.goalCalories, 1)
+        let normalizedNutrients = snapshot.trackedNutrients.map {
+            WidgetCalorieSnapshot.TrackedNutrient(
+                key: $0.key,
+                name: $0.name,
+                unit: $0.unit,
+                total: 0,
+                goal: max($0.goal, 1),
+                progress: 0
+            )
+        }
+        return WidgetCalorieSnapshot(
+            updatedAt: Date(),
+            consumedCalories: 0,
+            goalCalories: safeGoal,
+            burnedCalories: max(snapshot.burnedCalories, 0),
+            caloriesLeft: safeGoal,
+            progress: 0,
+            goalTypeRaw: snapshot.goalTypeRaw,
+            selectedAppIconChoiceRaw: snapshot.selectedAppIconChoiceRaw,
+            trackedNutrients: normalizedNutrients
+        )
+    }
+
+    private static func isCurrentDay(_ date: Date) -> Bool {
+        Calendar.autoupdatingCurrent.isDateInToday(date)
     }
 }
 
@@ -103,7 +150,7 @@ struct CalorieWidgetProvider: TimelineProvider {
     func getTimeline(in context: Context, completion: @escaping (Timeline<CalorieWidgetEntry>) -> Void) {
         let snapshot = WidgetSnapshotStore.load() ?? .placeholder
         let entry = CalorieWidgetEntry(date: Date(), snapshot: snapshot)
-        let refresh = Calendar.current.date(byAdding: .minute, value: 15, to: Date()) ?? Date().addingTimeInterval(900)
+        let refresh = Calendar.current.date(byAdding: .minute, value: 10, to: Date()) ?? Date().addingTimeInterval(600)
         completion(Timeline(entries: [entry], policy: .after(refresh)))
     }
 }
@@ -116,15 +163,22 @@ extension WidgetCalorieSnapshot {
         burnedCalories: 2480,
         caloriesLeft: 880,
         progress: 1320.0 / 2200.0,
+        goalTypeRaw: "deficit",
+        selectedAppIconChoiceRaw: "standard",
         trackedNutrients: [
             .init(key: "g_protein", name: "Protein", unit: "g", total: 123, goal: 150, progress: 0.82),
             .init(key: "g_fat", name: "Fat", unit: "g", total: 56, goal: 75, progress: 0.74)
         ]
     )
 
-    var clampedProgress: Double {
-        min(max(progress, 0), 1)
+    var nonNegativeProgress: Double {
+        max(progress, 0)
     }
+
+    var clampedProgress: Double {
+        min(nonNegativeProgress, 1)
+    }
+
 }
 
 private enum WidgetRingColor {
@@ -132,19 +186,23 @@ private enum WidgetRingColor {
         let consumed = max(snapshot.consumedCalories, 0)
         let goal = max(snapshot.goalCalories, 1)
         let burned = max(snapshot.burnedCalories, 1)
-        let isSurplus = goal > burned
+        let goalTypeRaw = snapshot.goalTypeRaw
 
+        if goalTypeRaw == "fixed" {
+            if consumed <= goal { return Color(red: 0.22, green: 0.78, blue: 0.35) }
+            if consumed < burned { return Color(red: 1.0, green: 0.76, blue: 0.12) }
+            return Color(red: 0.95, green: 0.26, blue: 0.21)
+        }
+
+        let isSurplus = goalTypeRaw == "surplus" || goal > burned
         if isSurplus {
             if consumed < burned { return Color(red: 1.0, green: 0.76, blue: 0.12) }
             if consumed <= goal { return Color(red: 0.22, green: 0.78, blue: 0.35) }
             return Color(red: 0.95, green: 0.26, blue: 0.21)
         }
-        if burned == goal {
-            return consumed <= goal ? Color(red: 0.22, green: 0.78, blue: 0.35) : Color(red: 0.95, green: 0.26, blue: 0.21)
-        }
+        if consumed > burned { return Color(red: 0.95, green: 0.26, blue: 0.21) }
         if consumed <= goal { return Color(red: 0.22, green: 0.78, blue: 0.35) }
-        if consumed <= burned { return Color(red: 1.0, green: 0.76, blue: 0.12) }
-        return Color(red: 0.95, green: 0.26, blue: 0.21)
+        return Color(red: 1.0, green: 0.76, blue: 0.12)
     }
 }
 
@@ -187,6 +245,9 @@ struct CalorieWidgetView: View {
     var body: some View {
         widgetContent
             .containerBackground(for: .widget) {
+                #if os(watchOS)
+                Color.clear
+                #else
                 switch family {
                 case .systemSmall:
                     cardBackground(size: CGSize(width: 170, height: 170), family: .systemSmall)
@@ -195,11 +256,24 @@ struct CalorieWidgetView: View {
                 default:
                     Color.clear
                 }
+                #endif
             }
     }
 
     @ViewBuilder
     private var widgetContent: some View {
+        #if os(watchOS)
+        switch family {
+        case .accessoryCircular:
+            accessoryCircularWidget
+        case .accessoryRectangular:
+            accessoryRectangularWidget
+        case .accessoryInline:
+            accessoryInlineWidget
+        default:
+            accessoryRectangularWidget
+        }
+        #else
         switch family {
         case .systemSmall:
             smallWidget
@@ -212,12 +286,14 @@ struct CalorieWidgetView: View {
         default:
             mediumWidget
         }
+        #endif
     }
 
     private var barColor: Color {
         WidgetRingColor.forSnapshot(entry.snapshot)
     }
 
+    #if !os(watchOS)
     private func cardBackground(size: CGSize, family: WidgetFamily) -> some View {
         if family == .systemSmall {
             return AnyView(
@@ -246,7 +322,9 @@ struct CalorieWidgetView: View {
             }
         )
     }
+    #endif
 
+    #if !os(watchOS)
     private var smallWidget: some View {
         DashboardLeftRingCore(snapshot: entry.snapshot, ringColor: barColor)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -311,6 +389,7 @@ struct CalorieWidgetView: View {
             .padding(24 * scale)
         }
     }
+    #endif
 
     private var accessoryCircularWidget: some View {
         ZStack {
@@ -325,12 +404,12 @@ struct CalorieWidgetView: View {
                 )
                 .rotationEffect(.degrees(-90))
 
-            Text("\(entry.snapshot.caloriesLeft)")
-                .font(.system(size: 13, weight: .bold, design: .rounded))
+            Text("\(Int((entry.snapshot.clampedProgress * 100).rounded()))%")
+                .font(.system(size: 10, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .lineLimit(1)
-                .minimumScaleFactor(0.70)
-                .foregroundStyle(.white)
+                .minimumScaleFactor(0.6)
+                .allowsTightening(true)
         }
         .padding(4)
     }
@@ -472,12 +551,17 @@ struct CalorieTrackerCalorieWidget: Widget {
         }
         .configurationDisplayName("Calories")
         .description("Track your daily calories with a compact progress view.")
+        #if os(watchOS)
+        .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline])
+        #else
         .supportedFamilies([.systemSmall, .accessoryCircular, .accessoryRectangular, .accessoryInline])
+        #endif
         .contentMarginsDisabled()
         .containerBackgroundRemovable(false)
     }
 }
 
+#if !os(watchOS)
 struct CalorieTrackerDashboardWidget: Widget {
     let kind: String = CalorieWidgetData.dashboardKind
 
@@ -492,11 +576,14 @@ struct CalorieTrackerDashboardWidget: Widget {
         .containerBackgroundRemovable(false)
     }
 }
+#endif
 
 @main
 struct CalorieTrackerWidgets: WidgetBundle {
     var body: some Widget {
         CalorieTrackerCalorieWidget()
+        #if !os(watchOS)
         CalorieTrackerDashboardWidget()
+        #endif
     }
 }

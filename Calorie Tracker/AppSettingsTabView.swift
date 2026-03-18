@@ -5,6 +5,13 @@ struct AppSettingsTabView: View {
     let availableNutrients: [NutrientDefinition]
     @Binding var selectedAppIconChoiceRaw: String
     @Binding var useAIBaseServings: Bool
+    @Binding var smartMealRemindersEnabled: Bool
+    let cloudSyncStatusTitle: String
+    let cloudSyncStatusDetail: String
+    let cloudSyncStatusTint: Color
+    let cloudSyncLastSuccessText: String
+    let isCloudSyncInFlight: Bool
+    let onRetryCloudSync: () -> Void
     @Environment(\.colorScheme) private var colorScheme
 
     private var cardBackground: some View {
@@ -50,6 +57,28 @@ struct AppSettingsTabView: View {
                     }
 
                     Text("Only affects AI plate estimates for items with unclear menu units like \"serving\" or \"each.\" When on, AI can infer the base serving. When off, the menu serving is used.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            settingsCard(title: "Reminders") {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .top, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Smart meal reminders")
+                                .font(.subheadline.weight(.semibold))
+                        }
+
+                        Spacer(minLength: 0)
+
+                        Toggle("", isOn: $smartMealRemindersEnabled)
+                            .labelsHidden()
+                            .tint(Color(red: 0.19, green: 0.52, blue: 1.0))
+                    }
+
+                    Text("Learns the meal types and times you usually log, then reminds you only after that meal appears to be missed.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

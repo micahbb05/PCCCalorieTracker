@@ -1,8 +1,10 @@
-import { onRequest } from "firebase-functions/v2/https";
+import { onRequest, Request } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { logger } from "firebase-functions";
 import { defineSecret } from "firebase-functions/params";
 import admin from "firebase-admin";
+import { createHash } from "node:crypto";
+import type { Response } from "express";
 
 admin.initializeApp();
 
@@ -65,6 +67,253 @@ const MENU_TYPE = "lunch";
 const TIME_ZONE = "America/Los_Angeles";
 const TARGET_DOC = "menus/today";
 const USDA_SEARCH_URL = "https://api.nal.usda.gov/fdc/v1/foods/search";
+const APP_TIME_ZONE = "America/New_York";
+const DAILY_GEMINI_CALL_LIMIT = 50;
+const HOURLY_IP_GEMINI_CALL_LIMIT = 150;
+const CLIENT_INSTANCE_ID_HEADER = "X-Client-Instance-Id";
+const APP_CHECK_HEADER = "X-Firebase-AppCheck";
+const ALLOWED_CORS_ORIGINS = new Set([
+  "https://calorie-tracker-364e3.web.app",
+  "https://calorie-tracker-364e3.firebaseapp.com",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173"
+]);
+
+type HttpRequest = Request;
+type HttpResponse = Response;
+
+type VerifiedAIRequestIdentity = {
+  appId: string;
+  clientInstanceId: string;
+  identityHash: string;
+  ipAddress: string;
+  ipHash: string;
+};
+
+function toSha256(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function getAllowedOrigin(originHeader: string | undefined): string | null {
+  if (!originHeader) return null;
+  const trimmed = originHeader.trim();
+  if (!trimmed) return null;
+  let origin: string;
+  try {
+    origin = new URL(trimmed).origin;
+  } catch {
+    return null;
+  }
+  return ALLOWED_CORS_ORIGINS.has(origin) ? origin : null;
+}
+
+function applyCors(
+  req: HttpRequest,
+  res: HttpResponse,
+  methods: readonly string[],
+  extraAllowedHeaders: readonly string[] = []
+): { ok: boolean } {
+  const allowedHeaders = ["Content-Type", ...extraAllowedHeaders];
+  const originHeader = typeof req.headers.origin === "string" ? req.headers.origin : undefined;
+  const allowedOrigin = getAllowedOrigin(originHeader);
+
+  if (originHeader) {
+    if (!allowedOrigin) {
+      res.status(403).json({ error: "Origin not allowed." });
+      return { ok: false };
+    }
+    res.set("Access-Control-Allow-Origin", allowedOrigin);
+    res.set("Vary", "Origin");
+  }
+
+  res.set("Access-Control-Allow-Methods", methods.join(", "));
+  res.set("Access-Control-Allow-Headers", allowedHeaders.join(", "));
+
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return { ok: false };
+  }
+
+  return { ok: true };
+}
+
+function extractClientIp(req: HttpRequest): string {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded.trim()) {
+    const first = forwarded.split(",")[0]?.trim();
+    if (first) return first;
+  }
+  if (Array.isArray(forwarded) && forwarded.length > 0) {
+    const first = forwarded[0]?.trim();
+    if (first) return first;
+  }
+  if (typeof req.ip === "string" && req.ip.trim()) return req.ip.trim();
+  if (typeof req.socket?.remoteAddress === "string" && req.socket.remoteAddress.trim()) {
+    return req.socket.remoteAddress.trim();
+  }
+  return "unknown";
+}
+
+function isValidClientInstanceId(value: string): boolean {
+  return /^[a-zA-Z0-9_-]{16,128}$/.test(value);
+}
+
+async function verifyAIRequestIdentity(req: HttpRequest): Promise<{
+  ok: boolean;
+  status?: number;
+  error?: string;
+  identity?: VerifiedAIRequestIdentity;
+}> {
+  const appCheckTokenRaw = req.get(APP_CHECK_HEADER) ?? req.get(APP_CHECK_HEADER.toLowerCase()) ?? "";
+  const appCheckToken = appCheckTokenRaw.trim();
+  if (!appCheckToken) {
+    return { ok: false, status: 401, error: "Missing App Check token." };
+  }
+
+  let decodedToken: { appId?: string };
+  try {
+    decodedToken = await admin.appCheck().verifyToken(appCheckToken);
+  } catch (error) {
+    logger.warn("Rejected request due to invalid App Check token.", { error });
+    return { ok: false, status: 401, error: "Invalid App Check token." };
+  }
+
+  const appId = typeof decodedToken.appId === "string" ? decodedToken.appId.trim() : "";
+  if (!appId) {
+    return { ok: false, status: 401, error: "Invalid App Check token payload." };
+  }
+
+  const rawClientId = req.get(CLIENT_INSTANCE_ID_HEADER) ?? req.get(CLIENT_INSTANCE_ID_HEADER.toLowerCase()) ?? "";
+  const clientInstanceId = rawClientId.trim();
+  if (!isValidClientInstanceId(clientInstanceId)) {
+    return { ok: false, status: 400, error: `Missing or invalid ${CLIENT_INSTANCE_ID_HEADER}.` };
+  }
+
+  const ipAddress = extractClientIp(req);
+  const identityHash = toSha256(`${appId}:${clientInstanceId}`);
+  const ipHash = toSha256(ipAddress);
+
+  return {
+    ok: true,
+    identity: {
+      appId,
+      clientInstanceId,
+      identityHash,
+      ipAddress,
+      ipHash
+    }
+  };
+}
+
+function formatDateKey(now: Date): string {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: APP_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  });
+  return formatter.format(now).replace(/-/g, "");
+}
+
+function formatHourKey(now: Date): string {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: APP_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    hourCycle: "h23"
+  });
+  const parts = formatter.formatToParts(now);
+  const year = parts.find((p) => p.type === "year")?.value ?? "0000";
+  const month = parts.find((p) => p.type === "month")?.value ?? "00";
+  const day = parts.find((p) => p.type === "day")?.value ?? "00";
+  const hour = parts.find((p) => p.type === "hour")?.value ?? "00";
+  return `${year}${month}${day}${hour}`;
+}
+
+async function enforceGeminiQuota(
+  identity: VerifiedAIRequestIdentity,
+  geminiUnits: number
+): Promise<{ ok: true; remainingDaily: number } | { ok: false; status: number; error: string }> {
+  const units = Math.max(1, Math.floor(geminiUnits));
+  const now = new Date();
+  const dateKey = formatDateKey(now);
+  const hourKey = formatHourKey(now);
+  const db = admin.firestore();
+
+  const dailyRef = db.collection("securityRateLimits").doc(`gemini_daily_${dateKey}_${identity.identityHash}`);
+  const hourlyRef = db.collection("securityRateLimits").doc(`gemini_hourly_${hourKey}_${identity.ipHash}`);
+
+  return db.runTransaction(async (tx) => {
+    const [dailySnap, hourlySnap] = await Promise.all([tx.get(dailyRef), tx.get(hourlyRef)]);
+
+    const dailyCountRaw = dailySnap.get("count");
+    const hourlyCountRaw = hourlySnap.get("count");
+    const dailyCount = typeof dailyCountRaw === "number" && Number.isFinite(dailyCountRaw) ? dailyCountRaw : 0;
+    const hourlyCount = typeof hourlyCountRaw === "number" && Number.isFinite(hourlyCountRaw) ? hourlyCountRaw : 0;
+
+    if ((dailyCount + units) > DAILY_GEMINI_CALL_LIMIT) {
+      return {
+        ok: false as const,
+        status: 429,
+        error: `Daily Gemini quota exceeded (${DAILY_GEMINI_CALL_LIMIT} calls per day).`
+      };
+    }
+
+    if ((hourlyCount + units) > HOURLY_IP_GEMINI_CALL_LIMIT) {
+      return {
+        ok: false as const,
+        status: 429,
+        error: "Too many requests from this network. Try again later."
+      };
+    }
+
+    tx.set(dailyRef, {
+      type: "gemini_daily",
+      quotaDate: dateKey,
+      appId: identity.appId,
+      identityHash: identity.identityHash,
+      count: admin.firestore.FieldValue.increment(units),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    tx.set(hourlyRef, {
+      type: "gemini_hourly",
+      quotaHour: hourKey,
+      ipHash: identity.ipHash,
+      count: admin.firestore.FieldValue.increment(units),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    return {
+      ok: true as const,
+      remainingDaily: DAILY_GEMINI_CALL_LIMIT - (dailyCount + units)
+    };
+  });
+}
+
+async function authorizeAIRequest(
+  req: HttpRequest,
+  res: HttpResponse,
+  geminiUnits: number
+): Promise<boolean> {
+  const identityResult = await verifyAIRequestIdentity(req);
+  if (!identityResult.ok || !identityResult.identity) {
+    res.status(identityResult.status ?? 401).json({ error: identityResult.error ?? "Unauthorized request." });
+    return false;
+  }
+
+  const quotaResult = await enforceGeminiQuota(identityResult.identity, geminiUnits);
+  if (!quotaResult.ok) {
+    res.status(quotaResult.status).json({ error: quotaResult.error });
+    return false;
+  }
+
+  res.set("X-RateLimit-Limit-Daily-Gemini", String(DAILY_GEMINI_CALL_LIMIT));
+  res.set("X-RateLimit-Remaining-Daily-Gemini", String(quotaResult.remainingDaily));
+  return true;
+}
 
 function slug(input: string): string {
   return input
@@ -310,12 +559,8 @@ async function performUSDASearch(query: string) {
 }
 
 export const searchUSDAFoods = onRequest({ region: "us-central1", secrets: [usdaApiKeySecret] }, async (req, res) => {
-  res.set("Access-Control-Allow-Origin", "*");
-  res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
-
-  if (req.method === "OPTIONS") {
-    res.status(204).send("");
+  const cors = applyCors(req, res, ["GET", "OPTIONS"]);
+  if (!cors.ok) {
     return;
   }
 
@@ -1053,6 +1298,58 @@ Rules:
 - Omit nutrients you truly do not know; do not invent precision.
 - If no foods can be parsed, return {"items":[]}.`;
 
+const WEEKLY_INSIGHT_SYSTEM_PROMPT = `You are an honest nutrition and fitness coach for a calorie tracking app.
+
+You will receive a JSON weekly summary containing these categories:
+1) Week Overview
+2) Calorie Intake
+3) Activity & Calories Burned
+4) Calorie Balance
+5) Weight Trend
+6) Logging & Data Quality
+7) Macros / Nutrient Pattern (starting with protein)
+Additionally:
+- crossWeekPatterns summarizes recent weekly averages so you can compare the current week against prior weeks.
+- habitPatterns summarizes meal distribution, exercise consistency, late logging, and repeated over-goal food patterns.
+
+Output requirements:
+- No greetings, no sign-off, no fluff.
+- Use only these exact headings, in this order when relevant:
+  - Week Overview
+  - Calorie Intake
+  - Activity & Calories Burned
+  - Calorie Balance
+  - Weight Trend
+  - Logging & Data Quality
+  - Macros / Nutrient Pattern
+- Include only sections with meaningful signal. Do not force filler bullets just to cover every heading.
+- Under each heading, write 1-4 bullet points (Markdown), each starting with "- ".
+- Bullets should be practical and decision-oriented: what changed, what likely explains it, and what to do next.
+- Be direct and honest, but not rude.
+- If a key input is missing (especially weight days or meals), say it in bullets.
+- Use crossWeekPatterns to explain whether this week is improving, flat, or slipping relative to recent weeks.
+- Explain mixed signals explicitly when intake, net calories, activity, weight, and data quality point in different directions.
+- Use habitPatterns to connect meals, activity, and logging behavior into one explanation when possible.
+- Do not mention a specific food unless habitPatterns.repeatedOverGoalFoods includes it with overGoalDayCount >= 2. If you do name one, explain why it matters and avoid sounding personal or judgmental.
+- In "Calorie Balance", if the contradiction counters are available, explain why intake-over/under-goal days can still land in deficit/surplus using the provided counts.
+- Include at least 1 concrete next-step action grounded in the data.
+- Prefer pattern-level language over item-level language.
+- The AI may add additional insight beyond these fields if it stays grounded in the provided data.
+- Treat week-to-date data as normal, not a failure condition:
+  - weekOverview.daysInPeriod can be 1-7 because this is a calendar-week view (Sunday-Saturday), often excluding today.
+  - Do not frame lower day counts as "hard to see trends", "not enough data", or similar negative disclaimers.
+  - Early week (1-3 days): emphasize setup and momentum actions for the next 1-2 days.
+  - Mid week (4-5 days): emphasize consistency checks and one tactical adjustment for the remainder of the week.
+  - Late week (6-7 days): emphasize finish-strong and weekend execution.
+  - If data quality is genuinely poor, describe the specific missing inputs and give a concrete fix without making the week phase itself sound like a problem.
+
+Safety:
+- Avoid medical diagnoses, eating-disorder language, and blame.
+
+Length:
+- Keep the full output between 170 and 280 words.
+`;
+
 function normalizeNutrientKey(key: string): string | null {
   const normalized = key
     .toLowerCase()
@@ -1738,9 +2035,9 @@ async function performAIVisionAnalysis(
         { text: AI_VISION_SYSTEM_PROMPT }
       ]
     }],
-    tools: [{ googleSearch: {} }],
     generationConfig: {
       temperature: 0.2,
+      thinkingConfig: { thinkingBudget: 0 },
       maxOutputTokens: 4096
     }
   };
@@ -1888,15 +2185,370 @@ async function performAITextAnalysis(
   }
 }
 
+type WeeklyInsightDay = {
+  dayIdentifier?: string;
+  date?: string;
+  caloriesIn?: number;
+  caloriesBurned?: number;
+  weightPounds?: number;
+  netCalories?: number;
+};
+
+type WeeklyInsightLoggedFoodEntry = {
+  dayIdentifier?: string;
+  createdAt?: string;
+  mealGroup?: string;
+  name?: string;
+  calories?: number;
+  protein?: number;
+  loggedCount?: number;
+};
+
+type WeeklyInsightSummaryPayload = {
+  days?: WeeklyInsightDay[];
+  weekOverview?: {
+    daysInPeriod?: number;
+    mealLoggedDays?: number;
+    weightLoggedDays?: number;
+  };
+  intake?: {
+    averageCaloriesIn?: number;
+    minCaloriesIn?: number;
+    maxCaloriesIn?: number;
+    averageGoalCalories?: number;
+    overGoalDays?: number;
+    underGoalDays?: number;
+    biggestOverage?: number;
+    biggestUnderage?: number;
+    averageOverageOnOverGoalDays?: number;
+    topFoodsOnOverGoalDays?: Array<{ name?: string; calories?: number }>;
+    topMealGroupsOnOverGoalDays?: Array<{ mealGroup?: string; calories?: number }>;
+  };
+  activity?: {
+    averageCaloriesBurned?: number;
+    minCaloriesBurned?: number;
+    maxCaloriesBurned?: number;
+    burnedReliability?: {
+      reliableBurnedDays?: number;
+      compatibilityFallbackDays?: number;
+      bmrFallbackDays?: number;
+    };
+  };
+  balance?: {
+    averageNetCalories?: number;
+    netDeficitDays?: number;
+    netSurplusDays?: number;
+    minNetCalories?: number;
+    maxNetCalories?: number;
+    deficitDaysWhereIntakeWasOverGoal?: number;
+    surplusDaysWhereIntakeWasUnderGoal?: number;
+  };
+  weightTrend?: {
+    weightDaysUsed?: number;
+    startWeightPounds?: number;
+    endWeightPounds?: number;
+    weightChangePounds?: number;
+  };
+  dataQuality?: {
+    missingMealDays?: number;
+    missingWeightDays?: number;
+    estimatedBurnedDays?: number;
+  };
+  macros?: {
+    proteinGoalGrams?: number;
+    proteinDaysLogged?: number;
+    proteinDaysHitGoal?: number;
+    averageProteinGrams?: number;
+    minProteinGrams?: number;
+    maxProteinGrams?: number;
+  };
+  crossWeekPatterns?: {
+    recentWeeks?: Array<{
+      label?: string;
+      startDayIdentifier?: string;
+      endDayIdentifier?: string;
+      averageCaloriesIn?: number;
+      averageCaloriesBurned?: number;
+      averageNetCalories?: number;
+      overGoalDays?: number;
+      underGoalDays?: number;
+      mealLoggedDays?: number;
+      exerciseDays?: number;
+      averageExerciseMinutes?: number;
+      averageProteinGrams?: number;
+      weightLoggedDays?: number;
+      weightChangePounds?: number;
+    }>;
+    currentVsPreviousCaloriesDelta?: number;
+    currentVsPreviousNetDelta?: number;
+    currentVsPreviousProteinDelta?: number;
+    currentVsPreviousOverGoalDayDelta?: number;
+    currentVsPreviousExerciseDayDelta?: number;
+  };
+  habitPatterns?: {
+    averageEveningCalories?: number;
+    averageEveningSharePercent?: number;
+    breakfastLoggedDays?: number;
+    lunchLoggedDays?: number;
+    dinnerLoggedDays?: number;
+    snackLoggedDays?: number;
+    lateLogDays?: number;
+    exerciseDays?: number;
+    averageExerciseMinutesOnExerciseDays?: number;
+    mealPatterns?: Array<{
+      mealGroup?: string;
+      averageCaloriesPerLoggedDay?: number;
+      loggedDays?: number;
+      totalCalories?: number;
+    }>;
+    exercisePatterns?: Array<{
+      exerciseType?: string;
+      days?: number;
+      sessions?: number;
+      averageDurationMinutes?: number;
+      totalCalories?: number;
+    }>;
+    repeatedOverGoalFoods?: Array<{
+      name?: string;
+      overGoalDayCount?: number;
+      totalCalories?: number;
+      dominantMealGroup?: string;
+    }>;
+  };
+  loggedFoods?: WeeklyInsightLoggedFoodEntry[];
+};
+
+async function performWeeklyInsightAnalysis(
+  apiKey: string,
+  summary: WeeklyInsightSummaryPayload
+): Promise<{ status: number; body: { insight?: string; error?: string } }> {
+  const trimmedKey = apiKey.trim();
+  if (!trimmedKey) {
+    logger.error("Weekly insight requested without GEMINI_API_KEY configured.");
+    return { status: 500, body: { error: "Weekly insight is not configured on the server." } };
+  }
+
+  if (!summary?.days || summary.days.length === 0) {
+    return { status: 400, body: { error: "Missing weekly summary data." } };
+  }
+
+  const url =
+    `https://generativelanguage.googleapis.com/v1beta/models/` +
+    `gemini-2.5-flash:generateContent?key=${encodeURIComponent(trimmedKey)}`;
+
+  const safeSummary: WeeklyInsightSummaryPayload = {
+    days: summary.days.map((d) => ({
+      dayIdentifier: d.dayIdentifier,
+      date: d.date,
+      caloriesIn: Number.isFinite(d.caloriesIn ?? NaN) ? d.caloriesIn : undefined,
+      caloriesBurned: Number.isFinite(d.caloriesBurned ?? NaN) ? d.caloriesBurned : undefined,
+      weightPounds: Number.isFinite(d.weightPounds ?? NaN) ? d.weightPounds : undefined,
+      netCalories: Number.isFinite(d.netCalories ?? NaN) ? d.netCalories : undefined
+    })),
+    weekOverview: summary.weekOverview,
+    intake: summary.intake,
+    activity: summary.activity,
+    balance: summary.balance,
+    weightTrend: summary.weightTrend,
+    dataQuality: summary.dataQuality,
+    macros: summary.macros,
+    crossWeekPatterns: summary.crossWeekPatterns
+      ? {
+          recentWeeks: (summary.crossWeekPatterns.recentWeeks ?? []).map((week) => ({
+            label: week.label,
+            startDayIdentifier: week.startDayIdentifier,
+            endDayIdentifier: week.endDayIdentifier,
+            averageCaloriesIn: Number.isFinite(week.averageCaloriesIn ?? NaN) ? week.averageCaloriesIn : undefined,
+            averageCaloriesBurned: Number.isFinite(week.averageCaloriesBurned ?? NaN) ? week.averageCaloriesBurned : undefined,
+            averageNetCalories: Number.isFinite(week.averageNetCalories ?? NaN) ? week.averageNetCalories : undefined,
+            overGoalDays: Number.isFinite(week.overGoalDays ?? NaN) ? week.overGoalDays : undefined,
+            underGoalDays: Number.isFinite(week.underGoalDays ?? NaN) ? week.underGoalDays : undefined,
+            mealLoggedDays: Number.isFinite(week.mealLoggedDays ?? NaN) ? week.mealLoggedDays : undefined,
+            exerciseDays: Number.isFinite(week.exerciseDays ?? NaN) ? week.exerciseDays : undefined,
+            averageExerciseMinutes: Number.isFinite(week.averageExerciseMinutes ?? NaN) ? week.averageExerciseMinutes : undefined,
+            averageProteinGrams: Number.isFinite(week.averageProteinGrams ?? NaN) ? week.averageProteinGrams : undefined,
+            weightLoggedDays: Number.isFinite(week.weightLoggedDays ?? NaN) ? week.weightLoggedDays : undefined,
+            weightChangePounds: Number.isFinite(week.weightChangePounds ?? NaN) ? week.weightChangePounds : undefined
+          })),
+          currentVsPreviousCaloriesDelta: Number.isFinite(summary.crossWeekPatterns.currentVsPreviousCaloriesDelta ?? NaN)
+            ? summary.crossWeekPatterns.currentVsPreviousCaloriesDelta
+            : undefined,
+          currentVsPreviousNetDelta: Number.isFinite(summary.crossWeekPatterns.currentVsPreviousNetDelta ?? NaN)
+            ? summary.crossWeekPatterns.currentVsPreviousNetDelta
+            : undefined,
+          currentVsPreviousProteinDelta: Number.isFinite(summary.crossWeekPatterns.currentVsPreviousProteinDelta ?? NaN)
+            ? summary.crossWeekPatterns.currentVsPreviousProteinDelta
+            : undefined,
+          currentVsPreviousOverGoalDayDelta: Number.isFinite(summary.crossWeekPatterns.currentVsPreviousOverGoalDayDelta ?? NaN)
+            ? summary.crossWeekPatterns.currentVsPreviousOverGoalDayDelta
+            : undefined,
+          currentVsPreviousExerciseDayDelta: Number.isFinite(summary.crossWeekPatterns.currentVsPreviousExerciseDayDelta ?? NaN)
+            ? summary.crossWeekPatterns.currentVsPreviousExerciseDayDelta
+            : undefined
+        }
+      : undefined,
+    habitPatterns: summary.habitPatterns
+      ? {
+          averageEveningCalories: Number.isFinite(summary.habitPatterns.averageEveningCalories ?? NaN)
+            ? summary.habitPatterns.averageEveningCalories
+            : undefined,
+          averageEveningSharePercent: Number.isFinite(summary.habitPatterns.averageEveningSharePercent ?? NaN)
+            ? summary.habitPatterns.averageEveningSharePercent
+            : undefined,
+          breakfastLoggedDays: Number.isFinite(summary.habitPatterns.breakfastLoggedDays ?? NaN)
+            ? summary.habitPatterns.breakfastLoggedDays
+            : undefined,
+          lunchLoggedDays: Number.isFinite(summary.habitPatterns.lunchLoggedDays ?? NaN)
+            ? summary.habitPatterns.lunchLoggedDays
+            : undefined,
+          dinnerLoggedDays: Number.isFinite(summary.habitPatterns.dinnerLoggedDays ?? NaN)
+            ? summary.habitPatterns.dinnerLoggedDays
+            : undefined,
+          snackLoggedDays: Number.isFinite(summary.habitPatterns.snackLoggedDays ?? NaN)
+            ? summary.habitPatterns.snackLoggedDays
+            : undefined,
+          lateLogDays: Number.isFinite(summary.habitPatterns.lateLogDays ?? NaN)
+            ? summary.habitPatterns.lateLogDays
+            : undefined,
+          exerciseDays: Number.isFinite(summary.habitPatterns.exerciseDays ?? NaN)
+            ? summary.habitPatterns.exerciseDays
+            : undefined,
+          averageExerciseMinutesOnExerciseDays: Number.isFinite(summary.habitPatterns.averageExerciseMinutesOnExerciseDays ?? NaN)
+            ? summary.habitPatterns.averageExerciseMinutesOnExerciseDays
+            : undefined,
+          mealPatterns: (summary.habitPatterns.mealPatterns ?? []).map((meal) => ({
+            mealGroup: meal.mealGroup,
+            averageCaloriesPerLoggedDay: Number.isFinite(meal.averageCaloriesPerLoggedDay ?? NaN)
+              ? meal.averageCaloriesPerLoggedDay
+              : undefined,
+            loggedDays: Number.isFinite(meal.loggedDays ?? NaN) ? meal.loggedDays : undefined,
+            totalCalories: Number.isFinite(meal.totalCalories ?? NaN) ? meal.totalCalories : undefined
+          })),
+          exercisePatterns: (summary.habitPatterns.exercisePatterns ?? []).map((exercise) => ({
+            exerciseType: exercise.exerciseType,
+            days: Number.isFinite(exercise.days ?? NaN) ? exercise.days : undefined,
+            sessions: Number.isFinite(exercise.sessions ?? NaN) ? exercise.sessions : undefined,
+            averageDurationMinutes: Number.isFinite(exercise.averageDurationMinutes ?? NaN)
+              ? exercise.averageDurationMinutes
+              : undefined,
+            totalCalories: Number.isFinite(exercise.totalCalories ?? NaN) ? exercise.totalCalories : undefined
+          })),
+          repeatedOverGoalFoods: (summary.habitPatterns.repeatedOverGoalFoods ?? []).map((food) => ({
+            name: food.name,
+            overGoalDayCount: Number.isFinite(food.overGoalDayCount ?? NaN) ? food.overGoalDayCount : undefined,
+            totalCalories: Number.isFinite(food.totalCalories ?? NaN) ? food.totalCalories : undefined,
+            dominantMealGroup: food.dominantMealGroup
+          }))
+        }
+      : undefined,
+    loggedFoods: (summary.loggedFoods ?? []).map((f) => ({
+      dayIdentifier: f.dayIdentifier,
+      createdAt: f.createdAt,
+      mealGroup: f.mealGroup,
+      name: typeof f.name === "string" ? f.name : undefined,
+      calories: Number.isFinite(f.calories ?? NaN) ? f.calories : undefined,
+      protein: Number.isFinite(f.protein ?? NaN) ? f.protein : undefined,
+      loggedCount: Number.isFinite(f.loggedCount ?? NaN) ? f.loggedCount : undefined
+    }))
+  };
+
+  function normalizeWeeklyInsightText(raw: string): string {
+    return raw.trim();
+  }
+
+  async function callGemini(promptText: string): Promise<
+    | { ok: true; text: string; finishReason?: string; safetyBlocked?: boolean }
+    | { ok: false; status: number; error: string }
+  > {
+    const body = {
+      systemInstruction: {
+        parts: [{ text: WEEKLY_INSIGHT_SYSTEM_PROMPT }]
+      },
+      contents: [
+        {
+          parts: [{ text: promptText }]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.35,
+        // Disable internal reasoning/thinking so output tokens are available for the actual insight.
+        // Gemini 2.5 models can otherwise spend most of the budget on hidden "thoughts".
+        thinkingConfig: { thinkingBudget: 0 },
+        maxOutputTokens: 1024
+      }
+    };
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      logger.error("Gemini weekly insight upstream failed", {
+        status: response.status,
+        body: errText
+      });
+      let message = `Upstream error (HTTP ${response.status}).`;
+      try {
+        const errJson = JSON.parse(errText) as { error?: { message?: string } };
+        if (errJson?.error?.message) message = errJson.error.message;
+      } catch {
+        // ignore
+      }
+      return { ok: false, status: 502, error: message };
+    }
+
+    const data = (await response.json()) as {
+      candidates?: Array<{
+        finishReason?: string;
+        content?: { parts?: Array<{ text?: string }> };
+        safetyRatings?: Array<{ category?: string; probability?: string }>;
+      }>;
+      promptFeedback?: { blockReason?: string };
+    };
+
+    const finishReason = data?.candidates?.[0]?.finishReason;
+    const safetyBlocked = Boolean(data?.promptFeedback?.blockReason);
+    const text = (data?.candidates?.[0]?.content?.parts ?? [])
+      .map((p) => p.text ?? "")
+      .join("")
+      .trim();
+
+    if (!text) {
+      return { ok: false, status: 502, error: "AI returned an empty response." };
+    }
+
+    return { ok: true, text: normalizeWeeklyInsightText(text), finishReason, safetyBlocked };
+  }
+
+  try {
+    const prompt = [
+      "Here is a calendar-week nutrition summary as JSON (Sunday-Saturday; week-to-date excluding today, except Sunday uses the previous full week).",
+      "Use the system instruction to write a brief weekly reflection and coaching for the user.",
+      "JSON:",
+      JSON.stringify(safeSummary)
+    ].join("\n");
+
+    const result = await callGemini(prompt);
+    if (!result.ok) {
+      return { status: result.status, body: { error: result.error } };
+    }
+
+    return { status: 200, body: { insight: result.text } };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    logger.error("Weekly insight analysis failed", error);
+    return { status: 502, body: { error: message } };
+  }
+}
+
 export const estimatePlatePortions = onRequest(
   { region: "us-central1", secrets: [geminiApiKeySecret] },
   async (req, res) => {
-    res.set("Access-Control-Allow-Origin", "*");
-    res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
-    res.set("Access-Control-Allow-Headers", "Content-Type");
-
-    if (req.method === "OPTIONS") {
-      res.status(204).send("");
+    const cors = applyCors(req, res, ["POST", "OPTIONS"], [APP_CHECK_HEADER, CLIENT_INSTANCE_ID_HEADER]);
+    if (!cors.ok) {
       return;
     }
 
@@ -1906,6 +2558,9 @@ export const estimatePlatePortions = onRequest(
     }
 
     try {
+      const authorized = await authorizeAIRequest(req, res, 2);
+      if (!authorized) return;
+
       const body = req.body as {
         imageBase64?: string;
         mimeType?: string;
@@ -1953,12 +2608,8 @@ export const estimatePlatePortions = onRequest(
 export const analyzeFoodPhoto = onRequest(
   { region: "us-central1", secrets: [geminiApiKeySecret] },
   async (req, res) => {
-    res.set("Access-Control-Allow-Origin", "*");
-    res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
-    res.set("Access-Control-Allow-Headers", "Content-Type");
-
-    if (req.method === "OPTIONS") {
-      res.status(204).send("");
+    const cors = applyCors(req, res, ["POST", "OPTIONS"], [APP_CHECK_HEADER, CLIENT_INSTANCE_ID_HEADER]);
+    if (!cors.ok) {
       return;
     }
 
@@ -1968,6 +2619,9 @@ export const analyzeFoodPhoto = onRequest(
     }
 
     try {
+      const authorized = await authorizeAIRequest(req, res, 1);
+      if (!authorized) return;
+
       const body = req.body as {
         imageBase64?: string;
         mimeType?: string;
@@ -1996,12 +2650,8 @@ export const analyzeFoodPhoto = onRequest(
 export const analyzeFoodText = onRequest(
   { region: "us-central1", secrets: [geminiApiKeySecret] },
   async (req, res) => {
-    res.set("Access-Control-Allow-Origin", "*");
-    res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
-    res.set("Access-Control-Allow-Headers", "Content-Type");
-
-    if (req.method === "OPTIONS") {
-      res.status(204).send("");
+    const cors = applyCors(req, res, ["POST", "OPTIONS"], [APP_CHECK_HEADER, CLIENT_INSTANCE_ID_HEADER]);
+    if (!cors.ok) {
       return;
     }
 
@@ -2011,6 +2661,9 @@ export const analyzeFoodText = onRequest(
     }
 
     try {
+      const authorized = await authorizeAIRequest(req, res, 1);
+      if (!authorized) return;
+
       const body = req.body as { mealText?: string };
       const mealText = typeof body.mealText === "string" ? body.mealText : "";
       if (!mealText.trim()) {
@@ -2030,13 +2683,44 @@ export const analyzeFoodText = onRequest(
   }
 );
 
-export const proxyNutrislice = onRequest({ region: "us-central1" }, async (req, res) => {
-  res.set("Access-Control-Allow-Origin", "*");
-  res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
+export const generateWeeklyInsight = onRequest(
+  { region: "us-central1", secrets: [geminiApiKeySecret] },
+  async (req, res) => {
+    const cors = applyCors(req, res, ["POST", "OPTIONS"], [APP_CHECK_HEADER, CLIENT_INSTANCE_ID_HEADER]);
+    if (!cors.ok) {
+      return;
+    }
 
-  if (req.method === "OPTIONS") {
-    res.status(204).send("");
+    if (req.method !== "POST") {
+      res.status(405).json({ error: "Method not allowed." });
+      return;
+    }
+
+    try {
+      const authorized = await authorizeAIRequest(req, res, 1);
+      if (!authorized) return;
+
+      const body = req.body as WeeklyInsightSummaryPayload;
+      if (!body || !Array.isArray(body.days) || body.days.length === 0) {
+        res.status(400).json({ error: "Missing days in summary." });
+        return;
+      }
+
+      const apiKey = geminiApiKeySecret.value();
+      const result = await performWeeklyInsightAnalysis(apiKey, body);
+      res.status(result.status).json(result.body);
+    } catch (error) {
+      logger.error("Weekly insight generation failed", error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  }
+);
+
+export const proxyNutrislice = onRequest({ region: "us-central1" }, async (req, res) => {
+  const cors = applyCors(req, res, ["GET", "OPTIONS"]);
+  if (!cors.ok) {
     return;
   }
 

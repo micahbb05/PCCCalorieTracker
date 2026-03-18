@@ -33,6 +33,7 @@ final class GeminiPlateEstimateService {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try await BackendRequestAuth.applyHeaders(to: &request)
 
         let body: [String: Any] = [
             "imageBase64": base64,

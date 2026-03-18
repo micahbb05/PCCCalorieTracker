@@ -1,0 +1,231 @@
+{
+  "" : {
+    "const-values" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/Calorie Tracker-primary.swiftconstvalues",
+    "dependencies" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/Calorie Tracker-primary.d",
+    "diagnostics" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/Calorie Tracker-primary.dia",
+    "emit-module-dependencies" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/Calorie Tracker-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/Calorie Tracker-primary-emit-module.dia",
+    "pch" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/Calorie Tracker-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/Calorie Tracker-primary.swiftdeps"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/AIFoodPhotoService.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/AIFoodPhotoService.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/AIFoodPhotoService.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/AIFoodPhotoService.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/AITextMealService.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/AITextMealService.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/AITextMealService.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/AITextMealService.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/AddExerciseSheet.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/AddExerciseSheet.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/AddExerciseSheet.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/AddExerciseSheet.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/AppIconChoice.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/AppIconChoice.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/AppIconChoice.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/AppIconChoice.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/AppSettingsTabView.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/AppSettingsTabView.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/AppSettingsTabView.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/AppSettingsTabView.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/AppTheme.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/AppTheme.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/AppTheme.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/AppTheme.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/BackendRequestAuth.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/BackendRequestAuth.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/BackendRequestAuth.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/BackendRequestAuth.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/BackgroundWidgetRefreshService.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/BackgroundWidgetRefreshService.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/BackgroundWidgetRefreshService.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/BackgroundWidgetRefreshService.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/BarcodeScannerView.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/BarcodeScannerView.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/BarcodeScannerView.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/BarcodeScannerView.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/Calorie_TrackerApp.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/Calorie_TrackerApp.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/Calorie_TrackerApp.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/Calorie_TrackerApp.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/ContentView.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/ContentView.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/ContentView.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/ContentView.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/DeficitGoalEditor.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/DeficitGoalEditor.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/DeficitGoalEditor.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/DeficitGoalEditor.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/EditMealEntrySheet.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/EditMealEntrySheet.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/EditMealEntrySheet.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/EditMealEntrySheet.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/ExerciseCalorieService.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/ExerciseCalorieService.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/ExerciseCalorieService.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/ExerciseCalorieService.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/FirebaseBootstrap.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/FirebaseBootstrap.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/FirebaseBootstrap.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/FirebaseBootstrap.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/GeminiPlateEstimateService.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/GeminiPlateEstimateService.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/GeminiPlateEstimateService.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/GeminiPlateEstimateService.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/GeminiWeeklyInsightService.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/GeminiWeeklyInsightService.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/GeminiWeeklyInsightService.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/GeminiWeeklyInsightService.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/Haptics.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/Haptics.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/Haptics.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/Haptics.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/HealthKitService.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/HealthKitService.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/HealthKitService.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/HealthKitService.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/HealthKitWorkoutMapper.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/HealthKitWorkoutMapper.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/HealthKitWorkoutMapper.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/HealthKitWorkoutMapper.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/HorizontalServeSlider.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/HorizontalServeSlider.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/HorizontalServeSlider.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/HorizontalServeSlider.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/MealDistributionRingView.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/MealDistributionRingView.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/MealDistributionRingView.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/MealDistributionRingView.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/MenuSheetView.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/MenuSheetView.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/MenuSheetView.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/MenuSheetView.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/Models.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/Models.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/Models.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/Models.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/NutrientCatalog.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/NutrientCatalog.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/NutrientCatalog.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/NutrientCatalog.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/NutrientSelectionList.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/NutrientSelectionList.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/NutrientSelectionList.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/NutrientSelectionList.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/NutrisliceMenuService.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/NutrisliceMenuService.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/NutrisliceMenuService.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/NutrisliceMenuService.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/OnboardingFlowView.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/OnboardingFlowView.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/OnboardingFlowView.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/OnboardingFlowView.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/OpenFoodFactsService.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/OpenFoodFactsService.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/OpenFoodFactsService.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/OpenFoodFactsService.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/PersistentAppStateStore.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/PersistentAppStateStore.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/PersistentAppStateStore.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/PersistentAppStateStore.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/PlateAdjustSlider.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/PlateAdjustSlider.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/PlateAdjustSlider.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/PlateAdjustSlider.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/PlateEstimateResultView.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/PlateEstimateResultView.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/PlateEstimateResultView.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/PlateEstimateResultView.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/PlateImagePickerView.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/PlateImagePickerView.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/PlateImagePickerView.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/PlateImagePickerView.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/ProfileGoalsView.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/ProfileGoalsView.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/ProfileGoalsView.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/ProfileGoalsView.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/QuickAddEditorView.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/QuickAddEditorView.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/QuickAddEditorView.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/QuickAddEditorView.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/QuickAddManagerView.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/QuickAddManagerView.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/QuickAddManagerView.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/QuickAddManagerView.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/QuickAddMenuImportView.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/QuickAddMenuImportView.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/QuickAddMenuImportView.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/QuickAddMenuImportView.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/QuickAddPickerView.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/QuickAddPickerView.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/QuickAddPickerView.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/QuickAddPickerView.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/StepActivityService.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/StepActivityService.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/StepActivityService.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/StepActivityService.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/USDAFoodService.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/USDAFoodService.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/USDAFoodService.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/USDAFoodService.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/VerticalServeSlider.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/VerticalServeSlider.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/VerticalServeSlider.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/VerticalServeSlider.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/View+Extensions.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/View+Extensions.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/View+Extensions.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/View+Extensions.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/Calorie Tracker/WidgetSnapshotStore.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/WidgetSnapshotStore.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/WidgetSnapshotStore.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/WidgetSnapshotStore.o"
+  },
+  "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "index-unit-output-path" : "/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/micah/Documents/Calorie Tracker/build/Calorie Tracker.build/Release-iphonesimulator/Calorie Tracker.build/Objects-normal/x86_64/GeneratedAssetSymbols.o"
+  }
+}

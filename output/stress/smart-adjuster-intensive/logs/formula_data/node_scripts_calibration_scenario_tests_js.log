@@ -1,0 +1,194 @@
+Calibration scenario tests\n
+1. deficit-on-target => PASS
+   Expectation: Offset should stay near 0 when prediction matches scale trend.
+   Runs: 1, applied: 1, skipped: 0
+   Final offset: 0 cal/day
+   Final status: applied
+   Last dailyError: 0 cal/day
+   Mean |dailyError| (applied): 0 cal/day
+   Final confidence: Medium
+
+2. surplus-on-target => PASS
+   Expectation: Offset should stay near 0 when surplus and gain align.
+   Runs: 1, applied: 1, skipped: 0
+   Final offset: 0 cal/day
+   Final status: applied
+   Last dailyError: -0.0 cal/day
+   Mean |dailyError| (applied): 0.0 cal/day
+   Final confidence: Medium
+
+3. surplus-but-losing-weight => PASS
+   Expectation: Offset should move positive and adapt faster under persistent mismatch.
+   Runs: 8, applied: 8, skipped: 0
+   Final offset: 570 cal/day
+   Final status: applied
+   Last dailyError: -1050 cal/day
+   Mean |dailyError| (applied): 1050 cal/day
+   Final confidence: High
+   Needed burn offset to fully reconcile: 1050 cal/day
+   Residual offset gap after 8 weeks: 480 cal/day
+
+4. deficit-goal-but-eating-surplus-and-losing => PASS
+   Expectation: Goal type does not alter calibration math.
+   Runs: 1, applied: 1, skipped: 0
+   Final offset: 50 cal/day
+   Final status: applied
+   Last dailyError: -1050 cal/day
+   Mean |dailyError| (applied): 1050 cal/day
+   Final confidence: Medium
+
+5. deficit-but-gaining-weight => PASS
+   Expectation: Offset should move negative when actual trend is above prediction.
+   Runs: 1, applied: 1, skipped: 0
+   Final offset: -50 cal/day
+   Final status: applied
+   Last dailyError: 578.6 cal/day
+   Mean |dailyError| (applied): 578.6 cal/day
+   Final confidence: Medium
+
+6. incomplete-intake-logging => PASS
+   Expectation: Should skip when below 85% of days have intake logged.
+   Runs: 1, applied: 0, skipped: 1
+   Final offset: 0 cal/day
+   Final status: skipped (Intake logging is below 85% for the week.)
+   Last dailyError: -- cal/day
+   Mean |dailyError| (applied): -- cal/day
+   Final confidence: Low
+
+7. intake-logging-at-threshold => PASS
+   Expectation: Should pass at exactly 6/7 logged days (>=85%).
+   Runs: 1, applied: 1, skipped: 0
+   Final offset: -50 cal/day
+   Final status: applied
+   Last dailyError: 371.4 cal/day
+   Mean |dailyError| (applied): 371.4 cal/day
+   Final confidence: Medium
+
+8. missing-burn-days => PASS
+   Expectation: Should skip when more than 2 burn baseline days are missing.
+   Runs: 1, applied: 0, skipped: 1
+   Final offset: 0 cal/day
+   Final status: skipped (Burn baseline is missing for too many days this week.)
+   Last dailyError: -- cal/day
+   Mean |dailyError| (applied): -- cal/day
+   Final confidence: Low
+
+9. missing-burn-days-at-threshold => PASS
+   Expectation: Should pass when exactly 2 burn baseline days are missing.
+   Runs: 1, applied: 1, skipped: 0
+   Final offset: -50 cal/day
+   Final status: applied
+   Last dailyError: 178.6 cal/day
+   Mean |dailyError| (applied): 178.6 cal/day
+   Final confidence: Medium
+
+10. large-weekly-jump => PASS
+   Expectation: Should skip when week-average jump exceeds 2.5%.
+   Runs: 1, applied: 0, skipped: 1
+   Final offset: 0 cal/day
+   Final status: skipped (Week-over-week average weight jump exceeded 2.5%.)
+   Last dailyError: -- cal/day
+   Mean |dailyError| (applied): -- cal/day
+   Final confidence: Low
+
+11. weekly-jump-at-threshold => PASS
+   Expectation: Should pass when week-average jump equals 2.5%.
+   Runs: 1, applied: 1, skipped: 0
+   Final offset: 50 cal/day
+   Final status: applied
+   Last dailyError: -2500 cal/day
+   Mean |dailyError| (applied): 2500 cal/day
+   Final confidence: Medium
+
+12. spike-filter-removes-too-many-weighins => PASS
+   Expectation: Should skip when spikes leave fewer than 3 valid current-week weigh-ins.
+   Runs: 1, applied: 0, skipped: 1
+   Final offset: 0 cal/day
+   Final status: skipped (Need at least 3 valid Health weigh-ins in the current week.)
+   Last dailyError: -- cal/day
+   Mean |dailyError| (applied): -- cal/day
+   Final confidence: Low
+
+13. exact-4lb-change-not-spike => PASS
+   Expectation: A 4.0 lb day-to-day change should not be filtered as spike.
+   Runs: 1, applied: 1, skipped: 0
+   Final offset: 50 cal/day
+   Final status: applied
+   Last dailyError: -1692.9 cal/day
+   Mean |dailyError| (applied): 1692.9 cal/day
+   Final confidence: Medium
+
+14. confidence-can-look-high-with-large-constant-error => PASS
+   Expectation: Confidence can reach High even with large absolute error if error is stable.
+   Runs: 4, applied: 4, skipped: 0
+   Final offset: 290 cal/day
+   Final status: applied
+   Last dailyError: -1050 cal/day
+   Mean |dailyError| (applied): 1050 cal/day
+   Final confidence: High
+
+15. alternating-large-error-does-not-escalate-range => PASS
+   Expectation: Adaptive expansion requires persistent same-sign error, not oscillation.
+   Runs: 3, applied: 3, skipped: 0
+   Final offset: 150 cal/day
+   Final status: applied
+   Last dailyError: -1100.0 cal/day
+   Mean |dailyError| (applied): 900.0 cal/day
+   Final confidence: Low
+
+16. mild-persistent-error-does-not-escalate => PASS
+   Expectation: Persistent errors under 250 cal/day should not trigger adaptive expansion.
+   Runs: 14, applied: 14, skipped: 0
+   Final offset: 300 cal/day
+   Final status: applied
+   Last dailyError: -150.0 cal/day
+   Mean |dailyError| (applied): 150.0 cal/day
+   Final confidence: High
+
+17. persistent-large-negative-error-can-reach-expanded-cap => PASS
+   Expectation: Persistent opposite-sign large errors should also expand negative cap.
+   Runs: 16, applied: 16, skipped: 0
+   Final offset: -600 cal/day
+   Final status: applied
+   Last dailyError: 1050 cal/day
+   Mean |dailyError| (applied): 1050 cal/day
+   Final confidence: High
+
+18. persistent-large-error-can-reach-expanded-cap => PASS
+   Expectation: Persistent same-sign large errors can move cap beyond +/-300.
+   Runs: 16, applied: 16, skipped: 0
+   Final offset: 600 cal/day
+   Final status: applied
+   Last dailyError: -1050 cal/day
+   Mean |dailyError| (applied): 1050 cal/day
+   Final confidence: High
+
+19. reversal-after-persistent-error => PASS
+   Expectation: Offset should reverse after persistent error sign flips.
+   Runs: 16, applied: 16, skipped: 0
+   Final offset: 102 cal/day
+   Final status: applied
+   Last dailyError: 450 cal/day
+   Mean |dailyError| (applied): 750 cal/day
+   Final confidence: High
+
+20. prior-week-weighins-below-minimum => PASS
+   Expectation: Should skip when prior week has fewer than 3 valid values.
+   Runs: 1, applied: 0, skipped: 1
+   Final offset: 0 cal/day
+   Final status: skipped (Need at least 3 valid Health weigh-ins in the prior week.)
+   Last dailyError: -- cal/day
+   Mean |dailyError| (applied): -- cal/day
+   Final confidence: Low
+
+21. noise-robustness-small-random-error => PASS
+   Expectation: Small noisy trends should keep offset bounded.
+   Runs: 8, applied: 8, skipped: 0
+   Final offset: 38 cal/day
+   Final status: applied
+   Last dailyError: -50.0 cal/day
+   Mean |dailyError| (applied): 56.2 cal/day
+   Final confidence: Low
+
+Summary: 21 passed, 0 failed, 21 total
+

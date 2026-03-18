@@ -26,7 +26,6 @@ enum NutrientCatalog {
     ]
     static let nonTrackableKeys: Set<String> = ["calories", "re_vitamin_a"]
     static let defaultExcludedBecauseConsistentlyNull: Set<String> = [
-        "g_fiber",
         "mg_potassium",
         "g_added_sugar",
         "g_trans_fat",

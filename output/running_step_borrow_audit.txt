@@ -1,5 +1,5 @@
 Running-to-Steps Borrow Accuracy Audit
-Generated: 2026-03-11T14:18:05.160Z
+Generated: 2026-03-15T17:29:48.609Z
 
 Reference: 0.50 kcal/kg/km walking net baseline.
 App under test: ExerciseCalorieService.walkingEquivalentCalories + clamp by step calories in ContentView.

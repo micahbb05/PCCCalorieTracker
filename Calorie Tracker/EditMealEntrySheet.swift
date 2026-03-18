@@ -13,6 +13,7 @@ struct EditMealEntrySheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var nameText: String
+    @State private var quantityText: String
     @State private var caloriesText: String
     @State private var nutrientTexts: [String: String]
     @State private var preservedHiddenNutrients: [String: Int]
@@ -21,6 +22,7 @@ struct EditMealEntrySheet: View {
 
     private enum EditField: Hashable {
         case name
+        case quantity
         case calories
     }
 
@@ -45,6 +47,7 @@ struct EditMealEntrySheet: View {
         self.accent = accent
         self.onSave = onSave
         _nameText = State(initialValue: entry.name)
+        _quantityText = State(initialValue: entry.loggedCount.map(String.init) ?? "1")
         _caloriesText = State(initialValue: entry.calories == 0 ? "" : "\(entry.calories)")
         _mealGroup = State(initialValue: initialMealGroup)
         _nutrientTexts = State(initialValue: editableNutrients.reduce(into: [:]) { partialResult, nutrient in
@@ -120,11 +123,79 @@ struct EditMealEntrySheet: View {
                                 .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
                         }
 
-                        labeledField("Calories") {
-                            TextField("Calories", text: $caloriesText)
-                                .keyboardType(.numberPad)
-                                .focused($focusedField, equals: .calories)
-                                .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
+                        if showsQuantityEditor {
+                            HStack(alignment: .top, spacing: 12) {
+                                labeledField("Calories") {
+                                    TextField("Calories", text: $caloriesText)
+                                        .keyboardType(.numberPad)
+                                        .focused($focusedField, equals: .calories)
+                                        .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+
+                                labeledField("Quantity") {
+                                    HStack(spacing: 10) {
+                                        let currentQuantity = parsedQuantity ?? max(entry.loggedCount ?? 1, 1)
+                                        Button {
+                                            let next = max(1, currentQuantity - 1)
+                                            quantityText = "\(next)"
+                                            Haptics.selection()
+                                        } label: {
+                                            Image(systemName: "minus")
+                                                .font(.subheadline.weight(.bold))
+                                                .frame(width: 32, height: 32)
+                                                .foregroundStyle(currentQuantity > 1 ? accent : textSecondary.opacity(0.45))
+                                                .background(
+                                                    Circle()
+                                                        .fill(surfaceSecondary)
+                                                )
+                                        }
+                                        .buttonStyle(.plain)
+                                        .disabled(currentQuantity <= 1)
+
+                                        TextField("Qty", text: $quantityText)
+                                            .keyboardType(.numberPad)
+                                            .multilineTextAlignment(.center)
+                                            .focused($focusedField, equals: .quantity)
+                                            .frame(width: 56)
+                                            .padding(.vertical, 7)
+                                            .foregroundStyle(textPrimary)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                                    .fill(surfaceSecondary)
+                                            )
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                                    .stroke(textSecondary.opacity(0.24), lineWidth: 1)
+                                            )
+
+                                        Button {
+                                            let next = min(99, currentQuantity + 1)
+                                            quantityText = "\(next)"
+                                            Haptics.selection()
+                                        } label: {
+                                            Image(systemName: "plus")
+                                                .font(.subheadline.weight(.bold))
+                                                .frame(width: 32, height: 32)
+                                                .foregroundStyle(accent)
+                                                .background(
+                                                    Circle()
+                                                        .fill(surfaceSecondary)
+                                                )
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                        else {
+                            labeledField("Calories") {
+                                TextField("Calories", text: $caloriesText)
+                                    .keyboardType(.numberPad)
+                                    .focused($focusedField, equals: .calories)
+                                    .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
+                            }
                         }
 
                         labeledField("Meal Group") {
@@ -201,6 +272,21 @@ struct EditMealEntrySheet: View {
         parseInput(caloriesText)
     }
 
+    private var parsedQuantity: Int? {
+        let trimmed = quantityText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            return 1
+        }
+        guard let value = Int(trimmed), value > 0 else {
+            return nil
+        }
+        return value
+    }
+
+    private var showsQuantityEditor: Bool {
+        entry.loggedCount != nil
+    }
+
     private var parsedNutrients: [String: Int]? {
         var result: [String: Int] = [:]
         for nutrient in editableNutrients {
@@ -216,19 +302,23 @@ struct EditMealEntrySheet: View {
         guard parsedCalories != nil, let nutrients = parsedNutrients else {
             return false
         }
+        guard !showsQuantityEditor || parsedQuantity != nil else {
+            return false
+        }
         let total = (parsedCalories ?? 0) + nutrients.values.reduce(0, +)
         return total > 0
     }
 
     private var validationError: String? {
         let hasAnyText = !nameText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+            (showsQuantityEditor && !quantityText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) ||
             !caloriesText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
             nutrientTexts.values.contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
         guard hasAnyText else {
             return nil
         }
-        guard parsedCalories != nil, parsedNutrients != nil else {
+        guard parsedCalories != nil, parsedNutrients != nil, (!showsQuantityEditor || parsedQuantity != nil) else {
             return "Use non-negative whole numbers."
         }
         return canSave ? nil : "Enter calories or nutrients above 0."
@@ -277,13 +367,27 @@ struct EditMealEntrySheet: View {
         guard let calories = parsedCalories, let nutrients = parsedNutrients else {
             return
         }
-        let mergedNutrients = preservedHiddenNutrients.merging(nutrients) { _, new in new }
+        let quantity = parsedQuantity ?? max(entry.loggedCount ?? 1, 1)
+        let oldQuantity = max(entry.loggedCount ?? 1, 1)
+        var mergedNutrients = preservedHiddenNutrients.merging(nutrients) { _, new in new }
+        var finalCalories = calories
+
+        let didManuallyEditCalories = calories != entry.calories
+        let didManuallyEditNutrients = mergedNutrients != entry.nutrientValues
+        let didManuallyEditNutrition = didManuallyEditCalories || didManuallyEditNutrients
+
+        if showsQuantityEditor, quantity != oldQuantity, !didManuallyEditNutrition {
+            let scale = Double(quantity) / Double(oldQuantity)
+            finalCalories = Int((Double(entry.calories) * scale).rounded())
+            mergedNutrients = entry.nutrientValues.mapValues { Int((Double($0) * scale).rounded()) }
+        }
 
         let updatedEntry = MealEntry(
             id: entry.id,
             name: nameText,
-            calories: calories,
+            calories: finalCalories,
             nutrientValues: mergedNutrients,
+            loggedCount: quantity > 1 ? quantity : nil,
             createdAt: entry.createdAt,
             mealGroup: mealGroup
         )

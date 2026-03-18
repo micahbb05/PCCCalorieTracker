@@ -16,8 +16,11 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
-		<string>healthkit</string>
 		<string>remote-notification</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>Micah.Calorie-Tracker.refreshMenu</string>
 	</array>
 </dict>
 </plist>

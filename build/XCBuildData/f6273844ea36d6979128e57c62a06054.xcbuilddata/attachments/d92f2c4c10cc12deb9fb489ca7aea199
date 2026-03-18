@@ -1,0 +1,4 @@
+module GoogleUtilities_NSData {
+umbrella "/Users/micah/Library/Developer/Xcode/DerivedData/Calorie_Tracker-gnavpovwzsrsdjcoenyhmbxwwqpf/SourcePackages/checkouts/GoogleUtilities/GoogleUtilities/NSData+zlib/Public"
+export *
+}

@@ -182,6 +182,13 @@ extension WidgetCalorieSnapshot {
 }
 
 private enum WidgetRingColor {
+    private static let green = Color(red: 0.22, green: 0.78, blue: 0.35)
+    private static let pink = Color(red: 0.94, green: 0.30, blue: 0.64)
+
+    private static func successColor(for snapshot: WidgetCalorieSnapshot) -> Color {
+        snapshot.selectedAppIconChoiceRaw == "pink" ? pink : green
+    }
+
     static func forSnapshot(_ snapshot: WidgetCalorieSnapshot) -> Color {
         let consumed = max(snapshot.consumedCalories, 0)
         let goal = max(snapshot.goalCalories, 1)
@@ -189,7 +196,7 @@ private enum WidgetRingColor {
         let goalTypeRaw = snapshot.goalTypeRaw
 
         if goalTypeRaw == "fixed" {
-            if consumed <= goal { return Color(red: 0.22, green: 0.78, blue: 0.35) }
+            if consumed <= goal { return successColor(for: snapshot) }
             if consumed < burned { return Color(red: 1.0, green: 0.76, blue: 0.12) }
             return Color(red: 0.95, green: 0.26, blue: 0.21)
         }
@@ -197,11 +204,11 @@ private enum WidgetRingColor {
         let isSurplus = goalTypeRaw == "surplus" || goal > burned
         if isSurplus {
             if consumed < burned { return Color(red: 1.0, green: 0.76, blue: 0.12) }
-            if consumed <= goal { return Color(red: 0.22, green: 0.78, blue: 0.35) }
+            if consumed <= goal { return successColor(for: snapshot) }
             return Color(red: 0.95, green: 0.26, blue: 0.21)
         }
         if consumed > burned { return Color(red: 0.95, green: 0.26, blue: 0.21) }
-        if consumed <= goal { return Color(red: 0.22, green: 0.78, blue: 0.35) }
+        if consumed <= goal { return successColor(for: snapshot) }
         return Color(red: 1.0, green: 0.76, blue: 0.12)
     }
 }

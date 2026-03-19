@@ -29,8 +29,8 @@ watch_target.build_configurations.each do |config|
   config.build_settings['TARGETED_DEVICE_FAMILY'] = '4'
   config.build_settings['ASSETCATALOG_COMPILER_APPICON_NAME'] = 'AppIcon'
   config.build_settings['WATCHOS_DEPLOYMENT_TARGET'] = '10.0'
-  config.build_settings['MARKETING_VERSION'] = '1.0'
-  config.build_settings['CURRENT_PROJECT_VERSION'] = '1'
+  config.build_settings['MARKETING_VERSION'] = '1.1'
+  config.build_settings['CURRENT_PROJECT_VERSION'] = '19'
   config.build_settings['PRODUCT_NAME'] = '$(TARGET_NAME)'
   config.build_settings['CODE_SIGN_STYLE'] = 'Automatic'
   config.build_settings['DEVELOPMENT_TEAM'] = team if team

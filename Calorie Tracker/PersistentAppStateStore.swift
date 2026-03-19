@@ -215,17 +215,10 @@ final class PersistentAppStateStore {
         let hasDefaultsData = defaultsSnapshot.hasMeaningfulData
 
         if let persisted = loadSnapshot() {
-            let selected: PersistentAppStateSnapshot
-            if !hasDefaultsData {
-                selected = persisted
-            } else if persisted.persistenceScore >= defaultsSnapshot.persistenceScore {
-                selected = persisted
-            } else {
-                selected = defaultsSnapshot
-                saveSnapshot(selected)
-            }
-            writeSnapshotToUserDefaults(selected, defaults: defaults)
-            return selected
+            let merged = mergeSnapshots(primary: defaultsSnapshot, secondary: persisted)
+            writeSnapshotToUserDefaults(merged, defaults: defaults)
+            saveSnapshot(merged)
+            return merged
         }
 
         if hasDefaultsData {
@@ -265,8 +258,7 @@ final class PersistentAppStateStore {
         let defaultsSnapshot = snapshotFromUserDefaults(defaults: defaults, fallback: fallback)
 
         if let persisted {
-            // Prefer whichever contains more historical archive data.
-            return (persisted.persistenceScore >= defaultsSnapshot.persistenceScore) ? persisted : defaultsSnapshot
+            return mergeSnapshots(primary: defaultsSnapshot, secondary: persisted)
         }
 
         return defaultsSnapshot.hasMeaningfulData ? defaultsSnapshot : nil
@@ -366,6 +358,128 @@ final class PersistentAppStateStore {
             cloudSyncLocalModifiedAt: double(forKey: "cloudSyncLocalModifiedAt", defaults: defaults, fallback: fallback.cloudSyncLocalModifiedAt),
             useAIBaseServings: bool(forKey: "useAIBaseServings", defaults: defaults, fallback: fallback.useAIBaseServings)
         )
+    }
+
+    private func mergeSnapshots(
+        primary: PersistentAppStateSnapshot,
+        secondary: PersistentAppStateSnapshot
+    ) -> PersistentAppStateSnapshot {
+        PersistentAppStateSnapshot(
+            hasCompletedOnboarding: primary.hasCompletedOnboarding,
+            deficitCalories: primary.deficitCalories,
+            useWeekendDeficit: primary.useWeekendDeficit,
+            weekendDeficitCalories: primary.weekendDeficitCalories,
+            goalTypeRaw: primary.goalTypeRaw,
+            surplusCalories: primary.surplusCalories,
+            fixedGoalCalories: primary.fixedGoalCalories,
+            dailyGoalTypeArchiveData: mergedStringArchiveData(
+                primary.dailyGoalTypeArchiveData,
+                secondary.dailyGoalTypeArchiveData
+            ),
+            proteinGoal: primary.proteinGoal,
+            mealEntriesData: preferredNonEmptyString(primary.mealEntriesData, fallback: secondary.mealEntriesData),
+            trackedNutrientsData: preferredNonEmptyString(primary.trackedNutrientsData, fallback: secondary.trackedNutrientsData),
+            nutrientGoalsData: preferredNonEmptyString(primary.nutrientGoalsData, fallback: secondary.nutrientGoalsData),
+            lastCentralDayIdentifier: preferredNonEmptyString(primary.lastCentralDayIdentifier, fallback: secondary.lastCentralDayIdentifier),
+            selectedAppIconChoiceRaw: primary.selectedAppIconChoiceRaw,
+            dailyEntryArchiveData: mergedMealEntryArchiveData(
+                primary.dailyEntryArchiveData,
+                secondary.dailyEntryArchiveData
+            ),
+            dailyCalorieGoalArchiveData: mergedIntegerArchiveData(
+                primary.dailyCalorieGoalArchiveData,
+                secondary.dailyCalorieGoalArchiveData
+            ),
+            dailyBurnedCalorieArchiveData: mergedIntegerArchiveData(
+                primary.dailyBurnedCalorieArchiveData,
+                secondary.dailyBurnedCalorieArchiveData
+            ),
+            dailyExerciseArchiveData: mergedExerciseArchiveData(
+                primary.dailyExerciseArchiveData,
+                secondary.dailyExerciseArchiveData
+            ),
+            venueMenusData: preferredNonEmptyString(primary.venueMenusData, fallback: secondary.venueMenusData),
+            venueMenuSignaturesData: preferredNonEmptyString(primary.venueMenuSignaturesData, fallback: secondary.venueMenuSignaturesData),
+            quickAddFoodsData: preferredNonEmptyString(primary.quickAddFoodsData, fallback: secondary.quickAddFoodsData),
+            calibrationStateData: preferredNonEmptyString(primary.calibrationStateData, fallback: secondary.calibrationStateData),
+            healthWeighInsData: preferredNonEmptyString(primary.healthWeighInsData, fallback: secondary.healthWeighInsData),
+            cloudSyncLocalModifiedAt: max(primary.cloudSyncLocalModifiedAt, secondary.cloudSyncLocalModifiedAt),
+            useAIBaseServings: primary.useAIBaseServings
+        )
+    }
+
+    private func preferredNonEmptyString(_ primary: String, fallback: String) -> String {
+        primary.isEmpty ? fallback : primary
+    }
+
+    private func mergedMealEntryArchiveData(_ primaryData: String, _ secondaryData: String) -> String {
+        guard
+            let primaryArchive = decodedArchive(primaryData, as: [String: [MealEntry]].self),
+            let secondaryArchive = decodedArchive(secondaryData, as: [String: [MealEntry]].self)
+        else {
+            return preferredNonEmptyString(primaryData, fallback: secondaryData)
+        }
+
+        var merged = secondaryArchive
+        for (dayIdentifier, entries) in primaryArchive {
+            merged[dayIdentifier] = entries
+        }
+        return encodedArchive(merged, fallback: primaryData)
+    }
+
+    private func mergedExerciseArchiveData(_ primaryData: String, _ secondaryData: String) -> String {
+        guard
+            let primaryArchive = decodedArchive(primaryData, as: [String: [ExerciseEntry]].self),
+            let secondaryArchive = decodedArchive(secondaryData, as: [String: [ExerciseEntry]].self)
+        else {
+            return preferredNonEmptyString(primaryData, fallback: secondaryData)
+        }
+
+        var merged = secondaryArchive
+        for (dayIdentifier, entries) in primaryArchive {
+            merged[dayIdentifier] = entries
+        }
+        return encodedArchive(merged, fallback: primaryData)
+    }
+
+    private func mergedIntegerArchiveData(_ primaryData: String, _ secondaryData: String) -> String {
+        guard
+            let primaryArchive = decodedArchive(primaryData, as: [String: Int].self),
+            let secondaryArchive = decodedArchive(secondaryData, as: [String: Int].self)
+        else {
+            return preferredNonEmptyString(primaryData, fallback: secondaryData)
+        }
+
+        var merged = secondaryArchive
+        for (dayIdentifier, value) in primaryArchive {
+            merged[dayIdentifier] = value
+        }
+        return encodedArchive(merged, fallback: primaryData)
+    }
+
+    private func mergedStringArchiveData(_ primaryData: String, _ secondaryData: String) -> String {
+        guard
+            let primaryArchive = decodedArchive(primaryData, as: [String: String].self),
+            let secondaryArchive = decodedArchive(secondaryData, as: [String: String].self)
+        else {
+            return preferredNonEmptyString(primaryData, fallback: secondaryData)
+        }
+
+        var merged = secondaryArchive
+        for (dayIdentifier, value) in primaryArchive {
+            merged[dayIdentifier] = value
+        }
+        return encodedArchive(merged, fallback: primaryData)
+    }
+
+    private func decodedArchive<T: Decodable>(_ data: String, as type: T.Type) -> T? {
+        guard !data.isEmpty, let encoded = data.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(type, from: encoded)
+    }
+
+    private func encodedArchive<T: Encodable>(_ value: T, fallback: String) -> String {
+        guard let encoded = try? JSONEncoder().encode(value) else { return fallback }
+        return String(decoding: encoded, as: UTF8.self)
     }
 
     private func writeSnapshotToUserDefaults(_ snapshot: PersistentAppStateSnapshot, defaults: UserDefaults) {

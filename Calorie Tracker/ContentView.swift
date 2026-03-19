@@ -1234,6 +1234,29 @@ struct ContentView: View {
         var id: String { "\(segment)-\(point.dayIdentifier)" }
     }
 
+    private enum CalorieAverageSeries: String {
+        case consumed
+        case burned
+    }
+
+    private struct CalorieAverageLinePoint: Identifiable {
+        let date: Date
+        let calories: Int
+        let series: CalorieAverageSeries
+        let index: Int
+
+        var id: String { "\(series.rawValue)-\(index)" }
+    }
+
+    private struct CalorieLinePoint: Identifiable {
+        let dayIdentifier: String
+        let date: Date
+        let consumed: Int
+        let burned: Int
+
+        var id: String { dayIdentifier }
+    }
+
     private enum WeightChangeSeries: String {
         case expected
         case actual
@@ -1324,6 +1347,7 @@ struct ContentView: View {
     private typealias VenueMenuErrorCache = [DiningVenue: [NutrisliceMenuService.MenuType: String]]
 
     private enum HistoryChartRange: String, CaseIterable, Identifiable {
+        case sevenDays
         case thirtyDays
         case sixMonths
         case oneYear
@@ -1333,6 +1357,7 @@ struct ContentView: View {
 
         var title: String {
             switch self {
+            case .sevenDays: return "7 Days"
             case .thirtyDays: return "30 Days"
             case .sixMonths: return "6 Months"
             case .oneYear: return "1 Year"
@@ -1342,6 +1367,7 @@ struct ContentView: View {
 
         var dayCount: Int {
             switch self {
+            case .sevenDays: return 7
             case .thirtyDays: return 30
             case .sixMonths: return 182
             case .oneYear: return 365
@@ -1533,7 +1559,7 @@ struct ContentView: View {
     @State private var displayedHistoryMonth = Date()
     @State private var presentedHistoryDaySummary: HistoryDaySummary?
     @State private var isExpandedHistoryChartPresented = false
-    @State private var expandedHistoryChartRange: HistoryChartRange = .thirtyDays
+    @State private var expandedHistoryChartRange: HistoryChartRange = .sevenDays
     @State private var isWeightChangeComparisonPresented = false
     @State private var weightChangeComparisonRange: NetHistoryRange = .sevenDays
     @State private var isRefreshingWeightChangeComparison = false
@@ -1543,6 +1569,8 @@ struct ContentView: View {
     @State private var isWeeklyInsightLoading = false
     @State private var weeklyInsightText: String?
     @State private var weeklyInsightErrorMessage: String?
+    @AppStorage("weeklyInsightCachedDayIdentifier") private var weeklyInsightCachedDayIdentifier = ""
+    @AppStorage("weeklyInsightCachedText") private var weeklyInsightCachedText = ""
     @State private var editingEntry: MealEntry?
     @State private var foodLogEntryPickerContext: FoodLogEntryPickerContext?
     @State private var isQuickAddManagerPresented = false
@@ -3134,6 +3162,16 @@ struct ContentView: View {
 
     private func generateWeeklyInsight() async {
         guard !isWeeklyInsightLoading else { return }
+
+        let todayDayIdentifier = centralDayIdentifier(for: Date())
+        if weeklyInsightCachedDayIdentifier == todayDayIdentifier,
+           !weeklyInsightCachedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            weeklyInsightText = weeklyInsightCachedText
+            weeklyInsightErrorMessage = nil
+            isWeeklyInsightPresented = true
+            return
+        }
+
         isWeeklyInsightLoading = true
         weeklyInsightErrorMessage = nil
 
@@ -3151,6 +3189,8 @@ struct ContentView: View {
         do {
             let insight = try await weeklyInsightService.generateWeeklyInsight(summary: summary)
             weeklyInsightText = insight
+            weeklyInsightCachedDayIdentifier = todayDayIdentifier
+            weeklyInsightCachedText = insight
             isWeeklyInsightPresented = true
         } catch {
             weeklyInsightText = nil
@@ -5198,12 +5238,12 @@ struct ContentView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    weeklyInsightButton
                     historyCalendarCard
                     historyGraphCard
                     netCalorieHistoryCard
                     historyMealDistributionCard
                     weightChangeComparisonButton
+                    weeklyInsightButton
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
@@ -6701,7 +6741,7 @@ struct ContentView: View {
                     .foregroundStyle(textPrimary)
                 Spacer()
                 Button("See More") {
-                    expandedHistoryChartRange = .thirtyDays
+                    expandedHistoryChartRange = .sevenDays
                     isExpandedHistoryChartPresented = true
                     Haptics.selection()
                 }
@@ -6858,6 +6898,11 @@ struct ContentView: View {
             Haptics.selection()
         } label: {
             HStack(spacing: 14) {
+                Image(systemName: "chart.xyaxis.line")
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(accent)
+                    .frame(width: 38, height: 38)
+
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Compare Weight Change")
                         .font(.headline.weight(.semibold))
@@ -6914,12 +6959,17 @@ struct ContentView: View {
             }
         } label: {
             HStack(spacing: 14) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(accent)
+                    .frame(width: 38, height: 38)
+
                 VStack(alignment: .leading, spacing: 6) {
                     Text("View Weekly Insights")
                         .font(.headline.weight(.semibold))
                         .foregroundStyle(textPrimary)
                         .multilineTextAlignment(.leading)
-                    Text(isWeeklyInsightLoading ? "Analyzing this week (Sun-Sat)…" : "Get a brief AI summary of your current calendar week.")
+                    Text(isWeeklyInsightLoading ? "Analyzing this week..." : "Get a brief AI summary of your current calendar week.")
                         .font(.subheadline)
                         .foregroundStyle(textSecondary)
                         .multilineTextAlignment(.leading)
@@ -7196,16 +7246,26 @@ struct ContentView: View {
                             }
                         }
 
-                        Text("Line view shows the overall calorie trend across the selected range.")
+                        Text("Consumed and Burned across the selected range.")
                             .font(.subheadline)
                             .foregroundStyle(textSecondary)
 
-                        calorieChart(
-                            points: expandedCalorieGraphPoints,
-                            labelMode: .adaptive,
-                            style: .line
-                        )
-                        .frame(height: 320)
+                        VStack(alignment: .leading, spacing: 14) {
+                            HStack(spacing: 14) {
+                                calorieTrendLegendChip(title: "Consumed", color: accent)
+                                calorieTrendLegendChip(title: "Burned", color: .orange)
+                                calorieTrendLegendChip(title: "Average", color: textSecondary.opacity(0.75), isDashed: true)
+                                Spacer()
+                            }
+
+                            calorieChart(
+                                points: expandedCalorieGraphPoints,
+                                labelMode: .adaptive,
+                                style: .line,
+                                historyRange: expandedHistoryChartRange
+                            )
+                            .frame(height: 320)
+                        }
                         .padding(18)
                         .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.15))
                     }
@@ -7359,6 +7419,35 @@ struct ContentView: View {
         }
     }
 
+    private func calorieTrendLegendChip(title: String, color: Color, isDashed: Bool = false) -> some View {
+        HStack(spacing: 8) {
+            if isDashed {
+                Rectangle()
+                    .fill(.clear)
+                    .frame(width: 21, height: 8)
+                    .overlay(alignment: .center) {
+                        Path { path in
+                            path.move(to: CGPoint(x: 0, y: 4))
+                            path.addLine(to: CGPoint(x: 3, y: 4))
+                            path.move(to: CGPoint(x: 8, y: 4))
+                            path.addLine(to: CGPoint(x: 13, y: 4))
+                            path.move(to: CGPoint(x: 18, y: 4))
+                            path.addLine(to: CGPoint(x: 21, y: 4))
+                        }
+                        .stroke(style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                        .foregroundStyle(color)
+                    }
+            } else {
+                Circle()
+                    .fill(color)
+                    .frame(width: 8, height: 8)
+            }
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(textSecondary)
+        }
+    }
+
     private func statTile(title: String, value: String, detail: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
@@ -7393,10 +7482,13 @@ struct ContentView: View {
     private func calorieChart(
         points: [CalorieGraphPoint],
         labelMode: ChartAxisLabelMode,
-        style: CalorieChartStyle = .bars
+        style: CalorieChartStyle = .bars,
+        historyRange: HistoryChartRange? = nil
     ) -> some View {
         let yAxisValues = chartYAxisValues(for: points)
-        let segmentedLinePoints = segmentedLinePoints(for: points)
+        let linePoints = calorieLinePoints(for: points, range: historyRange)
+        let averageLinePoints = calorieAverageLinePoints(for: points)
+        let interpolation: InterpolationMethod = .monotone
 
         return Chart {
             switch style {
@@ -7411,29 +7503,36 @@ struct ContentView: View {
                 }
 
             case .line:
-                ForEach(segmentedLinePoints) { segmentedPoint in
-                    AreaMark(
-                        x: .value("Day", segmentedPoint.point.date, unit: .day),
-                        y: .value("Calories", segmentedPoint.point.calories),
-                        series: .value("Segment", segmentedPoint.segment)
-                    )
-                    .interpolationMethod(.catmullRom)
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [accent.opacity(0.22), accent.opacity(0.03)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-
+                ForEach(averageLinePoints) { point in
                     LineMark(
-                        x: .value("Day", segmentedPoint.point.date, unit: .day),
-                        y: .value("Calories", segmentedPoint.point.calories),
-                        series: .value("Segment", segmentedPoint.segment)
+                        x: .value("Day", point.date, unit: .day),
+                        y: .value(point.series == .consumed ? "Consumed Average" : "Burned Average", point.calories),
+                        series: .value("Series", point.series == .consumed ? "Consumed Average" : "Burned Average")
                     )
-                    .interpolationMethod(.catmullRom)
+                    .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+                    .foregroundStyle(point.series == .consumed ? accent.opacity(0.5) : Color.orange.opacity(0.5))
+                }
+
+                ForEach(linePoints) { point in
+                    LineMark(
+                        x: .value("Day", point.date, unit: .day),
+                        y: .value("Consumed", point.consumed),
+                        series: .value("Series", "Consumed")
+                    )
+                    .interpolationMethod(interpolation)
                     .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
-                    .foregroundStyle(historyBarColor(for: segmentedPoint.point))
+                    .foregroundStyle(accent)
+                }
+
+                ForEach(linePoints) { point in
+                    LineMark(
+                        x: .value("Day", point.date, unit: .day),
+                        y: .value("Burned", point.burned),
+                        series: .value("Series", "Burned")
+                    )
+                    .interpolationMethod(interpolation)
+                    .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+                    .foregroundStyle(Color.orange)
                 }
             }
         }
@@ -7548,20 +7647,91 @@ struct ContentView: View {
         return Array(Set([0, middle, roundedTop])).sorted()
     }
 
-    private func segmentedLinePoints(for points: [CalorieGraphPoint]) -> [SegmentedCalorieLinePoint] {
-        var segment = 0
-        var result: [SegmentedCalorieLinePoint] = []
+    private func calorieLinePoints(for points: [CalorieGraphPoint], range: HistoryChartRange?) -> [CalorieLinePoint] {
+        let visiblePoints: [CalorieLinePoint] = points.compactMap { point in
+            guard point.calories > 0 else { return nil }
+            guard !isDerivedBMRFallbackOnlyDay(point.dayIdentifier) else { return nil }
 
-        for point in points {
-            if point.calories <= 0 {
-                segment += 1
-                continue
-            }
-
-            result.append(SegmentedCalorieLinePoint(point: point, segment: segment))
+            return CalorieLinePoint(
+                dayIdentifier: point.dayIdentifier,
+                date: point.date,
+                consumed: point.calories,
+                burned: point.burned
+            )
         }
+        .sorted { $0.date < $1.date }
 
-        return result
+        guard let range else { return visiblePoints }
+        let window = smoothingWindow(for: range)
+        guard window > 1 else { return visiblePoints }
+        return smoothedCalorieLinePoints(visiblePoints, window: window)
+    }
+
+    private func smoothingWindow(for range: HistoryChartRange) -> Int {
+        switch range {
+        case .sevenDays, .thirtyDays:
+            return 1
+        case .sixMonths:
+            return 5
+        case .oneYear:
+            return 9
+        case .twoYears:
+            return 15
+        }
+    }
+
+    private func smoothedCalorieLinePoints(_ points: [CalorieLinePoint], window: Int) -> [CalorieLinePoint] {
+        guard points.count > 2, window > 1 else { return points }
+        let radius = max((window - 1) / 2, 1)
+
+        return points.enumerated().map { index, point in
+            let start = max(0, index - radius)
+            let end = min(points.count - 1, index + radius)
+            let slice = points[start...end]
+
+            let consumedAverage = Int((Double(slice.reduce(0) { $0 + $1.consumed }) / Double(slice.count)).rounded())
+            let burnedAverage = Int((Double(slice.reduce(0) { $0 + $1.burned }) / Double(slice.count)).rounded())
+
+            return CalorieLinePoint(
+                dayIdentifier: point.dayIdentifier,
+                date: point.date,
+                consumed: consumedAverage,
+                burned: burnedAverage
+            )
+        }
+    }
+
+    private func averageValue(for values: [Int]) -> Int {
+        guard !values.isEmpty else { return 0 }
+        let total = values.reduce(0, +)
+        return Int((Double(total) / Double(values.count)).rounded())
+    }
+
+    private func calorieAverageLinePoints(for points: [CalorieGraphPoint]) -> [CalorieAverageLinePoint] {
+        guard let firstDate = points.first?.date, let lastDate = points.last?.date else { return [] }
+
+        let averageEligiblePoints = points.filter { $0.calories > 0 && !isDerivedBMRFallbackOnlyDay($0.dayIdentifier) }
+        guard !averageEligiblePoints.isEmpty else { return [] }
+
+        let consumedAverage = averageValue(for: averageEligiblePoints.map(\.calories))
+        let burnedAverage = averageValue(for: averageEligiblePoints.map(\.burned))
+
+        return [
+            CalorieAverageLinePoint(date: firstDate, calories: consumedAverage, series: .consumed, index: 0),
+            CalorieAverageLinePoint(date: lastDate, calories: consumedAverage, series: .consumed, index: 1),
+            CalorieAverageLinePoint(date: firstDate, calories: burnedAverage, series: .burned, index: 0),
+            CalorieAverageLinePoint(date: lastDate, calories: burnedAverage, series: .burned, index: 1)
+        ]
+    }
+
+    private func isDerivedBMRFallbackOnlyDay(_ identifier: String) -> Bool {
+        guard identifier != todayDayIdentifier else { return false }
+        guard dailyBurnedCalorieArchive[identifier] == nil else { return false }
+        guard dailyCalorieGoalArchive[identifier] == nil else { return false }
+
+        let hasFoodEntries = !entries(forDayIdentifier: identifier).isEmpty
+        let hasExerciseEntries = !exercises(forDayIdentifier: identifier).isEmpty
+        return !hasFoodEntries && !hasExerciseEntries
     }
 
     private func weightChangeAggregation(for range: NetHistoryRange) -> WeightChangeAggregation {

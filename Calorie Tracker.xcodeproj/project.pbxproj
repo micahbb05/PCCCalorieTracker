@@ -568,7 +568,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Calorie Tracker/Calorie Tracker.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 18;
+				CURRENT_PROJECT_VERSION = 19;
 				DEVELOPMENT_TEAM = 5TGUM38DL9;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -612,7 +612,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Calorie Tracker/Calorie Tracker.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 18;
+				CURRENT_PROJECT_VERSION = 19;
 				DEVELOPMENT_TEAM = 5TGUM38DL9;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -653,8 +653,8 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = "Calorie Tracker Widgets/Calorie Tracker Widgets.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 16;
-				"CURRENT_PROJECT_VERSION[sdk=watch*]" = 1;
+				CURRENT_PROJECT_VERSION = 19;
+				"CURRENT_PROJECT_VERSION[sdk=watch*]" = 19;
 				DEVELOPMENT_TEAM = 5TGUM38DL9;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Calorie-Tracker-Widgets-Info.plist";
@@ -664,7 +664,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = "Micah.Calorie-Tracker.widgets";
 				"PRODUCT_BUNDLE_IDENTIFIER[sdk=watch*]" = "Micah.Calorie-Tracker.watch.widgets";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -684,8 +684,8 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = "Calorie Tracker Widgets/Calorie Tracker Widgets.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 16;
-				"CURRENT_PROJECT_VERSION[sdk=watch*]" = 1;
+				CURRENT_PROJECT_VERSION = 19;
+				"CURRENT_PROJECT_VERSION[sdk=watch*]" = 19;
 				DEVELOPMENT_TEAM = 5TGUM38DL9;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Calorie-Tracker-Widgets-Info.plist";
@@ -695,7 +695,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = "Micah.Calorie-Tracker.widgets";
 				"PRODUCT_BUNDLE_IDENTIFIER[sdk=watch*]" = "Micah.Calorie-Tracker.watch.widgets";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -714,7 +714,7 @@
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 14;
+				CURRENT_PROJECT_VERSION = 19;
 				DEVELOPMENT_TEAM = 5TGUM38DL9;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
@@ -723,7 +723,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = "Micah.Calorie-TrackerUITests";
 				PRODUCT_MODULE_NAME = Calorie_TrackerUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -740,7 +740,7 @@
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 14;
+				CURRENT_PROJECT_VERSION = 19;
 				DEVELOPMENT_TEAM = 5TGUM38DL9;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
@@ -749,7 +749,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = "Micah.Calorie-TrackerUITests";
 				PRODUCT_MODULE_NAME = Calorie_TrackerUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -768,11 +768,11 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "Calorie Tracker Watch/Calorie Tracker Watch.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 19;
 				DEVELOPMENT_TEAM = 5TGUM38DL9;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Calorie Tracker Watch/Info.plist";
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = "Micah.Calorie-Tracker.watch";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -790,11 +790,11 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "Calorie Tracker Watch/Calorie Tracker Watch.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 19;
 				DEVELOPMENT_TEAM = 5TGUM38DL9;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Calorie Tracker Watch/Info.plist";
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = "Micah.Calorie-Tracker.watch";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;

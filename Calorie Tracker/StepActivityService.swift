@@ -173,7 +173,6 @@ final class StepActivityService: ObservableObject {
             return
         }
 
-        hasLoadedFreshStepDataThisLaunch = false
         startLiveUpdatesIfNeeded()
         queryTodaySteps()
     }

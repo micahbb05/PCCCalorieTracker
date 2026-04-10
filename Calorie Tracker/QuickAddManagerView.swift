@@ -127,7 +127,7 @@ struct QuickAddManagerView: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 18)
+                .padding(.top, 4)
                 .padding(.bottom, 12)
             }
             .safeAreaInset(edge: .bottom) {

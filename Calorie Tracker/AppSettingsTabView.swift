@@ -4,6 +4,8 @@ struct AppSettingsTabView: View {
     @Binding var trackedNutrientKeys: [String]
     let availableNutrients: [NutrientDefinition]
     @Binding var selectedAppIconChoiceRaw: String
+    @Binding var bmrSourceRaw: String
+    @Binding var manualBMRCalories: Int
     @Binding var useAIBaseServings: Bool
     @Binding var smartMealRemindersEnabled: Bool
     let cloudSyncStatusTitle: String
@@ -94,7 +96,46 @@ struct AppSettingsTabView: View {
                 .accessibilityLabel("App Icon")
                 .pickerStyle(.segmented)
             }
+
+            settingsCard(title: "BMR Source") {
+                Picker("BMR Source", selection: bmrSourceBinding) {
+                    Text("Automatic").tag(ContentView.BMRSource.automatic.rawValue)
+                    Text("Manual").tag(ContentView.BMRSource.manual.rawValue)
+                }
+                .accessibilityLabel("BMR Source")
+                .pickerStyle(.segmented)
+
+                Text("Automatic uses Health profile data when available. Manual always uses your configured manual BMR.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if bmrSourceRaw == ContentView.BMRSource.manual.rawValue {
+                    DeficitGoalEditor(
+                        deficitCalories: $manualBMRCalories,
+                        title: "Manual BMR",
+                        subtitle: "Calories burned at rest each day",
+                        helperText: "Used while BMR Source is set to Manual.",
+                        accent: Color(red: 0.19, green: 0.52, blue: 1.0),
+                        minCalories: 800,
+                        maxCalories: 4000
+                    )
+                }
+            }
         }
+    }
+
+    private var bmrSourceBinding: Binding<String> {
+        Binding(
+            get: { bmrSourceRaw },
+            set: { newValue in
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    bmrSourceRaw = newValue
+                }
+            }
+        )
     }
 
     private func settingsCard<Content: View>(

@@ -13,10 +13,11 @@ struct ProfileGoalsView: View {
     let healthProfile: HealthKitService.SyncedProfile?
     let isUsingSyncedHealthFallback: Bool
     let syncedHealthSourceLabel: String?
+    let bmrSourceRaw: String
     let bmrCalories: Int?
     let burnedCaloriesToday: Int
     let activeBurnedCaloriesToday: Int
-    let isUsingAutomatedCalories: Bool
+    let isUsingHealthDerivedBMR: Bool
     @Binding var isCalibrationEnabled: Bool
     let calibrationOffsetCalories: Int
     let calibrationStatusText: String
@@ -120,7 +121,7 @@ struct ProfileGoalsView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(isUsingSyncedHealthFallback ? "BMR is using synced Health data." : "BMR is calculated from Health data.")
+                    Text(bodyProfileSummaryText)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -168,7 +169,7 @@ struct ProfileGoalsView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(Color(red: 0.19, green: 0.52, blue: 1.0))
 
-                Text("Using a fallback average BMR until Health data is connected.")
+                Text("Using your manual BMR until Health data is connected.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -182,8 +183,8 @@ struct ProfileGoalsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-            } else if !isUsingAutomatedCalories {
-                Text("Health is connected, but some body data is still missing. Using a fallback average BMR until Health provides height, weight, sex, and age.")
+            } else if !isUsingHealthDerivedBMR && bmrSourceRaw != ContentView.BMRSource.manual.rawValue {
+                Text("Health is connected, but some body data is still missing. Using your manual BMR until Health provides complete profile data.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -246,13 +247,23 @@ struct ProfileGoalsView: View {
                 }
             }
 
-            if healthAuthorizationState == .connected, isUsingAutomatedCalories, goalTypeRaw != "fixed" {
+            if healthAuthorizationState == .connected, isUsingHealthDerivedBMR, goalTypeRaw != "fixed" {
                 Text("Burned today includes BMR plus active calories (steps and exercise) personalized with your available profile data.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    private var bodyProfileSummaryText: String {
+        if isUsingSyncedHealthFallback {
+            return "BMR is using synced Health data."
+        }
+        if isUsingHealthDerivedBMR {
+            return "BMR is calculated from Health data."
+        }
+        return "BMR is using your manual value."
     }
 
     private var smartAdjustmentSection: some View {

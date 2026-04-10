@@ -87,7 +87,6 @@ final class HealthKitService: ObservableObject {
 
     func refreshIfPossible() async {
         isRefreshingHealthData = true
-        hasLoadedFreshHealthDataThisLaunch = false
         defer { isRefreshingHealthData = false }
 
         guard HKHealthStore.isHealthDataAvailable() else {

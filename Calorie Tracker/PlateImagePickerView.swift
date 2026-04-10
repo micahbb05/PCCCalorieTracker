@@ -51,18 +51,15 @@ struct PlateImagePickerView: UIViewControllerRepresentable {
                let data = image.jpegData(compressionQuality: 0.85) {
                 parent.onPicked(data)
             }
-            picker.dismiss(animated: true)
         }
 
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
             parent.onCancel()
-            picker.dismiss(animated: true)
         }
 
         func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
             guard let result = results.first else {
                 parent.onCancel()
-                picker.dismiss(animated: true)
                 return
             }
 
@@ -77,14 +74,12 @@ struct PlateImagePickerView: UIViewControllerRepresentable {
                         } else {
                             self.parent.onCancel()
                         }
-                        picker.dismiss(animated: true)
                     }
                 }
                 return
             }
 
             parent.onCancel()
-            picker.dismiss(animated: true)
         }
     }
 }

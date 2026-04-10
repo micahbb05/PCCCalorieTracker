@@ -15,7 +15,7 @@ struct ExerciseCalorieService {
     /// Light MET values used when pace/speed context is unavailable.
     private static func metLight(for type: ExerciseType) -> Double {
         switch type {
-        case .weightLifting: return 3.0
+        case .weightLifting: return 2.0 // ~20% active time with 2-3 min rests; effective blended MET
         case .running: return 6.0
         case .cycling: return 4.0
         case .swimming: return 5.0

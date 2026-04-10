@@ -6,6 +6,7 @@ struct DeficitGoalEditor: View {
     let subtitle: String
     let helperText: String?
     let accent: Color
+    let minCalories: Int
     let maxCalories: Int
 
     init(
@@ -14,6 +15,7 @@ struct DeficitGoalEditor: View {
         subtitle: String,
         helperText: String?,
         accent: Color,
+        minCalories: Int = 0,
         maxCalories: Int = 2500
     ) {
         _deficitCalories = deficitCalories
@@ -21,6 +23,7 @@ struct DeficitGoalEditor: View {
         self.subtitle = subtitle
         self.helperText = helperText
         self.accent = accent
+        self.minCalories = max(minCalories, 0)
         self.maxCalories = max(maxCalories, 1)
     }
 
@@ -98,12 +101,12 @@ struct DeficitGoalEditor: View {
     private var deficitBinding: Binding<Int> {
         Binding(
             get: { deficitCalories },
-            set: { deficitCalories = min(max($0, 0), maxCalories) }
+            set: { deficitCalories = min(max($0, minCalories), maxCalories) }
         )
     }
 
     private func adjust(by delta: Int) {
-        deficitCalories = min(max(deficitCalories + delta, 0), maxCalories)
+        deficitCalories = min(max(deficitCalories + delta, minCalories), maxCalories)
         Haptics.selection()
     }
 }

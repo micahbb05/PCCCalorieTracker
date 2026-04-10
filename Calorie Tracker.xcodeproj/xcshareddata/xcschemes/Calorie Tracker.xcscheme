@@ -35,6 +35,20 @@
                ReferencedContainer = "container:Calorie Tracker.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "FD2ABDDC71654BC4977F1760"
+               BuildableName = "Calorie TrackerTests.xctest"
+               BlueprintName = "Calorie TrackerTests"
+               ReferencedContainer = "container:Calorie Tracker.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -60,6 +74,17 @@
                BlueprintIdentifier = "75A100062F53000100A8457B"
                BuildableName = "Calorie TrackerUITests.xctest"
                BlueprintName = "Calorie TrackerUITests"
+               ReferencedContainer = "container:Calorie Tracker.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "FD2ABDDC71654BC4977F1760"
+               BuildableName = "Calorie TrackerTests.xctest"
+               BlueprintName = "Calorie TrackerTests"
                ReferencedContainer = "container:Calorie Tracker.xcodeproj">
             </BuildableReference>
          </TestableReference>

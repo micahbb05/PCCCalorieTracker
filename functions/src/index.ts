@@ -960,6 +960,8 @@ type AIVisionFoodItem = {
   protein?: unknown;
   sourceType?: unknown;
   nutrients?: unknown;
+  sourceStrategy?: unknown;
+  searchQuery?: unknown;
 };
 
 type AIVisionResponse = {
@@ -1174,6 +1176,8 @@ Use exactly this JSON shape:
   "items": [
     {
       "name": "string",
+      "sourceStrategy": "brand_exact" | "generic_stable_density" | "generic_variable_composite",
+      "searchQuery": "string (only for brand_exact — e.g. 'McDonald's Big Mac calories nutrition facts')",
       "servingAmount": 1,
       "servingUnit": "serving",
       "servingItemsCount": 1,
@@ -1194,13 +1198,37 @@ Rules for food_photo mode:
 - Detect one or more foods in the image.
 - Return one item per distinct food.
 - Classify each food into one source strategy:
-  - brand_exact: branded or restaurant-specific item (e.g., "Taco Bell Cheesy Bean and Rice Burrito").
-  - generic_stable_density: generic single food with reasonably stable per-mass nutrition (e.g., chicken breast, white rice, salmon).
-  - generic_variable_composite: generic mixed dish with high recipe/size variance (e.g., burrito, casserole, stir fry, mixed bowl).
-- For brand_exact: use reliable web nutrition for the exact branded/restaurant item.
-- For generic_stable_density: use reliable per-oz/per-100g reference nutrition (USDA/FoodData Central style) and scale by visible portion.
-- For generic_variable_composite: do not force an exact web item match when no brand/restaurant is identified; estimate from visible portion/composition.
-- Prefer official nutrition pages, restaurant nutrition PDFs/pages, USDA/FoodData Central, Open Food Facts, and major manufacturer pages when web lookup is used.
+  - brand_exact: a clearly identifiable branded or restaurant-specific item where you can confidently name the exact product (e.g., "Taco Bell Cheesy Bean and Rice Burrito", "Chick-fil-A Original Chicken Sandwich"). Only use this when you are highly confident about the exact brand AND item.
+  - generic_stable_density: a generic single-ingredient food with reasonably stable per-mass nutrition (e.g., plain chicken breast, white rice, salmon fillet, broccoli, banana). Must be a simple, unmodified food.
+  - generic_variable_composite: everything else — any mixed dish, composite food, or item where recipe/toppings/fillings/size create high variance (e.g., burrito, casserole, stir fry, ice cream with toppings, burger with toppings, pizza, pasta dish, sandwich, bowl).
+
+HOW TO ESTIMATE CALORIES:
+
+For brand_exact:
+- Use your training knowledge of that specific brand/restaurant item's nutrition as your best visual estimate for "calories" and "protein". A web search will be performed separately to confirm.
+- Include a "searchQuery" field with an effective search query to find the exact nutrition facts (e.g., "Chipotle Chicken Burrito Bowl calories nutrition facts").
+- sourceType: "real"
+
+For generic_stable_density:
+- Visually estimate the weight or volume of the portion shown. Consider the plate/container size and food density as reference.
+- Apply per-oz or per-100g reference nutrition from your training knowledge.
+- DO NOT use a generic "average serving" — estimate the actual amount you see.
+- sourceType: "real"
+
+For generic_variable_composite (MOST IMPORTANT — READ CAREFULLY):
+- DO NOT use a generic average calorie count for this food type. A "medium burrito" or "average ice cream" is not an acceptable answer.
+- Instead, visually analyze the specific item shown:
+  * What visible ingredients/components are present? (e.g., for a burrito: can you see rice, beans, meat, cheese, sour cream, guac through a cross-section or when it's open? For ice cream: what toppings, sauces, mix-ins are visible? For a burger: bun, patty size, cheese, sauces, toppings?)
+  * How large is the item? Compare to the plate, container, hand, or other reference objects.
+  * How densely filled/loaded does it appear?
+  * Estimate each visible component's contribution to the total calorie count, then sum.
+- Your estimate must reflect THIS specific item in THIS photo, not a textbook example.
+- sourceType: "estimated"
+
+CRITICAL RULES FOR ALL FOOD PHOTOS:
+- Portion size MUST be estimated from what is visible in the photo. A small portion and a large portion of the same food must yield different calorie estimates.
+- For composite/topped foods, the specific toppings, fillings, and add-ons visible in the photo must influence your estimate. A plain burger and a loaded burger are not the same.
+- Never default to a "typical" or "average" serving if the photo shows something clearly larger, smaller, more or less loaded, or different from average.
 - Include as many reliable nutrients as available in "nutrients" using normalized keys.
 - Use "estimatedServings" for how much food is shown in the photo relative to the base serving.
 - Choose a practical base serving that a user can adjust later, such as 1 sandwich, 1 slice, 1 cup, 4 oz, 1 bowl, 1 taco, etc.
@@ -1212,10 +1240,10 @@ Rules for food_photo mode:
   - nutritionForServings: how many nutrition servings the returned calories/protein/nutrients represent. Usually 1.
 - For non-count foods (oz/g/cup/tbsp/tsp), omit servingItemsCount and estimatedItemCount.
 - If there are multiple foods, include all clearly visible foods.
-- If confidence is poor, make the best reasonable estimate anyway.
+- If confidence is poor, make the best visual reasoning estimate anyway — a reasoned guess is always better than a generic average.
 - sourceType rules:
   - Use "real" for brand_exact and generic_stable_density items.
-  - Use "estimated" for generic_variable_composite items unless a clear branded/restaurant item is identified.
+  - Use "estimated" for generic_variable_composite items.
 
 Rules for nutrition_label mode:
 - Read the visible nutrition facts from the label as accurately as possible.
@@ -1337,6 +1365,8 @@ Output requirements:
 - The AI may add additional insight beyond these fields if it stays grounded in the provided data.
 - Treat week-to-date data as normal, not a failure condition:
   - weekOverview.daysInPeriod can be 1-7 because this is a calendar-week view (Sunday-Saturday), often excluding today.
+  - If weekOverview.daysInPeriod is 1-2 (commonly Monday or Tuesday runs), treat upcoming days as not yet available in the calendar week, not as user misses.
+  - Never penalize or criticize the user for not having logs on days that have not happened yet in the current week.
   - Do not frame lower day counts as "hard to see trends", "not enough data", or similar negative disclaimers.
   - Early week (1-3 days): emphasize setup and momentum actions for the next 1-2 days.
   - Mid week (4-5 days): emphasize consistency checks and one tactical adjustment for the remainder of the week.
@@ -1738,6 +1768,8 @@ function extractFirstJsonObject(text: string): string {
 function parseAIVisionJsonResponse(text: string): {
   mode: "food_photo" | "nutrition_label"; items: Array<{
     name: string;
+    sourceStrategy?: "brand_exact" | "generic_stable_density" | "generic_variable_composite";
+    searchQuery?: string;
     servingAmount: number;
     servingUnit: string;
     servingItemsCount?: number;
@@ -1764,6 +1796,8 @@ function parseAIVisionJsonResponse(text: string): {
   const items = response.items
     .map((raw): {
       name: string;
+      sourceStrategy?: "brand_exact" | "generic_stable_density" | "generic_variable_composite";
+      searchQuery?: string;
       servingAmount: number;
       servingUnit: string;
       servingItemsCount?: number;
@@ -1778,6 +1812,14 @@ function parseAIVisionJsonResponse(text: string): {
       const item = raw as AIVisionFoodItem;
       const name = typeof item.name === "string" ? item.name.trim() : "";
       if (!name) return null;
+
+      const rawStrategy = typeof item.sourceStrategy === "string" ? item.sourceStrategy : "";
+      const sourceStrategy = (rawStrategy === "brand_exact" || rawStrategy === "generic_stable_density" || rawStrategy === "generic_variable_composite")
+        ? rawStrategy as "brand_exact" | "generic_stable_density" | "generic_variable_composite"
+        : undefined;
+      const searchQuery = sourceStrategy === "brand_exact" && typeof item.searchQuery === "string" && item.searchQuery.trim()
+        ? item.searchQuery.trim()
+        : undefined;
 
       const { servingAmount, servingUnit } = parseServingAmountAndUnit(item.servingAmount, item.servingUnit);
       const servingItemsCount = parsePositiveNumberLike(item.servingItemsCount) ?? undefined;
@@ -1827,6 +1869,8 @@ function parseAIVisionJsonResponse(text: string): {
 
       return {
         name,
+        ...(sourceStrategy ? { sourceStrategy } : {}),
+        ...(searchQuery ? { searchQuery } : {}),
         servingAmount,
         servingUnit,
         ...(servingItemsCount ? { servingItemsCount } : {}),
@@ -1840,6 +1884,8 @@ function parseAIVisionJsonResponse(text: string): {
     })
     .filter((item): item is {
       name: string;
+      sourceStrategy?: "brand_exact" | "generic_stable_density" | "generic_variable_composite";
+      searchQuery?: string;
       servingAmount: number;
       servingUnit: string;
       servingItemsCount?: number;
@@ -1964,7 +2010,22 @@ function classifyFoodPhotoSource(name: string): "brand_exact" | "generic_stable_
   return "generic_variable_composite";
 }
 
-function applyFoodPhotoSourceRules(items: Array<{
+type VisionItemWithStrategy = {
+  name: string;
+  sourceStrategy?: "brand_exact" | "generic_stable_density" | "generic_variable_composite";
+  searchQuery?: string;
+  servingAmount: number;
+  servingUnit: string;
+  servingItemsCount?: number;
+  estimatedServings: number;
+  estimatedItemCount?: number;
+  calories: number;
+  protein: number;
+  sourceType: "real" | "estimated";
+  nutrients: Record<string, number>;
+};
+
+type VisionItemFinal = {
   name: string;
   servingAmount: number;
   servingUnit: string;
@@ -1975,24 +2036,113 @@ function applyFoodPhotoSourceRules(items: Array<{
   protein: number;
   sourceType: "real" | "estimated";
   nutrients: Record<string, number>;
-}>): Array<{
-  name: string;
-  servingAmount: number;
-  servingUnit: string;
-  servingItemsCount?: number;
-  estimatedServings: number;
-  estimatedItemCount?: number;
-  calories: number;
-  protein: number;
-  sourceType: "real" | "estimated";
-  nutrients: Record<string, number>;
-}> {
+};
+
+function applyFoodPhotoSourceRules(items: VisionItemWithStrategy[]): VisionItemFinal[] {
   return items.map((item) => {
-    const sourceClass = classifyFoodPhotoSource(item.name);
-    if (sourceClass === "generic_variable_composite") {
-      return { ...item, sourceType: "estimated" };
+    const strategy = item.sourceStrategy ?? classifyFoodPhotoSource(item.name);
+    const sourceType: "real" | "estimated" = strategy === "generic_variable_composite" ? "estimated" : "real";
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { sourceStrategy: _ss, searchQuery: _sq, ...rest } = item;
+    return { ...rest, sourceType };
+  });
+}
+
+const AI_BRAND_LOOKUP_PROMPT = `You are a nutrition lookup assistant. You will receive a numbered list of specific branded or restaurant food items that were identified in a photo. Use web search to find the exact official nutrition facts for each item.
+
+Return ONLY valid JSON in this exact shape:
+{
+  "items": [
+    {
+      "name": "item name as given in the input",
+      "servingAmount": 1,
+      "servingUnit": "sandwich",
+      "calories": 530,
+      "protein": 25,
+      "sourceType": "real",
+      "nutrients": {
+        "g_protein": 25,
+        "g_carbs": 46,
+        "g_fat": 25,
+        "mg_sodium": 1010
+      }
     }
-    return { ...item, sourceType: "real" };
+  ]
+}
+
+Rules:
+- Return items in exactly the same order as the input list.
+- Return nutrition for ONE standard serving of each item (e.g., one sandwich, one bowl, one slice).
+- Use web search to find official or highly reliable nutrition data (restaurant nutrition pages, manufacturer sites, USDA).
+- Set sourceType to "real" if web data was found, "estimated" only if the item could not be identified.
+- If an item cannot be found at all, return it with calories: 0 and sourceType: "estimated".
+- Include as many nutrients as available using these keys: g_protein, g_carbs, g_fat, g_saturated_fat, g_fiber, g_sugar, mg_sodium, mg_cholesterol, mg_potassium.
+- All numeric fields must be numbers, not strings.
+- JSON only. No markdown.`;
+
+async function performBrandNutritionLookup(
+  apiKey: string,
+  items: Array<{ name: string; searchQuery: string }>
+): Promise<Array<{
+  calories: number;
+  protein: number;
+  sourceType: "real" | "estimated";
+  nutrients: Record<string, number>;
+} | null>> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const itemList = items.map((item, i) => `${i + 1}. ${item.name}`).join("\n");
+  const reqBody = {
+    systemInstruction: { parts: [{ text: AI_BRAND_LOOKUP_PROMPT }] },
+    contents: [{ parts: [{ text: `Items to look up:\n${itemList}` }] }],
+    tools: [{ googleSearch: {} }],
+    generationConfig: { temperature: 0.1, maxOutputTokens: 2048 }
+  };
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(reqBody)
+  });
+
+  if (!response.ok) {
+    logger.warn("Brand nutrition lookup upstream failed", { status: response.status });
+    return items.map(() => null);
+  }
+
+  const data = (await response.json()) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+  const text = (data?.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? "").join("").trim();
+  const jsonText = extractFirstJsonObject(text);
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(jsonText);
+  } catch {
+    logger.warn("Brand nutrition lookup returned invalid JSON", { rawText: text });
+    return items.map(() => null);
+  }
+
+  const result = parsed as { items?: unknown };
+  if (!Array.isArray(result.items)) return items.map(() => null);
+
+  return result.items.map((raw: unknown): { calories: number; protein: number; sourceType: "real" | "estimated"; nutrients: Record<string, number> } | null => {
+    if (!raw || typeof raw !== "object") return null;
+    const item = raw as AITextFoodItem;
+    const caloriesRaw = typeof item.calories === "number" && item.calories > 0 ? item.calories : 0;
+    if (caloriesRaw === 0) return null;
+    const protein = typeof item.protein === "number" && item.protein >= 0 ? Math.round(item.protein) : 0;
+    const sourceType: "real" | "estimated" = item.sourceType === "real" ? "real" : "estimated";
+    const nutrientsSource = item.nutrients && typeof item.nutrients === "object" ? item.nutrients as Record<string, unknown> : {};
+    const nutrients: Record<string, number> = {};
+    for (const [rawKey, value] of Object.entries(nutrientsSource)) {
+      if (typeof value !== "number" || !Number.isFinite(value) || value < 0) continue;
+      const key = normalizeNutrientKey(rawKey);
+      if (!key) continue;
+      nutrients[key] = Math.round(value);
+    }
+    const calories = Math.round(caloriesRaw);
+    if (calories > 0 && nutrients.calories === undefined) nutrients.calories = calories;
+    if (protein > 0 && nutrients.g_protein === undefined) nutrients.g_protein = protein;
+    return { calories, protein, sourceType, nutrients };
   });
 }
 
@@ -2004,18 +2154,7 @@ async function performAIVisionAnalysis(
   status: number;
   body: {
     mode?: "food_photo" | "nutrition_label";
-    items?: Array<{
-      name: string;
-      servingAmount: number;
-      servingUnit: string;
-      servingItemsCount?: number;
-      estimatedServings: number;
-      estimatedItemCount?: number;
-      calories: number;
-      protein: number;
-      sourceType: "real" | "estimated";
-      nutrients: Record<string, number>;
-    }>;
+    items?: VisionItemFinal[];
     rawJson?: string;
     error?: string;
   };
@@ -2028,7 +2167,7 @@ async function performAIVisionAnalysis(
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(trimmedKey)}`;
   const sanitizedBase64 = imageBase64.replace(/\s/g, "");
-  const body = {
+  const visionBody = {
     contents: [{
       parts: [
         { inlineData: { mimeType, data: sanitizedBase64 } },
@@ -2046,7 +2185,7 @@ async function performAIVisionAnalysis(
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
+      body: JSON.stringify(visionBody)
     });
 
     if (!response.ok) {
@@ -2072,9 +2211,36 @@ async function performAIVisionAnalysis(
       logger.error("AI vision returned invalid JSON", { rawText: text });
       return { status: 502, body: { error: "AI returned an invalid response.", rawJson: text } };
     }
+
+    // Step 2: for food_photo mode, look up brand/restaurant items via web search
+    let mergedItems = parsed.items;
+    if (parsed.mode === "food_photo") {
+      const brandLookups = parsed.items
+        .map((item, index) => ({ item, index }))
+        .filter(({ item }) => item.sourceStrategy === "brand_exact" && item.searchQuery);
+
+      if (brandLookups.length > 0) {
+        try {
+          const lookupResults = await performBrandNutritionLookup(
+            trimmedKey,
+            brandLookups.map(({ item }) => ({ name: item.name, searchQuery: item.searchQuery! }))
+          );
+          mergedItems = parsed.items.map((item, index) => {
+            const brandIdx = brandLookups.findIndex(({ index: i }) => i === index);
+            if (brandIdx === -1) return item;
+            const lookup = lookupResults[brandIdx];
+            if (!lookup) return item;
+            return { ...item, calories: lookup.calories, protein: lookup.protein, sourceType: lookup.sourceType, nutrients: lookup.nutrients };
+          });
+        } catch (brandErr) {
+          logger.warn("Brand nutrition lookup threw, using visual estimates", brandErr);
+        }
+      }
+    }
+
     const normalizedItems = parsed.mode === "food_photo"
-      ? applyFoodPhotoSourceRules(parsed.items)
-      : parsed.items;
+      ? applyFoodPhotoSourceRules(mergedItems)
+      : mergedItems.map(({ sourceStrategy: _ss, searchQuery: _sq, ...rest }) => rest as VisionItemFinal);
 
     return {
       status: 200,
@@ -2452,6 +2618,19 @@ async function performWeeklyInsightAnalysis(
     }))
   };
 
+  const elapsedDaysFallback = Array.isArray(safeSummary.days) ? safeSummary.days.length : 0;
+  const elapsedDays = Math.max(1, Math.min(7, Math.floor(summary.weekOverview?.daysInPeriod ?? elapsedDaysFallback)));
+  const weekPhase =
+    elapsedDays <= 3 ? "early_week" : elapsedDays <= 5 ? "mid_week" : "late_week";
+  const weekPhaseGuidance =
+    elapsedDays <= 2
+      ? "This is likely Monday/Tuesday week-to-date data. Upcoming days are not expected yet."
+      : elapsedDays <= 3
+        ? "This is early week week-to-date data. Treat partial coverage as normal."
+        : elapsedDays <= 5
+          ? "This is mid-week week-to-date data."
+          : "This is late-week week-to-date data.";
+
   function normalizeWeeklyInsightText(raw: string): string {
     return raw.trim();
   }
@@ -2524,11 +2703,24 @@ async function performWeeklyInsightAnalysis(
   }
 
   try {
+    const promptPayload = {
+      analysisContext: {
+        weekScope: "Calendar week Sunday-Saturday, week-to-date excluding today (Sunday uses previous full week).",
+        elapsedDaysInCurrentWeek: elapsedDays,
+        weekPhase,
+        interpretationGuidance: weekPhaseGuidance,
+        missingDaysRule:
+          "Do not interpret missing future days in the current week as user non-compliance."
+      },
+      summary: safeSummary
+    };
+
     const prompt = [
       "Here is a calendar-week nutrition summary as JSON (Sunday-Saturday; week-to-date excluding today, except Sunday uses the previous full week).",
+      "Interpretation context: missing future days in the current calendar week are a limitation of timing, not a user behavior issue.",
       "Use the system instruction to write a brief weekly reflection and coaching for the user.",
       "JSON:",
-      JSON.stringify(safeSummary)
+      JSON.stringify(promptPayload)
     ].join("\n");
 
     const result = await callGemini(prompt);

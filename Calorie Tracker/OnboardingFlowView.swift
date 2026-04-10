@@ -6,6 +6,8 @@ struct OnboardingFlowView: View {
     @Binding var goalTypeRaw: String
     @Binding var surplusCalories: Int
     @Binding var fixedGoalCalories: Int
+    @Binding var manualBMRCalories: Int
+    @Binding var bmrSourceRaw: String
     @Binding var trackedNutrientKeys: [String]
     @Binding var nutrientGoals: [String: Int]
     let availableNutrients: [NutrientDefinition]
@@ -136,7 +138,7 @@ struct OnboardingFlowView: View {
                 welcomeFeatureCard(
                     icon: "heart.text.square.fill",
                     title: "Connect Health",
-                    detail: "Use Apple Health for automatic BMR and more accurate step-calorie estimates.",
+                    detail: "Optional: use Apple Health for automatic BMR and more accurate step-calorie estimates.",
                     tint: Color(red: 0.46, green: 0.90, blue: 0.60)
                 )
                 welcomeFeatureCard(
@@ -205,6 +207,30 @@ struct OnboardingFlowView: View {
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
                         .stroke(Color.white.opacity(0.06), lineWidth: 1)
                 )
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("BMR Source")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(textPrimary)
+
+                Picker("BMR Source", selection: $bmrSourceRaw) {
+                    Text("Automatic").tag(ContentView.BMRSource.automatic.rawValue)
+                    Text("Manual").tag(ContentView.BMRSource.manual.rawValue)
+                }
+                .pickerStyle(.segmented)
+
+                if bmrSourceRaw == ContentView.BMRSource.manual.rawValue {
+                    DeficitGoalEditor(
+                        deficitCalories: $manualBMRCalories,
+                        title: "Manual BMR",
+                        subtitle: "Calories burned at rest each day",
+                        helperText: "This value will be used for calorie targets until you switch BMR Source back to Automatic.",
+                        accent: accent,
+                        minCalories: 800,
+                        maxCalories: 4000
+                    )
+                }
             }
         }
     }
@@ -328,12 +354,12 @@ struct OnboardingFlowView: View {
         case .connected:
             return "Health is connected."
         case .unavailable:
-            return "Health data is not available on this device. The app will use its fallback average BMR until you use a supported device."
+            return "Health data is not available on this device. You can continue with a manual BMR."
         case .notConnected:
             if hasRequestedHealthAccess {
-                return "If you skipped or denied access, onboarding can still continue. You can connect Health later from the Profile tab."
+                return "If you skipped or denied access, onboarding can still continue. You can keep using manual BMR or connect Health later from Profile."
             }
-            return "Health is optional. If you skip it now, the app uses its fallback average BMR until you connect later."
+            return "Health is optional. If you skip it now, the app uses your manual BMR."
         }
     }
 

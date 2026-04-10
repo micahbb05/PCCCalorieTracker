@@ -24,6 +24,7 @@ final class BackgroundWidgetRefreshService {
         let surplusCalories: Int
         let useWeekendDeficit: Bool
         let weekendDeficitCalories: Int
+        let manualBMRCalories: Int
         let calibrationState: CalibrationState
     }
 
@@ -32,7 +33,6 @@ final class BackgroundWidgetRefreshService {
         let distanceMeters: Double
     }
 
-    private static let fallbackAverageBMR = 1800
     private static let defaultWeightPounds = 170.0
     private static let defaultHeightInches = 68.0
     private static let netWalkingCaloriesPerKgPerKm = 0.50
@@ -298,16 +298,7 @@ final class BackgroundWidgetRefreshService {
         exerciseCalories: Int,
         effectiveActivityCalories: Int
     ) -> (burned: Int, goal: Int) {
-        if profile == nil,
-           let archivedGoal = state.dailyCalorieGoalArchive[dayIdentifier],
-           let archivedBurned = state.dailyBurnedCalorieArchive[dayIdentifier] {
-            return (
-                burned: max(archivedBurned, 1),
-                goal: max(archivedGoal, 1)
-            )
-        }
-
-        let bmr = calculatedBMR(for: profile) ?? Self.fallbackAverageBMR
+        let bmr = calculatedBMR(for: profile) ?? state.manualBMRCalories
         let burnedBaseline = max(bmr + exerciseCalories + effectiveActivityCalories, 1)
         let offset = state.calibrationState.isEnabled ? state.calibrationState.calibrationOffsetCalories : 0
         let burned = max(burnedBaseline + offset, 1)
@@ -447,6 +438,7 @@ final class BackgroundWidgetRefreshService {
         let surplusCalories = defaults.integer(forKey: "surplusCalories")
         let useWeekendDeficit = defaults.bool(forKey: "useWeekendDeficit")
         let weekendDeficitCalories = defaults.integer(forKey: "weekendDeficitCalories")
+        let manualBMRCalories = min(max(defaults.integer(forKey: "manualBMRCalories"), 800), 4000)
 
         return StoredState(
             entries: entries,
@@ -461,6 +453,7 @@ final class BackgroundWidgetRefreshService {
             surplusCalories: surplusCalories,
             useWeekendDeficit: useWeekendDeficit,
             weekendDeficitCalories: weekendDeficitCalories,
+            manualBMRCalories: manualBMRCalories,
             calibrationState: calibrationState
         )
     }

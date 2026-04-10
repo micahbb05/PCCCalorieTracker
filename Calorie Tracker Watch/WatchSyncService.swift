@@ -6,6 +6,7 @@ import WidgetKit
 @MainActor
 final class WatchSyncService: NSObject, ObservableObject {
     static let shared = WatchSyncService()
+    private static let debugDefaultsKeyLastPayload = "watchSyncDebugLastPayload"
 
     private weak var store: WatchCalorieStore?
     private var hasReceivedPayload = false
@@ -100,6 +101,10 @@ final class WatchSyncService: NSObject, ObservableObject {
 
     private func consume(payload: [String: Any]) {
         hasReceivedPayload = true
+        if let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]),
+           let defaults = UserDefaults(suiteName: "group.Micah.Calorie-Tracker") {
+            defaults.set(data, forKey: Self.debugDefaultsKeyLastPayload)
+        }
         let candidate = makePendingPayload(from: payload)
         guard shouldQueue(candidate) else { return }
         pendingPayload = candidate
@@ -191,8 +196,8 @@ final class WatchSyncService: NSObject, ObservableObject {
         pendingPayload = nil
 
         let payload = pending.raw
-        guard let goal = payload["goalCalories"] as? Int else { return }
         let activeStore = store ?? WatchCalorieStore.shared
+        let goal = coerceInt(payload["goalCalories"]) ?? activeStore.dailyGoal
         let activity = payload["activityCalories"] as? Int ?? activeStore.activityCalories
         let mealTitle = payload["currentMealTitle"] as? String ?? activeStore.currentMealTitle
         let goalTypeRaw = payload["goalTypeRaw"] as? String ?? activeStore.goalTypeRaw
@@ -240,6 +245,19 @@ final class WatchSyncService: NSObject, ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             self.completePendingTasksIfNeeded()
         }
+    }
+
+    private func coerceInt(_ value: Any?) -> Int? {
+        if let intValue = value as? Int {
+            return intValue
+        }
+        if let numberValue = value as? NSNumber {
+            return numberValue.intValue
+        }
+        if let stringValue = value as? String, let intValue = Int(stringValue) {
+            return intValue
+        }
+        return nil
     }
 
     private func startSnapshotRetryLoop(session: WCSession) {

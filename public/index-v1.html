@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/pcc-ios-logo-blue.png?v=20260311c">
+  <link rel="shortcut icon" href="/assets/pcc-ios-logo-blue.png?v=20260311c">
+  <link rel="apple-touch-icon" href="/assets/pcc-ios-logo-blue.png?v=20260311c">
+  <title>PCC Calorie Tracker</title>
+  <meta name="description"
+    content="Track calories with PCC Dining menus built in, AI photo logging, barcode scanning, USDA search, Apple Health goals, and optional iCloud sync.">
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://calorie-tracker-364e3.web.app/" />
+  <meta property="og:title" content="PCC Calorie Tracker" />
+  <meta property="og:description"
+    content="Track calories with PCC Dining menus built in, AI photo logging, barcode scanning, USDA search, Apple Health goals, and optional iCloud sync." />
+  <meta property="og:image" content="https://calorie-tracker-364e3.web.app/assets/og-image.png" />
+
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image" />
+  <meta property="twitter:url" content="https://calorie-tracker-364e3.web.app/" />
+  <meta property="twitter:title" content="PCC Calorie Tracker" />
+  <meta property="twitter:description"
+    content="Track calories with PCC Dining menus built in, AI photo logging, barcode scanning, USDA search, Apple Health goals, and optional iCloud sync." />
+  <meta property="twitter:image" content="https://calorie-tracker-364e3.web.app/assets/og-image.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f5f7fc;
+      --surface: rgba(255, 255, 255, 0.85);
+      --surface-solid: #ffffff;
+      --text: #0f172a;
+      --text-muted: #475569;
+      --text-lighter: #94a3b8;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --accent-gradient: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      --accent-gradient-hover: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+      --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+      --radius-md: 0.75rem;
+      --radius-lg: 1rem;
+      --radius-full: 9999px;
+      --transition-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      --transition-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Ambient Background Pattern */
+    .ambient-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: -1;
+      background:
+        radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 85% 30%, rgba(99, 102, 241, 0.08) 0%, transparent 40%);
+      pointer-events: none;
+    }
+
+    header {
+      background: var(--surface);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 1rem 1.5rem;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.03);
+    }
+
+    nav {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      font-weight: 800;
+      font-size: 1.25rem;
+      line-height: 1;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      letter-spacing: -0.03em;
+    }
+
+    .logo svg {
+      width: 24px;
+      height: 24px;
+      stroke: var(--accent);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    nav a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9375rem;
+      font-weight: 500;
+      line-height: 1;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.45rem 0.75rem;
+      border-radius: 999px;
+      background: transparent;
+    }
+
+    @media (max-width: 600px) {
+      .github-link {
+        display: none !important;
+      }
+    }
+
+    nav a svg {
+      width: 16px;
+      height: 16px;
+      transition: transform 0.2s ease;
+    }
+
+    nav a:hover {
+      color: var(--text);
+      background: #f3f4f6;
+    }
+
+    nav a.back-btn:hover svg {
+      transform: translateX(-3px);
+    }
+
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 4rem 1.5rem;
+    }
+
+    /* Animations */
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .animate-fade-up {
+      opacity: 0;
+      animation: fadeUp 0.8s var(--transition-spring) forwards;
+    }
+
+    .delay-1 {
+      animation-delay: 0.1s;
+    }
+
+    .delay-2 {
+      animation-delay: 0.2s;
+    }
+
+    .delay-3 {
+      animation-delay: 0.3s;
+    }
+
+    .delay-4 {
+      animation-delay: 0.4s;
+    }
+
+    /* Hero Section */
+    .hero {
+      text-align: center;
+      max-width: 800px;
+      margin: 0 auto 5rem;
+      padding-top: 2rem;
+    }
+
+    h1 {
+      font-size: clamp(2.5rem, 6vw, 4rem);
+      font-weight: 800;
+      line-height: 1.1;
+      margin-bottom: 1.5rem;
+      letter-spacing: -0.04em;
+    }
+
+    .text-gradient {
+      background: linear-gradient(to right, #0f172a, #334155, #2563eb);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      display: inline-block;
+    }
+
+    .subtitle {
+      font-size: clamp(1.125rem, 2vw, 1.375rem);
+      color: var(--text-muted);
+      margin-bottom: 3rem;
+      max-width: 600px;
+      margin-inline: auto;
+      line-height: 1.7;
+      font-weight: 400;
+    }
+
+    .cta-container {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: var(--accent-gradient);
+      color: white;
+      padding: 0.875rem 2rem;
+      border-radius: var(--radius-full);
+      font-weight: 600;
+      font-size: 1.0625rem;
+      text-decoration: none;
+      transition: all 0.3s var(--transition-spring);
+      box-shadow: 0 8px 16px -4px rgba(37, 99, 235, 0.3);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0));
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .cta:hover {
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 12px 20px -6px rgba(37, 99, 235, 0.4);
+      background: var(--accent-gradient-hover);
+    }
+
+    .cta:hover::before {
+      opacity: 1;
+    }
+
+    .cta.secondary {
+      background: var(--surface);
+      color: var(--text);
+      box-shadow: var(--shadow-md);
+      border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .cta.secondary:hover {
+      background: var(--surface-solid);
+      color: var(--accent);
+      border-color: rgba(0, 0, 0, 0.2);
+    }
+
+    /* Showcase Features */
+    .showcase-feature {
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 2rem;
+      align-items: center;
+      margin-bottom: 5rem;
+      text-align: center;
+    }
+
+    @media (min-width: 900px) {
+      .showcase-feature {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 5rem;
+        margin-bottom: 7rem;
+        text-align: left;
+      }
+
+      .showcase-feature.reverse {
+        direction: rtl;
+      }
+
+      .showcase-feature.reverse>* {
+        direction: ltr;
+      }
+    }
+
+    .showcase-text h2 {
+      font-size: clamp(2rem, 3.5vw, 2.5rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 1.25rem;
+      line-height: 1.2;
+    }
+
+    .showcase-text p {
+      font-size: 1.125rem;
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+    }
+
+    .showcase-image-container {
+      position: relative;
+      border-radius: 40px;
+      /* More rounded to mimic iOS device */
+      padding: 0.75rem;
+      background: #111;
+      /* Device bezel color */
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), inset 0 0 0 1px #333;
+      width: 100%;
+      max-width: 340px;
+      margin: 0 auto;
+      transition: transform 0.4s var(--transition-spring), box-shadow 0.4s var(--transition-spring);
+    }
+
+    .showcase-image-container:hover {
+      transform: translateY(-10px);
+      box-shadow: 0 35px 60px -15px rgba(0, 0, 0, 0.3), inset 0 0 0 1px #333;
+    }
+
+    .showcase-image-container img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 32px;
+      /* Inner screen corner radius */
+      pointer-events: none;
+      background: var(--surface-solid);
+    }
+
+    footer {
+      background: var(--surface-solid);
+      padding: 4rem 1.5rem;
+      text-align: center;
+      border-top: 1px solid rgba(0, 0, 0, 0.05);
+      margin-top: auto;
+    }
+
+    .footer-content {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .footer-logo {
+      font-weight: 700;
+      font-size: 1.125rem;
+      color: var(--text);
+    }
+
+    .footer-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.875rem;
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover {
+      color: var(--text);
+    }
+
+    .copyright {
+      color: var(--text-lighter);
+      font-size: 0.875rem;
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="ambient-bg"></div>
+
+  <header>
+    <nav>
+      <div class="logo">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+          class="lucide lucide-activity">
+          <path
+            d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.48 12H2" />
+        </svg>
+        Calorie Tracker
+      </div>
+      <div class="nav-links">
+        <a href="https://github.com/micahbb05/PCCCalorieTracker" class="github-link" target="_blank" rel="noopener noreferrer">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-github"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.2c3-.3 6-1.5 6-6.5a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 5 3 6.2 6 6.5a4.8 4.8 0 0 0-1 3.2v4"/><path d="M9 18c-4.5 1.6-5-2-7-2"/></svg>
+          View on GitHub
+        </a>
+        <a href="/privacy-policy">Privacy Policy</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero animate-fade-up">
+      <h1>
+        <span class="text-gradient">Track your calories</span><br>
+        with zero friction
+      </h1>
+      <p class="subtitle">Calorie Tracker makes it effortlessly easy to monitor your nutrition. Connect to campus menus,
+        use AI to estimate portions from photos, and track your daily macros all in one place.</p>
+
+      <div class="cta-container animate-fade-up delay-1">
+        <a href="https://apps.apple.com/us/app/pcc-calorie-tracker/id6759851781" class="cta">
+          Download on the App Store
+        </a>
+        <a href="/demo" class="cta secondary">
+          Try Web Demo
+        </a>
+      </div>
+    </section>
+
+    <!-- App Screenshots Block -->
+    <div class="showcase-feature animate-fade-up delay-2">
+      <div class="showcase-text">
+        <h2>PCC Dining menus built in</h2>
+        <p>Your campus menus are updated daily. Connect directly to PCC Dining and view today's accurate calorie and
+          protein content without ever looking up individual ingredients.</p>
+        <p>You can even snap a tray photo and get intelligent AI portion estimates based on what's available today.</p>
+      </div>
+      <div class="showcase-image-container">
+        <!-- Using the provided Menu screenshot -->
+        <img src="assets/screenshots/menu.jpg" alt="PCC Dining Menu Integration"
+          onerror="this.src='https://placehold.co/800x1700/e2e8f0/475569?text=Menu+Screenshot'">
+      </div>
+    </div>
+
+    <div class="showcase-feature reverse animate-fade-up delay-3">
+      <div class="showcase-text">
+        <h2>Your daily targets at a glance</h2>
+        <p>A beautifully simple unified dashboard automatically adjusts your daily calorie goals based on your active
+          energy and step data from Apple Health.</p>
+        <p>Easily track your essential nutrients and daily macros to keep yourself on track.</p>
+      </div>
+      <div class="showcase-image-container">
+        <!-- Using the provided Today dashboard screenshot -->
+        <img src="assets/screenshots/today.jpg" alt="Today Dashboard Metrics"
+          onerror="this.src='https://placehold.co/800x1700/e2e8f0/475569?text=Today+Screenshot'">
+      </div>
+    </div>
+
+    <div class="showcase-feature animate-fade-up delay-4">
+      <div class="showcase-text">
+        <h2>Insightful review over time</h2>
+        <p>Review comprehensive historical data spanning from 7 days up to 2 years. Identify long-term trends and
+          correlations in your nutritional habits in simple, easy to read charts.</p>
+        <p>All your data is kept securely on your device, with optional private iCloud sync for continuity across your
+          Apple ecosystem.</p>
+      </div>
+      <div class="showcase-image-container">
+        <!-- Using the provided History screenshot -->
+        <img src="assets/screenshots/history.jpg" alt="History and Insights"
+          onerror="this.src='https://placehold.co/800x1700/e2e8f0/475569?text=History+Screenshot'">
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="footer-content">
+      <div class="footer-logo" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+          stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+          class="lucide lucide-activity">
+          <path
+            d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.48 12H2" />
+        </svg>
+        Calorie Tracker
+      </div>
+      <div class="footer-links">
+        <a href="/privacy-policy">Privacy Policy</a>
+      </div>
+      <div class="copyright">
+        &copy; 2026 Calorie Tracker. All rights reserved. Not officially affiliated with Pensacola Christian College.
+      </div>
+    </div>
+  </footer>
+</body>
+
+</html>

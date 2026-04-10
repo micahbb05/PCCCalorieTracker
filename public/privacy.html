@@ -7,325 +7,416 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/pcc-ios-logo-blue.png?v=20260311c">
   <link rel="shortcut icon" href="/assets/pcc-ios-logo-blue.png?v=20260311c">
   <link rel="apple-touch-icon" href="/assets/pcc-ios-logo-blue.png?v=20260311c">
-  <title>PCC Calorie Tracker - Privacy Policy</title>
-  <meta name="description" content="Privacy Policy for Calorie Tracker iOS app.">
+  <title>Privacy Policy — PCC Calorie Tracker</title>
+  <meta name="description" content="Privacy Policy for the PCC Calorie Tracker iOS app.">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap"
-    rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+
   <style>
     :root {
-      --bg: #f5f7fc;
-      --surface: rgba(255, 255, 255, 0.85);
-      --surface-solid: #ffffff;
-      --text: #0f172a;
-      --text-muted: #475569;
-      --text-lighter: #94a3b8;
-      --accent: #2563eb;
-      --accent-hover: #1d4ed8;
-      --transition-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+      --parchment:  #F5F0E6;
+      --linen:      #ECE6D8;
+      --sand:       #D9D1C0;
+      --bark:       #19120B;
+      --earth:      #5A4A3A;
+      --clay:       #9A8878;
+      --moss:       #1B3828;
+      --fern:       #2F5E42;
+      --sage:       #64927A;
+      --sage-pale:  #E8F0EB;
+      --amber:      #B8924A;
+      --white:      #FFFEF9;
     }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
 
     body {
-      font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
-      background-color: var(--bg);
-      color: var(--text);
-      line-height: 1.7;
+      font-family: 'Lora', Georgia, serif;
+      background: var(--parchment);
+      color: var(--bark);
+      line-height: 1.65;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
     }
 
-    /* Ambient Background Pattern */
-    .ambient-bg {
+    /* Grain texture */
+    body::before {
+      content: '';
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      z-index: -1;
-      background:
-        radial-gradient(circle at 50% 10%, rgba(59, 130, 246, 0.05) 0%, transparent 50%);
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23g)' opacity='0.045'/%3E%3C/svg%3E");
+      background-size: 300px 300px;
       pointer-events: none;
+      z-index: 9999;
+      mix-blend-mode: multiply;
     }
 
-    header {
-      background: var(--surface);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      padding: 1rem 1.5rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    /* ─── NAV ─── */
+    .site-nav {
+      background: rgba(245, 240, 230, 0.94);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--sand);
       position: sticky;
       top: 0;
-      z-index: 50;
-      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.03);
+      z-index: 100;
     }
 
-    nav {
+    .site-nav-inner {
       max-width: 1100px;
       margin: 0 auto;
+      padding: 1.375rem 3rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
 
-    .logo {
-      font-weight: 800;
+    .site-logo {
+      font-family: 'Cormorant Garamond', Georgia, serif;
       font-size: 1.25rem;
-      line-height: 1;
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      letter-spacing: -0.03em;
-    }
-
-    .logo svg {
-      width: 24px;
-      height: 24px;
-      stroke: var(--accent);
-    }
-
-    nav a {
-      color: var(--text-muted);
+      font-weight: 600;
+      color: var(--bark);
       text-decoration: none;
-      font-size: 0.9375rem;
-      font-weight: 500;
-      line-height: 1;
-      transition: all 0.2s ease;
+      letter-spacing: 0.01em;
+    }
+
+    .nav-back {
+      font-family: 'Lora', Georgia, serif;
+      font-style: italic;
+      font-size: 0.875rem;
+      color: var(--clay);
+      text-decoration: none;
       display: inline-flex;
       align-items: center;
-      gap: 0.35rem;
-      padding: 0.45rem 0.75rem;
-      border-radius: 999px;
-      background: transparent;
+      gap: 0.5rem;
+      transition: color 0.25s ease;
     }
 
-    nav a svg {
-      width: 16px;
-      height: 16px;
-      transition: transform 0.2s ease;
+    .nav-back:hover { color: var(--bark); }
+
+    .nav-back svg {
+      width: 14px;
+      height: 14px;
+      transition: transform 0.25s ease;
+      flex-shrink: 0;
     }
 
-    nav a:hover {
-      color: var(--text);
-      background: #f3f4f6;
+    .nav-back:hover svg { transform: translateX(-3px); }
+
+    @media (max-width: 640px) {
+      .site-nav-inner { padding: 1.25rem 1.5rem; }
     }
 
-    nav a.back-btn:hover svg {
-      transform: translateX(-3px);
-    }
-
-    main {
-      max-width: 800px;
+    /* ─── CONTENT ─── */
+    .page-wrap {
+      max-width: 720px;
       margin: 0 auto;
-      padding: 3.5rem 1.5rem;
-      background: var(--surface-solid);
-      border-radius: 1rem;
-      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.8);
-      margin-top: 3rem;
-      margin-bottom: 3rem;
+      padding: 5rem 3rem 7rem;
     }
 
-    h1 {
-      font-size: clamp(2rem, 4vw, 2.5rem);
-      font-weight: 800;
-      letter-spacing: -0.03em;
-      margin-bottom: 0.5rem;
-      color: var(--text);
+    @media (max-width: 640px) {
+      .page-wrap { padding: 3.5rem 1.5rem 5rem; }
     }
 
-    .updated {
-      color: var(--text-muted);
+    .page-label {
+      font-family: 'Lora', Georgia, serif;
+      font-style: italic;
       font-size: 0.9375rem;
-      margin-bottom: 3rem;
-      padding-bottom: 1.5rem;
-      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-    }
-
-    h2 {
-      font-size: 1.25rem;
-      font-weight: 700;
-      margin-top: 2.5rem;
+      color: var(--sage);
+      display: block;
       margin-bottom: 1rem;
-      letter-spacing: -0.01em;
-      color: var(--text);
     }
 
-    p {
-      color: var(--text-muted);
+    .page-title {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: clamp(2.5rem, 5vw, 3.75rem);
+      font-weight: 500;
+      line-height: 1.05;
+      color: var(--bark);
+      letter-spacing: -0.02em;
+      margin-bottom: 0.75rem;
+    }
+
+    .page-meta {
+      font-family: 'Lora', Georgia, serif;
+      font-style: italic;
+      font-size: 0.9rem;
+      color: var(--clay);
+      margin-bottom: 3rem;
+      padding-bottom: 2.5rem;
+      border-bottom: 1px solid var(--sand);
+    }
+
+    .page-intro {
+      font-size: 1.0625rem;
+      color: var(--earth);
+      line-height: 1.85;
+      margin-bottom: 3rem;
+    }
+
+    /* Section */
+    .policy-section {
+      margin-bottom: 2.75rem;
+    }
+
+    .policy-section h2 {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--bark);
+      letter-spacing: -0.015em;
+      margin-bottom: 0.875rem;
+    }
+
+    .policy-section p {
       font-size: 1rem;
-      margin-bottom: 1.25rem;
+      color: var(--earth);
+      line-height: 1.85;
+      margin-bottom: 0.875rem;
     }
 
-    ul {
-      padding-left: 1.5rem;
-      margin-bottom: 1.5rem;
+    .policy-section ul {
+      list-style: none;
+      margin: 0.5rem 0 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
     }
 
-    li {
-      color: var(--text-muted);
+    .policy-section li {
       font-size: 1rem;
-      margin-bottom: 0.5rem;
+      color: var(--earth);
+      line-height: 1.75;
+      display: flex;
+      gap: 0.75rem;
     }
 
-    li strong {
-      color: var(--text);
+    .policy-section li::before {
+      content: '';
+      display: inline-block;
+      width: 18px;
+      height: 1px;
+      background: var(--amber);
+      flex-shrink: 0;
+      margin-top: 0.75em;
     }
 
-    a {
-      color: var(--accent);
-      text-decoration: underline;
-      text-decoration-color: rgba(37, 99, 235, 0.3);
-      text-decoration-thickness: 1px;
-      text-underline-offset: 3px;
-      transition: all 0.2s var(--transition-smooth);
-    }
-
-    a:hover {
-      color: var(--accent-hover);
-      text-decoration-color: var(--accent-hover);
-    }
-
-    footer {
-      padding: 3rem 1.5rem 1rem;
-      border-top: 1px solid rgba(0, 0, 0, .05);
-      margin-top: 4rem;
-      text-align: center;
-    }
-
-    footer a {
-      text-decoration: none;
-      color: var(--text-muted);
+    .policy-section strong {
+      color: var(--bark);
       font-weight: 500;
     }
 
-    footer a:hover {
-      color: var(--text);
+    .policy-section a {
+      color: var(--fern);
+      text-decoration: underline;
+      text-decoration-color: rgba(47,94,66,0.3);
+      text-underline-offset: 3px;
+      transition: color 0.2s;
+    }
+
+    .policy-section a:hover { color: var(--moss); }
+
+    /* Divider */
+    .rule {
+      width: 100%;
+      height: 1px;
+      background: linear-gradient(to right, transparent, var(--sand), transparent);
+      margin: 2.75rem 0;
+    }
+
+    /* ─── FOOTER ─── */
+    .site-footer {
+      background: var(--linen);
+      border-top: 1px solid var(--sand);
+      padding: 2.5rem 3rem;
+    }
+
+    .site-footer-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1.25rem;
+    }
+
+    .footer-logo {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--bark);
+      text-decoration: none;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 2rem;
+    }
+
+    .footer-links a {
+      font-family: 'Lora', Georgia, serif;
+      font-style: italic;
+      font-size: 0.875rem;
+      color: var(--clay);
+      text-decoration: none;
+      transition: color 0.25s;
+    }
+
+    .footer-links a:hover { color: var(--bark); }
+
+    .footer-copy {
+      width: 100%;
+      font-family: 'Lora', Georgia, serif;
+      font-size: 0.8rem;
+      color: var(--clay);
+      opacity: 0.65;
+    }
+
+    @media (max-width: 640px) {
+      .site-footer { padding: 2rem 1.5rem; }
+      .site-footer-inner { flex-direction: column; text-align: center; }
+      .footer-links { justify-content: center; }
     }
   </style>
 </head>
 
 <body>
-  <div class="ambient-bg"></div>
 
-  <header>
-    <nav>
-      <div class="logo">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-          stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-          class="lucide lucide-activity">
-          <path
-            d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.48 12H2" />
-        </svg>
-        Calorie Tracker
-      </div>
-      <a href="/" class="back-btn">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-        </svg>
-        Back to Home
+  <!-- NAV -->
+  <nav class="site-nav">
+    <div class="site-nav-inner">
+      <a href="/" class="site-logo">Calorie Tracker</a>
+      <a href="/" class="nav-back">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"/></svg>
+        Back to home
       </a>
-    </nav>
-  </header>
+    </div>
+  </nav>
 
-  <main>
-    <h1>Privacy Policy</h1>
-    <p class="updated">Last updated: April 9, 2026</p>
+  <!-- CONTENT -->
+  <div class="page-wrap">
+    <span class="page-label">Legal</span>
+    <h1 class="page-title">Privacy Policy</h1>
+    <p class="page-meta">Last updated: April 9, 2026</p>
 
-    <p>Calorie Tracker ("the App") is designed with privacy in mind. This policy explains what data is processed by the
-      App, where that data is stored, and which third-party services are used for specific features.</p>
+    <p class="page-intro">Calorie Tracker is designed with privacy in mind. This policy explains what data is processed by the app, where it is stored, and which third-party services are used for specific features.</p>
 
-    <h2>1. Data Stored Locally on Your Device</h2>
-    <p>The App stores your tracking data locally on your device using iOS storage:</p>
-    <ul>
-      <li>Meal entries and nutrients</li>
-      <li>Exercise entries and calorie burn history</li>
-      <li>Goal settings and nutrient targets</li>
-      <li>Tracked nutrient preferences</li>
-      <li>PCC menu cache and related app preferences</li>
-      <li>Onboarding and app customization settings</li>
-    </ul>
+    <div class="policy-section">
+      <h2>1. Data Stored Locally on Your Device</h2>
+      <p>The app stores your tracking data locally on your device using iOS storage:</p>
+      <ul>
+        <li>Meal entries and nutrients</li>
+        <li>Exercise entries and calorie burn history</li>
+        <li>Goal settings and nutrient targets</li>
+        <li>Tracked nutrient preferences</li>
+        <li>PCC menu cache and related app preferences</li>
+        <li>Onboarding and app customization settings</li>
+      </ul>
+    </div>
 
-    <h2>2. iCloud Private Sync (CloudKit)</h2>
-    <p>If your iCloud account is available, the App can sync app-state data through your private CloudKit database to
-      keep data consistent across your Apple devices. This includes saved entries, goals, archives, and preferences
-      needed to restore your tracker state.</p>
-    <p>CloudKit data is associated with your Apple ID and managed under Apple's iCloud privacy and security model.</p>
+    <div class="rule"></div>
 
-    <h2>3. Health Data (Apple Health)</h2>
-    <p>If you connect Apple Health, the App reads the following data to calculate and adjust goals:</p>
-    <ul>
-      <li><strong>Biological sex</strong> — for BMR calculation</li>
-      <li><strong>Date of birth</strong> — to calculate age for BMR</li>
-      <li><strong>Height</strong> — for BMR calculation</li>
-      <li><strong>Body mass (weight)</strong> — for BMR calculation and weight trend charts (historical samples)</li>
-      <li><strong>Step count</strong> — to estimate daily activity burn</li>
-      <li><strong>Walking/running distance</strong> — to estimate daily activity burn</li>
-      <li><strong>Workouts</strong> — to include supported workout activity (for example running, cycling, swimming, and strength/cross-training) in daily burn estimates</li>
-    </ul>
-    <p>All of the above are read through the Apple Health permission. The App does <strong>not write</strong> data to
-      Apple Health. Health data is used in-app for BMR, activity estimates, and calorie-goal calculations.</p>
+    <div class="policy-section">
+      <h2>2. iCloud Private Sync (CloudKit)</h2>
+      <p>If your iCloud account is available, the app can sync app-state data through your private CloudKit database to keep data consistent across your Apple devices. This includes saved entries, goals, archives, and preferences needed to restore your tracker state.</p>
+      <p>CloudKit data is associated with your Apple ID and managed under Apple's iCloud privacy and security model.</p>
+    </div>
 
-    <h2>4. Apple Watch</h2>
-    <p>If you have a paired Apple Watch with the App installed, the App sends a snapshot of your current goal, activity
-      calories, and recent meal entries to the Watch over WatchConnectivity. This data transfer stays on your local
-      devices and does not pass through external servers.</p>
+    <div class="rule"></div>
 
-    <h2>5. Camera and Photo Library</h2>
-    <p>The App can use camera or photo-library access for:</p>
-    <ul>
-      <li><strong>Barcode scanning</strong> — to detect barcode values for food lookup.</li>
-      <li><strong>AI plate portion estimates</strong> — plate photos are analyzed with selected menu items to estimate
-        portions.</li>
-      <li><strong>AI food photo / nutrition-label scan</strong> — food photos or nutrition labels are analyzed to create
-        draft entries.</li>
-    </ul>
+    <div class="policy-section">
+      <h2>3. Health Data (Apple Health)</h2>
+      <p>If you connect Apple Health, the app reads the following data to calculate and adjust goals:</p>
+      <ul>
+        <li><strong>Biological sex</strong> — for BMR calculation</li>
+        <li><strong>Date of birth</strong> — to calculate age for BMR</li>
+        <li><strong>Height</strong> — for BMR calculation</li>
+        <li><strong>Body mass (weight)</strong> — for BMR calculation and weight trend charts</li>
+        <li><strong>Step count</strong> — to estimate daily activity burn</li>
+        <li><strong>Walking/running distance</strong> — to estimate daily activity burn</li>
+        <li><strong>Workouts</strong> — to include supported workout activity in daily burn estimates</li>
+      </ul>
+      <p>The app does <strong>not write</strong> data to Apple Health. Health data is used in-app for BMR, activity estimates, and calorie-goal calculations only.</p>
+    </div>
 
-    <h2>6. Data Sent to External Services</h2>
-    <p>The App makes limited network requests for features:</p>
-    <ul>
-      <li><strong>USDA FoodData Central (via backend proxy)</strong> — your search query is sent to our Firebase backend
-        and then to USDA.</li>
-      <li><strong>Open Food Facts</strong> — scanned barcode numbers are sent to Open Food Facts to retrieve nutrition
-        data.</li>
-      <li><strong>PCC Dining Nutrislice API</strong> — menu data is fetched from Nutrislice endpoints.</li>
-      <li><strong>Google Gemini (via backend)</strong> — for AI plate estimates and AI food/label analysis, the App
-        sends image data (base64) and, for plate estimates, selected food-item context to backend endpoints that call Gemini.</li>
-      <li><strong>Apple CloudKit (private database)</strong> — used for app-state sync when iCloud is available.</li>
-    </ul>
-    <p>The iOS app does not require creating an in-app account. Requests may still include technical metadata such as IP
-      address, timestamps, and device/network headers as part of normal web and cloud operation.</p>
-    <p>For AI analysis requests, the backend processes uploaded image payloads to return results. The backend code does
-      not store submitted image files in app databases as part of normal operation.</p>
+    <div class="rule"></div>
 
-    <h2>7. Analytics & Tracking</h2>
-    <p>The App does not include third-party advertising SDKs and does not sell personal data. We use limited operational
-      logging in backend services (for example, request status codes and error diagnostics) to keep features reliable and
-      debug failures.</p>
+    <div class="policy-section">
+      <h2>4. Apple Watch</h2>
+      <p>If you have a paired Apple Watch with the app installed, the app sends a snapshot of your current goal, activity calories, and recent meal entries to the Watch over WatchConnectivity. This data transfer stays on your local devices and does not pass through external servers.</p>
+    </div>
 
-    <h2>8. Children</h2>
-    <p>The App is not directed at children under 13. We do not knowingly collect personal information from children.</p>
+    <div class="rule"></div>
 
-    <h2>9. Changes to This Policy</h2>
-    <p>We may update this Privacy Policy from time to time. The "Last updated" date at the top reflects the most recent
-      version. Continued use of the App after changes constitutes acceptance of the updated policy.</p>
+    <div class="policy-section">
+      <h2>5. Camera and Photo Library</h2>
+      <p>The app can use camera or photo-library access for:</p>
+      <ul>
+        <li><strong>Barcode scanning</strong> — to detect barcode values for food lookup</li>
+        <li><strong>AI plate portion estimates</strong> — plate photos are analyzed with selected menu items to estimate portions</li>
+        <li><strong>AI food photo / nutrition-label scan</strong> — food photos or nutrition labels are analyzed to create draft entries</li>
+      </ul>
+    </div>
 
-    <h2>10. Contact</h2>
-    <p>For questions about this Privacy Policy or the App's data practices, contact the developer through the app's
-      listed support channel.</p>
+    <div class="rule"></div>
 
-    <footer>
-      <a href="/">Calorie Tracker</a>
-    </footer>
-  </main>
+    <div class="policy-section">
+      <h2>6. Data Sent to External Services</h2>
+      <p>The app makes limited network requests for specific features:</p>
+      <ul>
+        <li><strong>USDA FoodData Central (via backend proxy)</strong> — your search query is sent to our Firebase backend and then to USDA</li>
+        <li><strong>Open Food Facts</strong> — scanned barcode numbers are sent to retrieve nutrition data</li>
+        <li><strong>PCC Dining Nutrislice API</strong> — menu data is fetched from Nutrislice endpoints</li>
+        <li><strong>Google Gemini (via backend)</strong> — for AI plate estimates and food/label analysis, the app sends image data and selected food-item context to backend endpoints that call Gemini</li>
+        <li><strong>Apple CloudKit (private database)</strong> — used for app-state sync when iCloud is available</li>
+      </ul>
+      <p>The app does not require creating an in-app account. For AI analysis requests, the backend does not store submitted image files as part of normal operation.</p>
+    </div>
+
+    <div class="rule"></div>
+
+    <div class="policy-section">
+      <h2>7. Analytics &amp; Tracking</h2>
+      <p>The app does not include third-party advertising SDKs and does not sell personal data. We use limited operational logging in backend services — such as request status codes and error diagnostics — to keep features reliable.</p>
+    </div>
+
+    <div class="rule"></div>
+
+    <div class="policy-section">
+      <h2>8. Children</h2>
+      <p>The app is not directed at children under 13. We do not knowingly collect personal information from children.</p>
+    </div>
+
+    <div class="rule"></div>
+
+    <div class="policy-section">
+      <h2>9. Changes to This Policy</h2>
+      <p>We may update this Privacy Policy from time to time. The "Last updated" date at the top reflects the most recent version. Continued use of the app after changes constitutes acceptance of the updated policy.</p>
+    </div>
+
+    <div class="rule"></div>
+
+    <div class="policy-section">
+      <h2>10. Contact</h2>
+      <p>For questions about this Privacy Policy or the app's data practices, contact the developer through the app's listed support channel.</p>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="site-footer">
+    <div class="site-footer-inner">
+      <a href="/" class="footer-logo">PCC Calorie Tracker</a>
+      <div class="footer-links">
+        <a href="https://github.com/micahbb05/PCCCalorieTracker" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="/privacy.html">Privacy Policy</a>
+      </div>
+      <p class="footer-copy">&copy; 2026 Calorie Tracker &mdash; Not officially affiliated with Pensacola Christian College.</p>
+    </div>
+  </footer>
+
 </body>
-
 </html>

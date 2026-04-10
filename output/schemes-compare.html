@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Color Scheme Comparison</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0A0A0A;
+  font-family: 'Inter', system-ui, sans-serif;
+  padding: 56px 40px 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+}
+
+/* ── page header ── */
+.page-head {
+  width: 100%;
+  margin-bottom: 52px;
+}
+.page-head h1 {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.2);
+}
+
+/* ── scheme row ── */
+.scheme-row {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  padding: 44px 0 44px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+.scheme-row:last-child { border-bottom: 1px solid rgba(255,255,255,0.05); }
+
+/* row label */
+.row-label {
+  width: 180px;
+  flex-shrink: 0;
+  padding-top: 6px;
+  padding-right: 32px;
+}
+.row-name {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+.row-desc {
+  font-size: 11px;
+  line-height: 1.6;
+  color: rgba(255,255,255,0.25);
+}
+.row-swatches {
+  display: flex;
+  gap: 5px;
+  margin-top: 14px;
+}
+.swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+/* phones container */
+.phones {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  flex: 1;
+}
+
+/* ── phone shell ── */
+.phone {
+  width: 258px;
+  height: 558px;
+  border-radius: 44px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.07),
+    0 32px 80px rgba(0,0,0,0.7),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+/* phone label */
+.phone-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  text-align: center;
+  margin-bottom: 10px;
+  color: rgba(255,255,255,0.18);
+}
+
+.phone-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* status bar */
+.status-bar {
+  height: 40px;
+  padding: 13px 24px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.status-time {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.status-icons { display: flex; align-items: center; gap: 5px; }
+
+/* screen */
+.screen {
+  flex: 1;
+  overflow: hidden;
+}
+.pad { padding: 14px 16px 20px; }
+
+/* tab bar */
+.tab-bar {
+  height: 68px;
+  padding: 10px 0 16px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-around;
+  flex-shrink: 0;
+  border-top-width: 1px;
+  border-top-style: solid;
+}
+
+/* ── shared component styles (no color) ── */
+.page-title-big {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin-bottom: 2px;
+}
+.page-sub {
+  font-size: 11px;
+  margin-bottom: 12px;
+}
+.cal-card {
+  border-radius: 18px;
+  padding: 16px;
+  margin-bottom: 12px;
+  position: relative;
+  overflow: hidden;
+  border-width: 1px;
+  border-style: solid;
+}
+.fire-icon {
+  position: absolute;
+  top: 14px; right: 14px;
+  font-size: 24px;
+  opacity: 0.65;
+}
+.cal-number {
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  margin-bottom: 2px;
+}
+.cal-label { font-size: 12px; margin-bottom: 12px; }
+.progress-bar {
+  height: 7px;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.progress-fill { height: 100%; border-radius: 4px; }
+.progress-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+}
+.macro-card {
+  border-radius: 18px;
+  padding: 14px 16px;
+  border-width: 1px;
+  border-style: solid;
+}
+.macro-title {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
+}
+.macro-row { margin-bottom: 10px; }
+.macro-row:last-child { margin-bottom: 0; }
+.macro-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+.macro-name { font-size: 12px; font-weight: 600; }
+.macro-val  { font-size: 11px; }
+.macro-bar  { height: 7px; border-radius: 4px; overflow: hidden; }
+.macro-fill { height: 100%; border-radius: 4px; }
+
+/* tab items */
+.tab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.tab-icon-emoji { font-size: 18px; }
+.tab-lbl { font-size: 9px; font-weight: 500; }
+.plus-btn {
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: -22px;
+  flex-shrink: 0;
+}
+
+/* history */
+.stat-card {
+  border-radius: 18px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  border-width: 1px;
+  border-style: solid;
+}
+.stat-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+  gap: 10px;
+}
+.stat-card-title { font-size: 13px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 2px; }
+.stat-card-sub   { font-size: 10px; line-height: 1.4; }
+.period-pill {
+  border-radius: 9px;
+  padding: 4px 10px;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  border-width: 1px;
+  border-style: solid;
+}
+.big-stat {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+.big-stat span { font-size: 14px; }
+
+/* menu */
+.menu-search-bar {
+  border-radius: 10px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 10px;
+  border-width: 1px;
+  border-style: solid;
+}
+.search-placeholder { font-size: 12px; }
+.loc-pills { display: flex; gap: 6px; margin-bottom: 10px; }
+.loc-pill {
+  border-radius: 14px;
+  padding: 5px 11px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.menu-station {
+  border-radius: 12px;
+  padding: 11px 13px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  border-width: 1px;
+  border-style: solid;
+}
+.station-name { font-size: 12px; font-weight: 600; margin-bottom: 1px; letter-spacing: -0.01em; }
+.station-sub  { font-size: 10px; }
+.station-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+}
+.station-right { display: flex; align-items: center; gap: 6px; }
+.chevron { font-size: 10px; }
+.meal-pill {
+  border-radius: 14px;
+  padding: 4px 10px;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 10px;
+  border-width: 1px;
+  border-style: solid;
+}
+.add-pill {
+  border-radius: 14px;
+  padding: 4px 10px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border-width: 1px;
+  border-style: solid;
+}
+.add-count {
+  border-radius: 6px;
+  padding: 1px 5px;
+  font-size: 9px;
+  font-weight: 700;
+}
+.menu-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+/* ════════════════════════════════
+   SCHEME 1 — ORIGINAL (Blueprint)
+════════════════════════════════ */
+.s1 {
+  --bg:      #121825;
+  --surf:    #1A2233;
+  --surf2:   #1E2D4A;
+  --bdr:     rgba(255,255,255,0.07);
+  --t1:      #ffffff;
+  --t2:      rgba(255,255,255,0.5);
+  --t3:      rgba(255,255,255,0.28);
+  --acc:     #4F80FF;
+  --acc-bg:  #1A2D5A;
+  --p:       #4ADE80;
+  --c:       #FACC15;
+  --f:       #F87171;
+  --stat:    #4ADE80;
+  --bar-bg:  rgba(255,255,255,0.1);
+}
+.s1 .phone          { background: var(--bg); }
+.s1 .status-bar     { background: var(--bg); }
+.s1 .status-time    { color: var(--t1); }
+.s1 .screen         { background: var(--bg); }
+.s1 .tab-bar        { background: var(--surf); border-top-color: rgba(255,255,255,0.06); }
+.s1 .page-title-big { color: var(--t1); }
+.s1 .page-sub       { color: var(--t3); }
+.s1 .cal-card       { background: var(--surf2); border-color: transparent; }
+.s1 .cal-number     { color: var(--t1); }
+.s1 .cal-label      { color: var(--t2); }
+.s1 .progress-bar   { background: var(--bar-bg); }
+.s1 .progress-fill  { background: var(--acc); }
+.s1 .progress-row   { color: var(--t3); }
+.s1 .macro-card     { background: var(--surf); border-color: transparent; }
+.s1 .macro-title    { color: var(--t1); }
+.s1 .macro-name     { color: var(--t1); }
+.s1 .macro-val      { color: var(--t2); }
+.s1 .macro-bar      { background: var(--bar-bg); }
+.s1 .tab-icon-emoji { opacity: 0.3; }
+.s1 .tab-icon-emoji.active { opacity: 1; }
+.s1 .tab-lbl        { color: var(--t3); }
+.s1 .tab-lbl.active { color: var(--acc); }
+.s1 .plus-btn       { background: var(--acc); box-shadow: 0 4px 20px rgba(79,128,255,0.4); }
+.s1 .stat-card      { background: var(--surf); border-color: transparent; }
+.s1 .stat-card-title { color: var(--t1); }
+.s1 .stat-card-sub  { color: var(--t3); }
+.s1 .period-pill    { background: var(--surf2); border-color: transparent; color: var(--t2); }
+.s1 .big-stat       { color: var(--stat); }
+.s1 .menu-search-bar { background: var(--surf); border-color: transparent; }
+.s1 .search-placeholder { color: var(--t3); }
+.s1 .loc-pill.active  { background: var(--acc); color: #fff; }
+.s1 .loc-pill.inactive { background: var(--surf2); color: var(--t2); }
+.s1 .meal-pill      { background: var(--surf2); border-color: transparent; color: var(--t2); }
+.s1 .add-pill       { background: var(--surf2); border-color: transparent; color: var(--t2); }
+.s1 .add-count      { background: var(--acc); color: #fff; }
+.s1 .menu-station   { background: var(--surf); border-color: transparent; }
+.s1 .station-name   { color: var(--t1); }
+.s1 .station-sub    { color: var(--t3); }
+.s1 .station-badge  { background: var(--acc); color: #fff; }
+.s1 .chevron        { color: var(--t3); }
+.s1 .row-name       { color: rgba(79,128,255,0.9); }
+
+/* ════════════════════════════════
+   SCHEME 2 — EMBER (Warm amber)
+════════════════════════════════ */
+.s2 {
+  --bg:      #0F0D0A;
+  --surf:    #1A1612;
+  --surf2:   #221D18;
+  --bdr:     rgba(245,240,230,0.06);
+  --t1:      #F5F0E6;
+  --t2:      rgba(245,240,230,0.5);
+  --t3:      rgba(245,240,230,0.28);
+  --acc:     #C4965A;
+  --acc-bg:  #2A1F0F;
+  --p:       #7BA89E;
+  --c:       #C4965A;
+  --f:       #9A8878;
+  --stat:    #C4965A;
+  --bar-bg:  rgba(245,240,230,0.07);
+}
+.s2 .phone          { background: var(--bg); }
+.s2 .status-bar     { background: var(--bg); }
+.s2 .status-time    { color: var(--t1); }
+.s2 .screen         { background: var(--bg); }
+.s2 .tab-bar        { background: var(--bg); border-top-color: var(--bdr); }
+.s2 .page-title-big { color: var(--t1); }
+.s2 .page-sub       { color: var(--t3); }
+.s2 .cal-card       { background: var(--surf2); border-color: var(--bdr); }
+.s2 .cal-number     { color: var(--t1); }
+.s2 .cal-label      { color: var(--t2); }
+.s2 .progress-bar   { background: var(--bar-bg); }
+.s2 .progress-fill  { background: var(--acc); }
+.s2 .progress-row   { color: var(--t3); }
+.s2 .macro-card     { background: var(--surf); border-color: var(--bdr); }
+.s2 .macro-title    { color: var(--t1); }
+.s2 .macro-name     { color: var(--t1); }
+.s2 .macro-val      { color: var(--t2); }
+.s2 .macro-bar      { background: var(--bar-bg); }
+.s2 .tab-icon-emoji { opacity: 0.25; }
+.s2 .tab-icon-emoji.active { opacity: 1; }
+.s2 .tab-lbl        { color: var(--t3); }
+.s2 .tab-lbl.active { color: var(--acc); }
+.s2 .plus-btn       { background: var(--acc); box-shadow: 0 4px 20px rgba(196,150,90,0.38); }
+.s2 .stat-card      { background: var(--surf); border-color: var(--bdr); }
+.s2 .stat-card-title { color: var(--t1); }
+.s2 .stat-card-sub  { color: var(--t3); }
+.s2 .period-pill    { background: var(--surf2); border-color: var(--bdr); color: var(--t2); }
+.s2 .big-stat       { color: var(--stat); }
+.s2 .menu-search-bar { background: var(--surf2); border-color: var(--bdr); }
+.s2 .search-placeholder { color: var(--t3); }
+.s2 .loc-pill.active  { background: var(--acc); color: var(--bg); }
+.s2 .loc-pill.inactive { background: var(--surf2); color: var(--t2); border: 1px solid var(--bdr); }
+.s2 .meal-pill      { background: var(--surf2); border-color: var(--bdr); color: var(--t2); }
+.s2 .add-pill       { background: var(--surf2); border-color: var(--bdr); color: var(--t2); }
+.s2 .add-count      { background: var(--acc); color: var(--bg); }
+.s2 .menu-station   { background: var(--surf); border-color: var(--bdr); }
+.s2 .station-name   { color: var(--t1); }
+.s2 .station-sub    { color: var(--t3); }
+.s2 .station-badge  { background: var(--acc); color: var(--bg); }
+.s2 .chevron        { color: var(--t3); }
+.s2 .row-name       { color: #C4965A; }
+
+/* ════════════════════════════════
+   SCHEME 3 — CANOPY (Deep forest)
+════════════════════════════════ */
+.s3 {
+  --bg:      #080D09;
+  --surf:    #0F1A11;
+  --surf2:   #152018;
+  --bdr:     rgba(190,230,200,0.07);
+  --t1:      #E2EEE4;
+  --t2:      rgba(226,238,228,0.5);
+  --t3:      rgba(226,238,228,0.26);
+  --acc:     #5B9E6E;
+  --acc-bg:  #0F2015;
+  --p:       #5B9E6E;
+  --c:       #B4A86A;
+  --f:       #8A9E8A;
+  --stat:    #5B9E6E;
+  --bar-bg:  rgba(190,230,200,0.08);
+}
+.s3 .phone          { background: var(--bg); }
+.s3 .status-bar     { background: var(--bg); }
+.s3 .status-time    { color: var(--t1); }
+.s3 .screen         { background: var(--bg); }
+.s3 .tab-bar        { background: var(--bg); border-top-color: var(--bdr); }
+.s3 .page-title-big { color: var(--t1); }
+.s3 .page-sub       { color: var(--t3); }
+.s3 .cal-card       { background: var(--surf2); border-color: var(--bdr); }
+.s3 .cal-number     { color: var(--t1); }
+.s3 .cal-label      { color: var(--t2); }
+.s3 .progress-bar   { background: var(--bar-bg); }
+.s3 .progress-fill  { background: var(--acc); }
+.s3 .progress-row   { color: var(--t3); }
+.s3 .macro-card     { background: var(--surf); border-color: var(--bdr); }
+.s3 .macro-title    { color: var(--t1); }
+.s3 .macro-name     { color: var(--t1); }
+.s3 .macro-val      { color: var(--t2); }
+.s3 .macro-bar      { background: var(--bar-bg); }
+.s3 .tab-icon-emoji { opacity: 0.22; }
+.s3 .tab-icon-emoji.active { opacity: 1; }
+.s3 .tab-lbl        { color: var(--t3); }
+.s3 .tab-lbl.active { color: var(--acc); }
+.s3 .plus-btn       { background: var(--acc); box-shadow: 0 4px 20px rgba(91,158,110,0.38); }
+.s3 .stat-card      { background: var(--surf); border-color: var(--bdr); }
+.s3 .stat-card-title { color: var(--t1); }
+.s3 .stat-card-sub  { color: var(--t3); }
+.s3 .period-pill    { background: var(--surf2); border-color: var(--bdr); color: var(--t2); }
+.s3 .big-stat       { color: var(--stat); }
+.s3 .menu-search-bar { background: var(--surf2); border-color: var(--bdr); }
+.s3 .search-placeholder { color: var(--t3); }
+.s3 .loc-pill.active  { background: var(--acc); color: #fff; }
+.s3 .loc-pill.inactive { background: var(--surf2); color: var(--t2); border: 1px solid var(--bdr); }
+.s3 .meal-pill      { background: var(--surf2); border-color: var(--bdr); color: var(--t2); }
+.s3 .add-pill       { background: var(--surf2); border-color: var(--bdr); color: var(--t2); }
+.s3 .add-count      { background: var(--acc); color: #fff; }
+.s3 .menu-station   { background: var(--surf); border-color: var(--bdr); }
+.s3 .station-name   { color: var(--t1); }
+.s3 .station-sub    { color: var(--t3); }
+.s3 .station-badge  { background: var(--acc); color: #fff; }
+.s3 .chevron        { color: var(--t3); }
+.s3 .row-name       { color: #5B9E6E; }
+
+/* ════════════════════════════════
+   SCHEME 4 — DUSK (Soft violet)
+════════════════════════════════ */
+.s4 {
+  --bg:      #0B0A12;
+  --surf:    #13121E;
+  --surf2:   #1A1828;
+  --bdr:     rgba(220,215,255,0.07);
+  --t1:      #EAE8F5;
+  --t2:      rgba(234,232,245,0.5);
+  --t3:      rgba(234,232,245,0.26);
+  --acc:     #9580DF;
+  --acc-bg:  #1A1530;
+  --p:       #6BACC0;
+  --c:       #9580DF;
+  --f:       #C08A8A;
+  --stat:    #9580DF;
+  --bar-bg:  rgba(220,215,255,0.08);
+}
+.s4 .phone          { background: var(--bg); }
+.s4 .status-bar     { background: var(--bg); }
+.s4 .status-time    { color: var(--t1); }
+.s4 .screen         { background: var(--bg); }
+.s4 .tab-bar        { background: var(--bg); border-top-color: var(--bdr); }
+.s4 .page-title-big { color: var(--t1); }
+.s4 .page-sub       { color: var(--t3); }
+.s4 .cal-card       { background: var(--surf2); border-color: var(--bdr); }
+.s4 .cal-number     { color: var(--t1); }
+.s4 .cal-label      { color: var(--t2); }
+.s4 .progress-bar   { background: var(--bar-bg); }
+.s4 .progress-fill  { background: var(--acc); }
+.s4 .progress-row   { color: var(--t3); }
+.s4 .macro-card     { background: var(--surf); border-color: var(--bdr); }
+.s4 .macro-title    { color: var(--t1); }
+.s4 .macro-name     { color: var(--t1); }
+.s4 .macro-val      { color: var(--t2); }
+.s4 .macro-bar      { background: var(--bar-bg); }
+.s4 .tab-icon-emoji { opacity: 0.22; }
+.s4 .tab-icon-emoji.active { opacity: 1; }
+.s4 .tab-lbl        { color: var(--t3); }
+.s4 .tab-lbl.active { color: var(--acc); }
+.s4 .plus-btn       { background: var(--acc); box-shadow: 0 4px 20px rgba(149,128,223,0.4); }
+.s4 .stat-card      { background: var(--surf); border-color: var(--bdr); }
+.s4 .stat-card-title { color: var(--t1); }
+.s4 .stat-card-sub  { color: var(--t3); }
+.s4 .period-pill    { background: var(--surf2); border-color: var(--bdr); color: var(--t2); }
+.s4 .big-stat       { color: var(--stat); }
+.s4 .menu-search-bar { background: var(--surf2); border-color: var(--bdr); }
+.s4 .search-placeholder { color: var(--t3); }
+.s4 .loc-pill.active  { background: var(--acc); color: #fff; }
+.s4 .loc-pill.inactive { background: var(--surf2); color: var(--t2); border: 1px solid var(--bdr); }
+.s4 .meal-pill      { background: var(--surf2); border-color: var(--bdr); color: var(--t2); }
+.s4 .add-pill       { background: var(--surf2); border-color: var(--bdr); color: var(--t2); }
+.s4 .add-count      { background: var(--acc); color: #fff; }
+.s4 .menu-station   { background: var(--surf); border-color: var(--bdr); }
+.s4 .station-name   { color: var(--t1); }
+.s4 .station-sub    { color: var(--t3); }
+.s4 .station-badge  { background: var(--acc); color: #fff; }
+.s4 .chevron        { color: var(--t3); }
+.s4 .row-name       { color: #9580DF; }
+
+/* donut legend shared */
+.legend-row { display: flex; align-items: center; gap: 6px; margin-bottom: 7px; }
+.legend-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.legend-name { font-size: 11px; }
+.legend-val  { font-size: 11px; margin-left: auto; }
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <h1>Color scheme comparison · same structure, 4 palettes</h1>
+</div>
+
+<!-- ════════════════════════════════════════════
+     MACRO: phone content (repeated 4×)
+     Each set: Today · History · Menu
+════════════════════════════════════════════ -->
+
+<!-- ─────── SHARED STATUS BAR SVGs ─────── -->
+<!-- Stored as inline templates, referenced per scheme below -->
+
+<!-- ══════════════════════════════════════════
+     ROW 1 — BLUEPRINT (original)
+══════════════════════════════════════════ -->
+<div class="scheme-row s1">
+  <div class="row-label">
+    <div class="row-name">Blueprint</div>
+    <div class="row-desc">Current app. Cold navy, bright blue accent, neon macro bars.</div>
+    <div class="row-swatches">
+      <div class="swatch" style="background:#121825;"></div>
+      <div class="swatch" style="background:#1E2D4A;"></div>
+      <div class="swatch" style="background:#4F80FF;"></div>
+      <div class="swatch" style="background:#4ADE80;"></div>
+      <div class="swatch" style="background:#FACC15;"></div>
+      <div class="swatch" style="background:#F87171;"></div>
+    </div>
+  </div>
+
+  <div class="phones">
+
+    <!-- Today -->
+    <div class="phone-col">
+      <div class="phone-label">Today</div>
+      <div class="phone s1">
+        <div class="status-bar s1">
+          <div class="status-time">9:41</div>
+          <div class="status-icons" style="opacity:0.8;">
+            <svg width="15" height="11" viewBox="0 0 15 11" fill="white"><rect x="0" y="3" width="2.5" height="8" rx="0.8" opacity="0.4"/><rect x="4" y="2" width="2.5" height="9" rx="0.8" opacity="0.6"/><rect x="8" y="0" width="2.5" height="11" rx="0.8" opacity="0.8"/><rect x="12" y="0" width="2.5" height="11" rx="0.8"/></svg>
+            <svg width="22" height="11" viewBox="0 0 22 11" fill="none"><rect x="0.5" y="0.5" width="19" height="10" rx="3" stroke="white" stroke-opacity="0.3"/><rect x="2" y="2" width="14" height="7" rx="1.5" fill="white" opacity="0.85"/><path d="M21 3.5V7.5C21.8 7.2 22.5 6.6 22.5 5.5C22.5 4.4 21.8 3.8 21 3.5Z" fill="white" opacity="0.35"/></svg>
+          </div>
+        </div>
+        <div class="screen s1">
+          <div class="pad">
+            <div class="page-title-big">Today</div>
+            <div class="page-sub">Calories, nutrients, and today's log</div>
+            <div class="cal-card">
+              <div class="fire-icon">🔥</div>
+              <div class="cal-number">753</div>
+              <div class="cal-label">Calories Left</div>
+              <div class="progress-bar"><div class="progress-fill" style="width:50%;"></div></div>
+              <div class="progress-row"><span>Consumed: 739</span><span>Goal: 1,492</span></div>
+            </div>
+            <div class="macro-card">
+              <div class="macro-title">Daily Macros</div>
+              <div class="macro-row">
+                <div class="macro-header"><span class="macro-name">Protein</span><span class="macro-val">48g / 150g</span></div>
+                <div class="macro-bar"><div class="macro-fill" style="width:32%; background:#4ADE80;"></div></div>
+              </div>
+              <div class="macro-row">
+                <div class="macro-header"><span class="macro-name">Carbs</span><span class="macro-val">67g / 250g</span></div>
+                <div class="macro-bar"><div class="macro-fill" style="width:27%; background:#FACC15;"></div></div>
+              </div>
+              <div class="macro-row">
+                <div class="macro-header"><span class="macro-name">Fat</span><span class="macro-val">34g / 70g</span></div>
+                <div class="macro-bar"><div class="macro-fill" style="width:49%; background:#F87171;"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="tab-bar s1">
+          <div class="tab-item"><div class="tab-icon-emoji active">🍽</div><div class="tab-lbl active">Today</div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">🕐</div><div class="tab-lbl">History</div></div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;margin-top:-20px;"><div class="plus-btn s1"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4V16M4 10H16" stroke="white" stroke-width="2.2" stroke-linecap="round"/></svg></div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">👤</div><div class="tab-lbl">Profile</div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">⚙️</div><div class="tab-lbl">Settings</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div class="phone-col">
+      <div class="phone-label">History</div>
+      <div class="phone s1">
+        <div class="status-bar s1"><div class="status-time">9:41</div><div class="status-icons" style="opacity:0.6;"><svg width="22" height="11" viewBox="0 0 22 11" fill="none"><rect x="0.5" y="0.5" width="19" height="10" rx="3" stroke="white" stroke-opacity="0.3"/><rect x="2" y="2" width="14" height="7" rx="1.5" fill="white" opacity="0.85"/></svg></div></div>
+        <div class="screen s1">
+          <div class="pad">
+            <div class="page-title-big">History</div>
+            <div class="page-sub">Calendar, calorie trends, and stats</div>
+            <div class="stat-card s1">
+              <div class="stat-card-header">
+                <div><div class="stat-card-title">Net Average Intake</div><div class="stat-card-sub">Average daily difference between consumed and burned.</div></div>
+                <div class="period-pill s1">7 Days ▾</div>
+              </div>
+              <div class="big-stat s1">−320 <span>cal/day</span></div>
+            </div>
+            <div class="stat-card s1">
+              <div class="stat-card-header">
+                <div><div class="stat-card-title">Average Meal Distribution</div><div class="stat-card-sub">Estimated average daily calorie split by meal group.</div></div>
+                <div class="period-pill s1">7 Days ▾</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:14px;">
+                <div style="flex-shrink:0;">
+                  <svg width="88" height="88" viewBox="0 0 88 88">
+                    <circle cx="44" cy="44" r="30" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="17"/>
+                    <circle cx="44" cy="44" r="30" fill="none" stroke="#4ADE80" stroke-width="17" stroke-dasharray="188" stroke-dashoffset="185" transform="rotate(-90 44 44)"/>
+                    <circle cx="44" cy="44" r="30" fill="none" stroke="#FACC15" stroke-width="17" stroke-dasharray="188" stroke-dashoffset="115" transform="rotate(-90 44 44)"/>
+                    <circle cx="44" cy="44" r="30" fill="none" stroke="#F97316" stroke-width="17" stroke-dasharray="188" stroke-dashoffset="57" transform="rotate(-90 44 44)"/>
+                    <circle cx="44" cy="44" r="30" fill="none" stroke="#60A5FA" stroke-width="17" stroke-dasharray="188" stroke-dashoffset="4" transform="rotate(-90 44 44)"/>
+                    <text x="44" y="40" text-anchor="middle" fill="white" font-family="Inter,sans-serif" font-size="11" font-weight="700">1,830</text>
+                    <text x="44" y="52" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-family="Inter,sans-serif" font-size="8">calories</text>
+                  </svg>
+                </div>
+                <div style="flex:1;">
+                  <div class="legend-row"><div class="legend-dot" style="background:#4ADE80;"></div><span class="legend-name" style="color:rgba(255,255,255,0.6);">Breakfast</span><span class="legend-val" style="color:rgba(255,255,255,0.3);">60</span></div>
+                  <div class="legend-row"><div class="legend-dot" style="background:#FACC15;"></div><span class="legend-name" style="color:rgba(255,255,255,0.6);">Lunch</span><span class="legend-val" style="color:rgba(255,255,255,0.3);">703</span></div>
+                  <div class="legend-row"><div class="legend-dot" style="background:#F97316;"></div><span class="legend-name" style="color:rgba(255,255,255,0.6);">Dinner</span><span class="legend-val" style="color:rgba(255,255,255,0.3);">559</span></div>
+                  <div class="legend-row"><div class="legend-dot" style="background:#60A5FA;"></div><span class="legend-name" style="color:rgba(255,255,255,0.6);">Snack</span><span class="legend-val" style="color:rgba(255,255,255,0.3);">508</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="tab-bar s1">
+          <div class="tab-item"><div class="tab-icon-emoji">🍽</div><div class="tab-lbl">Today</div></div>
+          <div class="tab-item"><div class="tab-icon-emoji active">🕐</div><div class="tab-lbl active">History</div></div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;margin-top:-20px;"><div class="plus-btn s1"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4V16M4 10H16" stroke="white" stroke-width="2.2" stroke-linecap="round"/></svg></div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">👤</div><div class="tab-lbl">Profile</div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">⚙️</div><div class="tab-lbl">Settings</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Menu -->
+    <div class="phone-col">
+      <div class="phone-label">Menu</div>
+      <div class="phone s1">
+        <div class="status-bar s1"><div class="status-time">9:41</div><div class="status-icons" style="opacity:0.6;"><svg width="22" height="11" viewBox="0 0 22 11" fill="none"><rect x="0.5" y="0.5" width="19" height="10" rx="3" stroke="white" stroke-opacity="0.3"/><rect x="2" y="2" width="14" height="7" rx="1.5" fill="white" opacity="0.85"/></svg></div></div>
+        <div class="screen s1">
+          <div class="pad">
+            <div class="menu-top"><div class="page-title-big">Menu</div><div class="add-pill s1">Add <span class="add-count s1">0</span></div></div>
+            <div class="meal-pill s1">Lunch ▾</div>
+            <div class="loc-pills">
+              <div class="loc-pill active s1">Four Winds</div>
+              <div class="loc-pill inactive s1">Varsity</div>
+              <div class="loc-pill inactive s1">Grab N Go</div>
+            </div>
+            <div class="menu-search-bar s1"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="5" cy="5" r="4" stroke="rgba(255,255,255,0.22)" stroke-width="1.2"/><path d="M8.5 8.5L11 11" stroke="rgba(255,255,255,0.22)" stroke-width="1.2" stroke-linecap="round"/></svg><span class="search-placeholder s1">Search menu</span></div>
+            <div class="menu-station s1"><div><div class="station-name">Line 1 – Salad Bar</div><div class="station-sub">26 options</div></div><div class="station-right"><div class="station-badge s1">26</div><span class="chevron s1">▾</span></div></div>
+            <div class="menu-station s1"><div><div class="station-name">Line 2 – Honey Orange Chicken</div><div class="station-sub">8 options</div></div><div class="station-right"><div class="station-badge s1">8</div><span class="chevron s1">▾</span></div></div>
+            <div class="menu-station s1"><div><div class="station-name">Line 3 – Breakfast Burritos</div><div class="station-sub">10 options</div></div><div class="station-right"><div class="station-badge s1">10</div><span class="chevron s1">▾</span></div></div>
+            <div class="menu-station s1"><div><div class="station-name">Line 4 – Sweet & Sour Chicken</div><div class="station-sub">8 options</div></div><div class="station-right"><div class="station-badge s1">8</div><span class="chevron s1">▾</span></div></div>
+          </div>
+        </div>
+        <div class="tab-bar s1">
+          <div class="tab-item"><div class="tab-icon-emoji">🍽</div><div class="tab-lbl">Today</div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">🕐</div><div class="tab-lbl">History</div></div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;margin-top:-20px;"><div class="plus-btn s1"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4V16M4 10H16" stroke="white" stroke-width="2.2" stroke-linecap="round"/></svg></div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">👤</div><div class="tab-lbl">Profile</div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">⚙️</div><div class="tab-lbl">Settings</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     ROW 2 — EMBER (Warm amber)
+══════════════════════════════════════════ -->
+<div class="scheme-row s2">
+  <div class="row-label">
+    <div class="row-name">Ember</div>
+    <div class="row-desc">Warm near-black with amber accent, muted teal/clay macros.</div>
+    <div class="row-swatches">
+      <div class="swatch" style="background:#0F0D0A;"></div>
+      <div class="swatch" style="background:#221D18;"></div>
+      <div class="swatch" style="background:#C4965A;"></div>
+      <div class="swatch" style="background:#7BA89E;"></div>
+      <div class="swatch" style="background:#C4965A; opacity:0.6;"></div>
+      <div class="swatch" style="background:#9A8878;"></div>
+    </div>
+  </div>
+
+  <div class="phones">
+
+    <!-- Today -->
+    <div class="phone-col">
+      <div class="phone-label">Today</div>
+      <div class="phone s2">
+        <div class="status-bar s2"><div class="status-time">9:41</div><div class="status-icons" style="opacity:0.75;"><svg width="15" height="11" viewBox="0 0 15 11" fill="#F5F0E6"><rect x="0" y="3" width="2.5" height="8" rx="0.8" opacity="0.4"/><rect x="4" y="2" width="2.5" height="9" rx="0.8" opacity="0.6"/><rect x="8" y="0" width="2.5" height="11" rx="0.8" opacity="0.8"/><rect x="12" y="0" width="2.5" height="11" rx="0.8"/></svg><svg width="22" height="11" viewBox="0 0 22 11" fill="none"><rect x="0.5" y="0.5" width="19" height="10" rx="3" stroke="#F5F0E6" stroke-opacity="0.28"/><rect x="2" y="2" width="14" height="7" rx="1.5" fill="#F5F0E6" opacity="0.8"/></svg></div></div>
+        <div class="screen s2">
+          <div class="pad">
+            <div class="page-title-big">Today</div>
+            <div class="page-sub">Calories, nutrients, and today's log</div>
+            <div class="cal-card">
+              <div class="fire-icon">🔥</div>
+              <div class="cal-number">753</div>
+              <div class="cal-label">Calories Left</div>
+              <div class="progress-bar"><div class="progress-fill" style="width:50%;"></div></div>
+              <div class="progress-row"><span>Consumed: 739</span><span>Goal: 1,492</span></div>
+            </div>
+            <div class="macro-card">
+              <div class="macro-title">Daily Macros</div>
+              <div class="macro-row"><div class="macro-header"><span class="macro-name">Protein</span><span class="macro-val">48g / 150g</span></div><div class="macro-bar"><div class="macro-fill" style="width:32%; background:#7BA89E;"></div></div></div>
+              <div class="macro-row"><div class="macro-header"><span class="macro-name">Carbs</span><span class="macro-val">67g / 250g</span></div><div class="macro-bar"><div class="macro-fill" style="width:27%; background:#C4965A;"></div></div></div>
+              <div class="macro-row"><div class="macro-header"><span class="macro-name">Fat</span><span class="macro-val">34g / 70g</span></div><div class="macro-bar"><div class="macro-fill" style="width:49%; background:#9A8878;"></div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="tab-bar s2">
+          <div class="tab-item"><div class="tab-icon-emoji active">🍽</div><div class="tab-lbl active">Today</div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">🕐</div><div class="tab-lbl">History</div></div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;margin-top:-20px;"><div class="plus-btn s2"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4V16M4 10H16" stroke="#0F0D0A" stroke-width="2.2" stroke-linecap="round"/></svg></div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">👤</div><div class="tab-lbl">Profile</div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">⚙️</div><div class="tab-lbl">Settings</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div class="phone-col">
+      <div class="phone-label">History</div>
+      <div class="phone s2">
+        <div class="status-bar s2"><div class="status-time">9:41</div><div class="status-icons" style="opacity:0.6;"><svg width="22" height="11" viewBox="0 0 22 11" fill="none"><rect x="0.5" y="0.5" width="19" height="10" rx="3" stroke="#F5F0E6" stroke-opacity="0.28"/><rect x="2" y="2" width="14" height="7" rx="1.5" fill="#F5F0E6" opacity="0.8"/></svg></div></div>
+        <div class="screen s2">
+          <div class="pad">
+            <div class="page-title-big">History</div>
+            <div class="page-sub">Calendar, calorie trends, and stats</div>
+            <div class="stat-card s2">
+              <div class="stat-card-header"><div><div class="stat-card-title">Net Average Intake</div><div class="stat-card-sub">Average daily difference between consumed and burned.</div></div><div class="period-pill s2">7 Days ▾</div></div>
+              <div class="big-stat s2">−320 <span>cal/day</span></div>
+            </div>
+            <div class="stat-card s2">
+              <div class="stat-card-header"><div><div class="stat-card-title">Average Meal Distribution</div><div class="stat-card-sub">Estimated average daily calorie split by meal group.</div></div><div class="period-pill s2">7 Days ▾</div></div>
+              <div style="display:flex;align-items:center;gap:14px;">
+                <div style="flex-shrink:0;"><svg width="88" height="88" viewBox="0 0 88 88"><circle cx="44" cy="44" r="30" fill="none" stroke="rgba(245,240,230,0.06)" stroke-width="17"/><circle cx="44" cy="44" r="30" fill="none" stroke="#7BA89E" stroke-width="17" stroke-dasharray="188" stroke-dashoffset="185" transform="rotate(-90 44 44)"/><circle cx="44" cy="44" r="30" fill="none" stroke="#C4965A" stroke-width="17" stroke-dasharray="188" stroke-dashoffset="115" transform="rotate(-90 44 44)"/><circle cx="44" cy="44" r="30" fill="none" stroke="#9A8878" stroke-width="17" stroke-dasharray="188" stroke-dashoffset="57" transform="rotate(-90 44 44)"/><circle cx="44" cy="44" r="30" fill="none" stroke="rgba(245,240,230,0.15)" stroke-width="17" stroke-dasharray="188" stroke-dashoffset="4" transform="rotate(-90 44 44)"/><text x="44" y="40" text-anchor="middle" fill="#F5F0E6" font-family="Inter,sans-serif" font-size="11" font-weight="700">1,830</text><text x="44" y="52" text-anchor="middle" fill="rgba(245,240,230,0.3)" font-family="Inter,sans-serif" font-size="8">calories</text></svg></div>
+                <div style="flex:1;">
+                  <div class="legend-row"><div class="legend-dot" style="background:#7BA89E;"></div><span class="legend-name" style="color:rgba(245,240,230,0.55);">Breakfast</span><span class="legend-val" style="color:rgba(245,240,230,0.3);">60</span></div>
+                  <div class="legend-row"><div class="legend-dot" style="background:#C4965A;"></div><span class="legend-name" style="color:rgba(245,240,230,0.55);">Lunch</span><span class="legend-val" style="color:rgba(245,240,230,0.3);">703</span></div>
+                  <div class="legend-row"><div class="legend-dot" style="background:#9A8878;"></div><span class="legend-name" style="color:rgba(245,240,230,0.55);">Dinner</span><span class="legend-val" style="color:rgba(245,240,230,0.3);">559</span></div>
+                  <div class="legend-row"><div class="legend-dot" style="background:rgba(245,240,230,0.18);"></div><span class="legend-name" style="color:rgba(245,240,230,0.55);">Snack</span><span class="legend-val" style="color:rgba(245,240,230,0.3);">508</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="tab-bar s2">
+          <div class="tab-item"><div class="tab-icon-emoji">🍽</div><div class="tab-lbl">Today</div></div>
+          <div class="tab-item"><div class="tab-icon-emoji active">🕐</div><div class="tab-lbl active">History</div></div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;margin-top:-20px;"><div class="plus-btn s2"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4V16M4 10H16" stroke="#0F0D0A" stroke-width="2.2" stroke-linecap="round"/></svg></div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">👤</div><div class="tab-lbl">Profile</div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">⚙️</div><div class="tab-lbl">Settings</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Menu -->
+    <div class="phone-col">
+      <div class="phone-label">Menu</div>
+      <div class="phone s2">
+        <div class="status-bar s2"><div class="status-time">9:41</div><div class="status-icons" style="opacity:0.6;"><svg width="22" height="11" viewBox="0 0 22 11" fill="none"><rect x="0.5" y="0.5" width="19" height="10" rx="3" stroke="#F5F0E6" stroke-opacity="0.28"/><rect x="2" y="2" width="14" height="7" rx="1.5" fill="#F5F0E6" opacity="0.8"/></svg></div></div>
+        <div class="screen s2">
+          <div class="pad">
+            <div class="menu-top"><div class="page-title-big">Menu</div><div class="add-pill s2">Add <span class="add-count s2">0</span></div></div>
+            <div class="meal-pill s2">Lunch ▾</div>
+            <div class="loc-pills"><div class="loc-pill active s2">Four Winds</div><div class="loc-pill inactive s2">Varsity</div><div class="loc-pill inactive s2">Grab N Go</div></div>
+            <div class="menu-search-bar s2"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="5" cy="5" r="4" stroke="rgba(245,240,230,0.2)" stroke-width="1.2"/><path d="M8.5 8.5L11 11" stroke="rgba(245,240,230,0.2)" stroke-width="1.2" stroke-linecap="round"/></svg><span class="search-placeholder s2">Search menu</span></div>
+            <div class="menu-station s2"><div><div class="station-name">Line 1 – Salad Bar</div><div class="station-sub">26 options</div></div><div class="station-right"><div class="station-badge s2">26</div><span class="chevron s2">▾</span></div></div>
+            <div class="menu-station s2"><div><div class="station-name">Line 2 – Honey Orange Chicken</div><div class="station-sub">8 options</div></div><div class="station-right"><div class="station-badge s2">8</div><span class="chevron s2">▾</span></div></div>
+            <div class="menu-station s2"><div><div class="station-name">Line 3 – Breakfast Burritos</div><div class="station-sub">10 options</div></div><div class="station-right"><div class="station-badge s2">10</div><span class="chevron s2">▾</span></div></div>
+            <div class="menu-station s2"><div><div class="station-name">Line 4 – Sweet & Sour Chicken</div><div class="station-sub">8 options</div></div><div class="station-right"><div class="station-badge s2">8</div><span class="chevron s2">▾</span></div></div>
+          </div>
+        </div>
+        <div class="tab-bar s2">
+          <div class="tab-item"><div class="tab-icon-emoji">🍽</div><div class="tab-lbl">Today</div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">🕐</div><div class="tab-lbl">History</div></div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;margin-top:-20px;"><div class="plus-btn s2"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4V16M4 10H16" stroke="#0F0D0A" stroke-width="2.2" stroke-linecap="round"/></svg></div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">👤</div><div class="tab-lbl">Profile</div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">⚙️</div><div class="tab-lbl">Settings</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     ROW 3 — CANOPY (Deep forest)
+══════════════════════════════════════════ -->
+<div class="scheme-row s3">
+  <div class="row-label">
+    <div class="row-name">Canopy</div>
+    <div class="row-desc">Near-black with green undertone, sage accent, gold + grey-green macros.</div>
+    <div class="row-swatches">
+      <div class="swatch" style="background:#080D09;"></div>
+      <div class="swatch" style="background:#152018;"></div>
+      <div class="swatch" style="background:#5B9E6E;"></div>
+      <div class="swatch" style="background:#5B9E6E; opacity:0.6;"></div>
+      <div class="swatch" style="background:#B4A86A;"></div>
+      <div class="swatch" style="background:#8A9E8A;"></div>
+    </div>
+  </div>
+
+  <div class="phones">
+
+    <!-- Today -->
+    <div class="phone-col">
+      <div class="phone-label">Today</div>
+      <div class="phone s3">
+        <div class="status-bar s3"><div class="status-time">9:41</div><div class="status-icons" style="opacity:0.75;"><svg width="15" height="11" viewBox="0 0 15 11" fill="#E2EEE4"><rect x="0" y="3" width="2.5" height="8" rx="0.8" opacity="0.4"/><rect x="4" y="2" width="2.5" height="9" rx="0.8" opacity="0.6"/><rect x="8" y="0" width="2.5" height="11" rx="0.8" opacity="0.8"/><rect x="12" y="0" width="2.5" height="11" rx="0.8"/></svg><svg width="22" height="11" viewBox="0 0 22 11" fill="none"><rect x="0.5" y="0.5" width="19" height="10" rx="3" stroke="#E2EEE4" stroke-opacity="0.28"/><rect x="2" y="2" width="14" height="7" rx="1.5" fill="#E2EEE4" opacity="0.8"/></svg></div></div>
+        <div class="screen s3">
+          <div class="pad">
+            <div class="page-title-big">Today</div>
+            <div class="page-sub">Calories, nutrients, and today's log</div>
+            <div class="cal-card">
+              <div class="fire-icon">🔥</div>
+              <div class="cal-number">753</div>
+              <div class="cal-label">Calories Left</div>
+              <div class="progress-bar"><div class="progress-fill" style="width:50%;"></div></div>
+              <div class="progress-row"><span>Consumed: 739</span><span>Goal: 1,492</span></div>
+            </div>
+            <div class="macro-card">
+              <div class="macro-title">Daily Macros</div>
+              <div class="macro-row"><div class="macro-header"><span class="macro-name">Protein</span><span class="macro-val">48g / 150g</span></div><div class="macro-bar"><div class="macro-fill" style="width:32%; background:#5B9E6E;"></div></div></div>
+              <div class="macro-row"><div class="macro-header"><span class="macro-name">Carbs</span><span class="macro-val">67g / 250g</span></div><div class="macro-bar"><div class="macro-fill" style="width:27%; background:#B4A86A;"></div></div></div>
+              <div class="macro-row"><div class="macro-header"><span class="macro-name">Fat</span><span class="macro-val">34g / 70g</span></div><div class="macro-bar"><div class="macro-fill" style="width:49%; background:#8A9E8A;"></div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="tab-bar s3">
+          <div class="tab-item"><div class="tab-icon-emoji active">🍽</div><div class="tab-lbl active">Today</div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">🕐</div><div class="tab-lbl">History</div></div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;margin-top:-20px;"><div class="plus-btn s3"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4V16M4 10H16" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg></div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">👤</div><div class="tab-lbl">Profile</div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">⚙️</div><div class="tab-lbl">Settings</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div class="phone-col">
+      <div class="phone-label">History</div>
+      <div class="phone s3">
+        <div class="status-bar s3"><div class="status-time">9:41</div><div class="status-icons" style="opacity:0.6;"><svg width="22" height="11" viewBox="0 0 22 11" fill="none"><rect x="0.5" y="0.5" width="19" height="10" rx="3" stroke="#E2EEE4" stroke-opacity="0.28"/><rect x="2" y="2" width="14" height="7" rx="1.5" fill="#E2EEE4" opacity="0.8"/></svg></div></div>
+        <div class="screen s3">
+          <div class="pad">
+            <div class="page-title-big">History</div>
+            <div class="page-sub">Calendar, calorie trends, and stats</div>
+            <div class="stat-card s3">
+              <div class="stat-card-header"><div><div class="stat-card-title">Net Average Intake</div><div class="stat-card-sub">Average daily difference between consumed and burned.</div></div><div class="period-pill s3">7 Days ▾</div></div>
+              <div class="big-stat s3">−320 <span>cal/day</span></div>
+            </div>
+            <div class="stat-card s3">
+              <div class="stat-card-header"><div><div class="stat-card-title">Average Meal Distribution</div><div class="stat-card-sub">Estimated average daily calorie split by meal group.</div></div><div class="period-pill s3">7 Days ▾</div></div>
+              <div style="display:flex;align-items:center;gap:14px;">
+                <div style="flex-shrink:0;"><svg width="88" height="88" viewBox="0 0 88 88"><circle cx="44" cy="44" r="30" fill="none" stroke="rgba(190,230,200,0.07)" stroke-width="17"/><circle cx="44" cy="44" r="30" fill="none" stroke="#5B9E6E" stroke-width="17" stroke-dasharray="188" stroke-dashoffset="185" transform="rotate(-90 44 44)"/><circle cx="44" cy="44" r="30" fill="none" stroke="#B4A86A" stroke-width="17" stroke-dasharray="188" stroke-dashoffset="115" transform="rotate(-90 44 44)"/><circle cx="44" cy="44" r="30" fill="none" stroke="#8A9E8A" stroke-width="17" stroke-dasharray="188" stroke-dashoffset="57" transform="rotate(-90 44 44)"/><circle cx="44" cy="44" r="30" fill="none" stroke="rgba(226,238,228,0.15)" stroke-width="17" stroke-dasharray="188" stroke-dashoffset="4" transform="rotate(-90 44 44)"/><text x="44" y="40" text-anchor="middle" fill="#E2EEE4" font-family="Inter,sans-serif" font-size="11" font-weight="700">1,830</text><text x="44" y="52" text-anchor="middle" fill="rgba(226,238,228,0.3)" font-family="Inter,sans-serif" font-size="8">calories</text></svg></div>
+                <div style="flex:1;">
+                  <div class="legend-row"><div class="legend-dot" style="background:#5B9E6E;"></div><span class="legend-name" style="color:rgba(226,238,228,0.55);">Breakfast</span><span class="legend-val" style="color:rgba(226,238,228,0.3);">60</span></div>
+                  <div class="legend-row"><div class="legend-dot" style="background:#B4A86A;"></div><span class="legend-name" style="color:rgba(226,238,228,0.55);">Lunch</span><span class="legend-val" style="color:rgba(226,238,228,0.3);">703</span></div>
+                  <div class="legend-row"><div class="legend-dot" style="background:#8A9E8A;"></div><span class="legend-name" style="color:rgba(226,238,228,0.55);">Dinner</span><span class="legend-val" style="color:rgba(226,238,228,0.3);">559</span></div>
+                  <div class="legend-row"><div class="legend-dot" style="background:rgba(226,238,228,0.18);"></div><span class="legend-name" style="color:rgba(226,238,228,0.55);">Snack</span><span class="legend-val" style="color:rgba(226,238,228,0.3);">508</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="tab-bar s3">
+          <div class="tab-item"><div class="tab-icon-emoji">🍽</div><div class="tab-lbl">Today</div></div>
+          <div class="tab-item"><div class="tab-icon-emoji active">🕐</div><div class="tab-lbl active">History</div></div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;margin-top:-20px;"><div class="plus-btn s3"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4V16M4 10H16" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg></div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">👤</div><div class="tab-lbl">Profile</div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">⚙️</div><div class="tab-lbl">Settings</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Menu -->
+    <div class="phone-col">
+      <div class="phone-label">Menu</div>
+      <div class="phone s3">
+        <div class="status-bar s3"><div class="status-time">9:41</div><div class="status-icons" style="opacity:0.6;"><svg width="22" height="11" viewBox="0 0 22 11" fill="none"><rect x="0.5" y="0.5" width="19" height="10" rx="3" stroke="#E2EEE4" stroke-opacity="0.28"/><rect x="2" y="2" width="14" height="7" rx="1.5" fill="#E2EEE4" opacity="0.8"/></svg></div></div>
+        <div class="screen s3">
+          <div class="pad">
+            <div class="menu-top"><div class="page-title-big">Menu</div><div class="add-pill s3">Add <span class="add-count s3">0</span></div></div>
+            <div class="meal-pill s3">Lunch ▾</div>
+            <div class="loc-pills"><div class="loc-pill active s3">Four Winds</div><div class="loc-pill inactive s3">Varsity</div><div class="loc-pill inactive s3">Grab N Go</div></div>
+            <div class="menu-search-bar s3"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="5" cy="5" r="4" stroke="rgba(226,238,228,0.2)" stroke-width="1.2"/><path d="M8.5 8.5L11 11" stroke="rgba(226,238,228,0.2)" stroke-width="1.2" stroke-linecap="round"/></svg><span class="search-placeholder s3">Search menu</span></div>
+            <div class="menu-station s3"><div><div class="station-name">Line 1 – Salad Bar</div><div class="station-sub">26 options</div></div><div class="station-right"><div class="station-badge s3">26</div><span class="chevron s3">▾</span></div></div>
+            <div class="menu-station s3"><div><div class="station-name">Line 2 – Honey Orange Chicken</div><div class="station-sub">8 options</div></div><div class="station-right"><div class="station-badge s3">8</div><span class="chevron s3">▾</span></div></div>
+            <div class="menu-station s3"><div><div class="station-name">Line 3 – Breakfast Burritos</div><div class="station-sub">10 options</div></div><div class="station-right"><div class="station-badge s3">10</div><span class="chevron s3">▾</span></div></div>
+            <div class="menu-station s3"><div><div class="station-name">Line 4 – Sweet & Sour Chicken</div><div class="station-sub">8 options</div></div><div class="station-right"><div class="station-badge s3">8</div><span class="chevron s3">▾</span></div></div>
+          </div>
+        </div>
+        <div class="tab-bar s3">
+          <div class="tab-item"><div class="tab-icon-emoji">🍽</div><div class="tab-lbl">Today</div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">🕐</div><div class="tab-lbl">History</div></div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;margin-top:-20px;"><div class="plus-btn s3"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4V16M4 10H16" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg></div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">👤</div><div class="tab-lbl">Profile</div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">⚙️</div><div class="tab-lbl">Settings</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     ROW 4 — DUSK (Soft violet)
+══════════════════════════════════════════ -->
+<div class="scheme-row s4">
+  <div class="row-label">
+    <div class="row-name">Dusk</div>
+    <div class="row-desc">Deep violet-black, soft lavender accent, steel blue + muted rose macros.</div>
+    <div class="row-swatches">
+      <div class="swatch" style="background:#0B0A12;"></div>
+      <div class="swatch" style="background:#1A1828;"></div>
+      <div class="swatch" style="background:#9580DF;"></div>
+      <div class="swatch" style="background:#6BACC0;"></div>
+      <div class="swatch" style="background:#9580DF; opacity:0.6;"></div>
+      <div class="swatch" style="background:#C08A8A;"></div>
+    </div>
+  </div>
+
+  <div class="phones">
+
+    <!-- Today -->
+    <div class="phone-col">
+      <div class="phone-label">Today</div>
+      <div class="phone s4">
+        <div class="status-bar s4"><div class="status-time">9:41</div><div class="status-icons" style="opacity:0.75;"><svg width="15" height="11" viewBox="0 0 15 11" fill="#EAE8F5"><rect x="0" y="3" width="2.5" height="8" rx="0.8" opacity="0.4"/><rect x="4" y="2" width="2.5" height="9" rx="0.8" opacity="0.6"/><rect x="8" y="0" width="2.5" height="11" rx="0.8" opacity="0.8"/><rect x="12" y="0" width="2.5" height="11" rx="0.8"/></svg><svg width="22" height="11" viewBox="0 0 22 11" fill="none"><rect x="0.5" y="0.5" width="19" height="10" rx="3" stroke="#EAE8F5" stroke-opacity="0.28"/><rect x="2" y="2" width="14" height="7" rx="1.5" fill="#EAE8F5" opacity="0.8"/></svg></div></div>
+        <div class="screen s4">
+          <div class="pad">
+            <div class="page-title-big">Today</div>
+            <div class="page-sub">Calories, nutrients, and today's log</div>
+            <div class="cal-card">
+              <div class="fire-icon">🔥</div>
+              <div class="cal-number">753</div>
+              <div class="cal-label">Calories Left</div>
+              <div class="progress-bar"><div class="progress-fill" style="width:50%;"></div></div>
+              <div class="progress-row"><span>Consumed: 739</span><span>Goal: 1,492</span></div>
+            </div>
+            <div class="macro-card">
+              <div class="macro-title">Daily Macros</div>
+              <div class="macro-row"><div class="macro-header"><span class="macro-name">Protein</span><span class="macro-val">48g / 150g</span></div><div class="macro-bar"><div class="macro-fill" style="width:32%; background:#6BACC0;"></div></div></div>
+              <div class="macro-row"><div class="macro-header"><span class="macro-name">Carbs</span><span class="macro-val">67g / 250g</span></div><div class="macro-bar"><div class="macro-fill" style="width:27%; background:#9580DF;"></div></div></div>
+              <div class="macro-row"><div class="macro-header"><span class="macro-name">Fat</span><span class="macro-val">34g / 70g</span></div><div class="macro-bar"><div class="macro-fill" style="width:49%; background:#C08A8A;"></div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="tab-bar s4">
+          <div class="tab-item"><div class="tab-icon-emoji active">🍽</div><div class="tab-lbl active">Today</div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">🕐</div><div class="tab-lbl">History</div></div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;margin-top:-20px;"><div class="plus-btn s4"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4V16M4 10H16" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg></div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">👤</div><div class="tab-lbl">Profile</div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">⚙️</div><div class="tab-lbl">Settings</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div class="phone-col">
+      <div class="phone-label">History</div>
+      <div class="phone s4">
+        <div class="status-bar s4"><div class="status-time">9:41</div><div class="status-icons" style="opacity:0.6;"><svg width="22" height="11" viewBox="0 0 22 11" fill="none"><rect x="0.5" y="0.5" width="19" height="10" rx="3" stroke="#EAE8F5" stroke-opacity="0.28"/><rect x="2" y="2" width="14" height="7" rx="1.5" fill="#EAE8F5" opacity="0.8"/></svg></div></div>
+        <div class="screen s4">
+          <div class="pad">
+            <div class="page-title-big">History</div>
+            <div class="page-sub">Calendar, calorie trends, and stats</div>
+            <div class="stat-card s4">
+              <div class="stat-card-header"><div><div class="stat-card-title">Net Average Intake</div><div class="stat-card-sub">Average daily difference between consumed and burned.</div></div><div class="period-pill s4">7 Days ▾</div></div>
+              <div class="big-stat s4">−320 <span>cal/day</span></div>
+            </div>
+            <div class="stat-card s4">
+              <div class="stat-card-header"><div><div class="stat-card-title">Average Meal Distribution</div><div class="stat-card-sub">Estimated average daily calorie split by meal group.</div></div><div class="period-pill s4">7 Days ▾</div></div>
+              <div style="display:flex;align-items:center;gap:14px;">
+                <div style="flex-shrink:0;"><svg width="88" height="88" viewBox="0 0 88 88"><circle cx="44" cy="44" r="30" fill="none" stroke="rgba(220,215,255,0.07)" stroke-width="17"/><circle cx="44" cy="44" r="30" fill="none" stroke="#6BACC0" stroke-width="17" stroke-dasharray="188" stroke-dashoffset="185" transform="rotate(-90 44 44)"/><circle cx="44" cy="44" r="30" fill="none" stroke="#9580DF" stroke-width="17" stroke-dasharray="188" stroke-dashoffset="115" transform="rotate(-90 44 44)"/><circle cx="44" cy="44" r="30" fill="none" stroke="#C08A8A" stroke-width="17" stroke-dasharray="188" stroke-dashoffset="57" transform="rotate(-90 44 44)"/><circle cx="44" cy="44" r="30" fill="none" stroke="rgba(234,232,245,0.15)" stroke-width="17" stroke-dasharray="188" stroke-dashoffset="4" transform="rotate(-90 44 44)"/><text x="44" y="40" text-anchor="middle" fill="#EAE8F5" font-family="Inter,sans-serif" font-size="11" font-weight="700">1,830</text><text x="44" y="52" text-anchor="middle" fill="rgba(234,232,245,0.3)" font-family="Inter,sans-serif" font-size="8">calories</text></svg></div>
+                <div style="flex:1;">
+                  <div class="legend-row"><div class="legend-dot" style="background:#6BACC0;"></div><span class="legend-name" style="color:rgba(234,232,245,0.55);">Breakfast</span><span class="legend-val" style="color:rgba(234,232,245,0.3);">60</span></div>
+                  <div class="legend-row"><div class="legend-dot" style="background:#9580DF;"></div><span class="legend-name" style="color:rgba(234,232,245,0.55);">Lunch</span><span class="legend-val" style="color:rgba(234,232,245,0.3);">703</span></div>
+                  <div class="legend-row"><div class="legend-dot" style="background:#C08A8A;"></div><span class="legend-name" style="color:rgba(234,232,245,0.55);">Dinner</span><span class="legend-val" style="color:rgba(234,232,245,0.3);">559</span></div>
+                  <div class="legend-row"><div class="legend-dot" style="background:rgba(234,232,245,0.18);"></div><span class="legend-name" style="color:rgba(234,232,245,0.55);">Snack</span><span class="legend-val" style="color:rgba(234,232,245,0.3);">508</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="tab-bar s4">
+          <div class="tab-item"><div class="tab-icon-emoji">🍽</div><div class="tab-lbl">Today</div></div>
+          <div class="tab-item"><div class="tab-icon-emoji active">🕐</div><div class="tab-lbl active">History</div></div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;margin-top:-20px;"><div class="plus-btn s4"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4V16M4 10H16" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg></div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">👤</div><div class="tab-lbl">Profile</div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">⚙️</div><div class="tab-lbl">Settings</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Menu -->
+    <div class="phone-col">
+      <div class="phone-label">Menu</div>
+      <div class="phone s4">
+        <div class="status-bar s4"><div class="status-time">9:41</div><div class="status-icons" style="opacity:0.6;"><svg width="22" height="11" viewBox="0 0 22 11" fill="none"><rect x="0.5" y="0.5" width="19" height="10" rx="3" stroke="#EAE8F5" stroke-opacity="0.28"/><rect x="2" y="2" width="14" height="7" rx="1.5" fill="#EAE8F5" opacity="0.8"/></svg></div></div>
+        <div class="screen s4">
+          <div class="pad">
+            <div class="menu-top"><div class="page-title-big">Menu</div><div class="add-pill s4">Add <span class="add-count s4">0</span></div></div>
+            <div class="meal-pill s4">Lunch ▾</div>
+            <div class="loc-pills"><div class="loc-pill active s4">Four Winds</div><div class="loc-pill inactive s4">Varsity</div><div class="loc-pill inactive s4">Grab N Go</div></div>
+            <div class="menu-search-bar s4"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="5" cy="5" r="4" stroke="rgba(234,232,245,0.2)" stroke-width="1.2"/><path d="M8.5 8.5L11 11" stroke="rgba(234,232,245,0.2)" stroke-width="1.2" stroke-linecap="round"/></svg><span class="search-placeholder s4">Search menu</span></div>
+            <div class="menu-station s4"><div><div class="station-name">Line 1 – Salad Bar</div><div class="station-sub">26 options</div></div><div class="station-right"><div class="station-badge s4">26</div><span class="chevron s4">▾</span></div></div>
+            <div class="menu-station s4"><div><div class="station-name">Line 2 – Honey Orange Chicken</div><div class="station-sub">8 options</div></div><div class="station-right"><div class="station-badge s4">8</div><span class="chevron s4">▾</span></div></div>
+            <div class="menu-station s4"><div><div class="station-name">Line 3 – Breakfast Burritos</div><div class="station-sub">10 options</div></div><div class="station-right"><div class="station-badge s4">10</div><span class="chevron s4">▾</span></div></div>
+            <div class="menu-station s4"><div><div class="station-name">Line 4 – Sweet & Sour Chicken</div><div class="station-sub">8 options</div></div><div class="station-right"><div class="station-badge s4">8</div><span class="chevron s4">▾</span></div></div>
+          </div>
+        </div>
+        <div class="tab-bar s4">
+          <div class="tab-item"><div class="tab-icon-emoji">🍽</div><div class="tab-lbl">Today</div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">🕐</div><div class="tab-lbl">History</div></div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;margin-top:-20px;"><div class="plus-btn s4"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4V16M4 10H16" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg></div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">👤</div><div class="tab-lbl">Profile</div></div>
+          <div class="tab-item"><div class="tab-icon-emoji">⚙️</div><div class="tab-lbl">Settings</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

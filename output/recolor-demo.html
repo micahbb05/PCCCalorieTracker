@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calorie Tracker — Recolor Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    /* warm palette */
+    --bg:        #0F0D0A;
+    --surface:   #1A1612;
+    --surface2:  #221D18;
+    --border:    rgba(245,240,230,0.06);
+    --text:      #F5F0E6;
+    --text-2:    rgba(245,240,230,0.5);
+    --text-3:    rgba(245,240,230,0.28);
+    --accent:    #C4965A;
+    --teal:      #7BA89E;
+    --clay:      #9A8878;
+  }
+
+  body {
+    background: #111;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 24px 80px;
+    gap: 40px;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  .page-header {
+    text-align: center;
+    font-size: 13px;
+    color: rgba(255,255,255,0.2);
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .phones-row {
+    display: flex;
+    gap: 32px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .col { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+
+  .col-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.22);
+  }
+
+  /* ── phone shell ── */
+  .phone {
+    width: 300px;
+    height: 650px;
+    border-radius: 46px;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.07),
+      0 40px 100px rgba(0,0,0,0.7),
+      inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+
+  /* ── status bar ── */
+  .status-bar {
+    height: 44px;
+    padding: 14px 26px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  .status-time {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.02em;
+  }
+
+  .status-icons { display: flex; align-items: center; gap: 6px; opacity: 0.8; }
+
+  /* ── screen ── */
+  .screen {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none;
+  }
+  .screen::-webkit-scrollbar { display: none; }
+
+  .pad { padding: 18px 18px 28px; }
+
+  /* ── tab bar ── */
+  .tab-bar {
+    height: 78px;
+    padding: 10px 0 18px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-around;
+    flex-shrink: 0;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ── old structure components, new colors ── */
+
+  .page-title-big {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 3px;
+    letter-spacing: -0.02em;
+  }
+
+  .page-sub {
+    font-size: 13px;
+    color: var(--text-3);
+    margin-bottom: 16px;
+  }
+
+  /* calorie card */
+  .cal-card {
+    background: var(--surface2);
+    border-radius: 20px;
+    padding: 20px;
+    margin-bottom: 14px;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  .cal-card::before {
+    content: '';
+    position: absolute;
+    top: -30px; right: -30px;
+    width: 120px; height: 120px;
+    background: rgba(196,150,90,0.06);
+    border-radius: 50%;
+  }
+
+  .fire-icon {
+    position: absolute;
+    top: 18px; right: 18px;
+    font-size: 28px;
+    opacity: 0.7;
+  }
+
+  .cal-number {
+    font-size: 48px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+    letter-spacing: -0.04em;
+    margin-bottom: 3px;
+  }
+
+  .cal-label {
+    font-size: 13px;
+    color: var(--text-2);
+    margin-bottom: 14px;
+  }
+
+  .progress-bar {
+    height: 8px;
+    background: rgba(245,240,230,0.07);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 9px;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: var(--accent);
+  }
+
+  .progress-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-3);
+  }
+
+  /* macros card */
+  .macro-card {
+    background: var(--surface);
+    border-radius: 20px;
+    padding: 18px;
+    border: 1px solid var(--border);
+  }
+
+  .macro-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 14px;
+    letter-spacing: -0.01em;
+  }
+
+  .macro-row { margin-bottom: 13px; }
+  .macro-row:last-child { margin-bottom: 0; }
+
+  .macro-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+
+  .macro-name { font-size: 14px; font-weight: 600; color: var(--text); }
+  .macro-val  { font-size: 13px; color: var(--text-2); }
+
+  .macro-bar {
+    height: 8px;
+    background: rgba(245,240,230,0.07);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .macro-fill { height: 100%; border-radius: 4px; }
+
+  /* tab items */
+  .tab-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .tab-icon-emoji { font-size: 20px; opacity: 0.3; }
+  .tab-icon-emoji.active { opacity: 1; filter: sepia(1) saturate(2) hue-rotate(10deg) brightness(1.1); }
+
+  .tab-lbl { font-size: 10px; color: var(--text-3); font-weight: 500; }
+  .tab-lbl.active { color: var(--accent); }
+
+  /* plus button */
+  .plus-btn {
+    width: 52px;
+    height: 52px;
+    background: var(--accent);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: -26px;
+    box-shadow: 0 4px 24px rgba(196,150,90,0.4);
+    flex-shrink: 0;
+  }
+
+  /* ── history screen ── */
+  .stat-card {
+    background: var(--surface);
+    border-radius: 20px;
+    padding: 18px;
+    margin-bottom: 14px;
+    border: 1px solid var(--border);
+  }
+
+  .stat-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+    gap: 12px;
+  }
+
+  .stat-card-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 3px;
+    letter-spacing: -0.01em;
+  }
+
+  .stat-card-sub {
+    font-size: 11px;
+    color: var(--text-3);
+    line-height: 1.4;
+  }
+
+  .period-pill {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 5px 12px;
+    font-size: 11px;
+    color: var(--text-2);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .big-green {
+    font-size: 34px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: -0.04em;
+  }
+
+  .big-green span { font-size: 18px; }
+
+  /* ── menu screen ── */
+  .menu-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .meal-pill {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 5px 12px;
+    font-size: 13px;
+    color: var(--text-2);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .add-pill {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 5px 12px;
+    font-size: 13px;
+    color: var(--text-2);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .add-count {
+    background: var(--accent);
+    color: var(--bg);
+    border-radius: 8px;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .loc-pills {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .loc-pill {
+    border-radius: 16px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .loc-pill.active {
+    background: var(--accent);
+    color: var(--bg);
+  }
+
+  .loc-pill.inactive {
+    background: var(--surface2);
+    color: var(--text-2);
+    border: 1px solid var(--border);
+  }
+
+  .menu-search-bar {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 9px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .search-placeholder { font-size: 13px; color: var(--text-3); }
+
+  .menu-station {
+    background: var(--surface);
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    border: 1px solid var(--border);
+  }
+
+  .station-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 2px;
+    letter-spacing: -0.01em;
+  }
+
+  .station-sub { font-size: 11px; color: var(--text-3); }
+
+  .station-badge {
+    width: 26px;
+    height: 26px;
+    background: var(--accent);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--bg);
+    flex-shrink: 0;
+  }
+
+  .station-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .chevron { color: var(--text-3); font-size: 12px; }
+
+  /* ── notes ── */
+  .verdict {
+    max-width: 680px;
+    width: 100%;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px;
+    padding: 24px 28px;
+  }
+
+  .verdict-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.22);
+    margin-bottom: 16px;
+  }
+
+  .verdict-body {
+    font-size: 13px;
+    color: rgba(255,255,255,0.38);
+    line-height: 1.75;
+  }
+
+  .verdict-body strong { color: rgba(255,255,255,0.65); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<div class="page-header">Current design · new color scheme only</div>
+
+<div class="phones-row">
+
+  <!-- ── TODAY ── -->
+  <div class="col">
+    <div class="col-label">Today</div>
+    <div class="phone" style="background:var(--bg);">
+      <div class="status-bar" style="background:var(--bg);">
+        <div class="status-time">9:41</div>
+        <div class="status-icons">
+          <svg width="17" height="12" viewBox="0 0 17 12" fill="none"><rect x="0" y="3" width="3" height="9" rx="1" fill="#F5F0E6" opacity="0.4"/><rect x="4.5" y="2" width="3" height="10" rx="1" fill="#F5F0E6" opacity="0.6"/><rect x="9" y="0" width="3" height="12" rx="1" fill="#F5F0E6" opacity="0.8"/><rect x="13.5" y="0" width="3" height="12" rx="1" fill="#F5F0E6"/></svg>
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="#F5F0E6" opacity="0.8"><path d="M8 2.4C10.2 2.4 12.2 3.3 13.6 4.8L15 3.4C13.2 1.5 10.7 0.4 8 0.4C5.3 0.4 2.8 1.5 1 3.4L2.4 4.8C3.8 3.3 5.8 2.4 8 2.4Z"/><path d="M8 5.6C9.4 5.6 10.6 6.1 11.5 7L12.9 5.6C11.6 4.3 9.9 3.6 8 3.6C6.1 3.6 4.4 4.3 3.1 5.6L4.5 7C5.4 6.1 6.6 5.6 8 5.6Z"/><circle cx="8" cy="10" r="1.5"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="#F5F0E6" stroke-opacity="0.3"/><rect x="2" y="2" width="16" height="8" rx="2" fill="#F5F0E6" opacity="0.85"/><path d="M23 4.5V7.5C23.8 7.2 24.5 6.5 24.5 6C24.5 5.5 23.8 4.8 23 4.5Z" fill="#F5F0E6" opacity="0.35"/></svg>
+        </div>
+      </div>
+
+      <div class="screen" style="background:var(--bg);">
+        <div class="pad">
+          <div class="page-title-big">Today</div>
+          <div class="page-sub">Calories, nutrients, and today's log</div>
+
+          <div class="cal-card">
+            <div class="fire-icon">🔥</div>
+            <div class="cal-number">753</div>
+            <div class="cal-label">Calories Left</div>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width:50%;"></div>
+            </div>
+            <div class="progress-row">
+              <span>Consumed: 739</span>
+              <span>Goal: 1,492</span>
+            </div>
+          </div>
+
+          <div class="macro-card">
+            <div class="macro-title">Daily Macros</div>
+            <div class="macro-row">
+              <div class="macro-header">
+                <span class="macro-name">Protein</span>
+                <span class="macro-val">48g / 150g</span>
+              </div>
+              <div class="macro-bar">
+                <div class="macro-fill" style="width:32%; background:#7BA89E;"></div>
+              </div>
+            </div>
+            <div class="macro-row">
+              <div class="macro-header">
+                <span class="macro-name">Carbs</span>
+                <span class="macro-val">67g / 250g</span>
+              </div>
+              <div class="macro-bar">
+                <div class="macro-fill" style="width:27%; background:#C4965A;"></div>
+              </div>
+            </div>
+            <div class="macro-row">
+              <div class="macro-header">
+                <span class="macro-name">Fat</span>
+                <span class="macro-val">34g / 70g</span>
+              </div>
+              <div class="macro-bar">
+                <div class="macro-fill" style="width:49%; background:#9A8878;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-bar" style="background:var(--bg);">
+        <div class="tab-item">
+          <div class="tab-icon-emoji active">🍽</div>
+          <div class="tab-lbl active">Today</div>
+        </div>
+        <div class="tab-item">
+          <div class="tab-icon-emoji">🕐</div>
+          <div class="tab-lbl">History</div>
+        </div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;margin-top:-26px;">
+          <div class="plus-btn">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 5V19M5 12H19" stroke="#0F0D0A" stroke-width="2.5" stroke-linecap="round"/></svg>
+          </div>
+        </div>
+        <div class="tab-item">
+          <div class="tab-icon-emoji">👤</div>
+          <div class="tab-lbl">Profile</div>
+        </div>
+        <div class="tab-item">
+          <div class="tab-icon-emoji">⚙️</div>
+          <div class="tab-lbl">Settings</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── HISTORY ── -->
+  <div class="col">
+    <div class="col-label">History</div>
+    <div class="phone" style="background:var(--bg);">
+      <div class="status-bar" style="background:var(--bg);">
+        <div class="status-time">9:41</div>
+        <div class="status-icons" style="opacity:0.7;">
+          <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="#F5F0E6" stroke-opacity="0.3"/><rect x="2" y="2" width="16" height="8" rx="2" fill="#F5F0E6" opacity="0.85"/></svg>
+        </div>
+      </div>
+
+      <div class="screen" style="background:var(--bg);">
+        <div class="pad">
+          <div class="page-title-big">History</div>
+          <div class="page-sub">Calendar, calorie trends, and stats</div>
+
+          <!-- net avg card -->
+          <div class="stat-card">
+            <div class="stat-card-header">
+              <div>
+                <div class="stat-card-title">Net Average Intake</div>
+                <div class="stat-card-sub">Average daily difference between consumed and burned.</div>
+              </div>
+              <div class="period-pill">7 Days <span>▾</span></div>
+            </div>
+            <div class="big-green">−320 <span>cal/day</span></div>
+          </div>
+
+          <!-- meal dist card -->
+          <div class="stat-card">
+            <div class="stat-card-header">
+              <div>
+                <div class="stat-card-title">Average Meal Distribution</div>
+                <div class="stat-card-sub">Estimated average daily calorie split by meal group.</div>
+              </div>
+              <div class="period-pill">7 Days ▾</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:18px;">
+              <!-- donut — warm palette -->
+              <div style="flex-shrink:0;">
+                <svg width="104" height="104" viewBox="0 0 104 104">
+                  <!-- background ring -->
+                  <circle cx="52" cy="52" r="36" fill="none" stroke="rgba(245,240,230,0.05)" stroke-width="20"/>
+                  <!-- breakfast: tiny teal segment -->
+                  <circle cx="52" cy="52" r="36" fill="none" stroke="#7BA89E"
+                    stroke-width="20" stroke-dasharray="226" stroke-dashoffset="222"
+                    transform="rotate(-90 52 52)"/>
+                  <!-- lunch: amber -->
+                  <circle cx="52" cy="52" r="36" fill="none" stroke="#C4965A"
+                    stroke-width="20" stroke-dasharray="226" stroke-dashoffset="139"
+                    transform="rotate(-90 52 52)"/>
+                  <!-- dinner: clay -->
+                  <circle cx="52" cy="52" r="36" fill="none" stroke="#9A8878"
+                    stroke-width="20" stroke-dasharray="226" stroke-dashoffset="69"
+                    transform="rotate(-90 52 52)"/>
+                  <!-- snack: muted -->
+                  <circle cx="52" cy="52" r="36" fill="none" stroke="rgba(245,240,230,0.18)"
+                    stroke-width="20" stroke-dasharray="226" stroke-dashoffset="5"
+                    transform="rotate(-90 52 52)"/>
+                  <!-- center text -->
+                  <text x="52" y="48" text-anchor="middle" fill="#F5F0E6" font-family="Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="-0.5">1,830</text>
+                  <text x="52" y="62" text-anchor="middle" fill="rgba(245,240,230,0.3)" font-family="Inter,sans-serif" font-size="9" letter-spacing="0">calories</text>
+                </svg>
+              </div>
+              <!-- legend -->
+              <div style="display:flex;flex-direction:column;gap:9px;flex:1;">
+                <div style="display:flex;align-items:center;gap:7px;">
+                  <span style="width:8px;height:8px;border-radius:50%;background:#7BA89E;flex-shrink:0;display:block;"></span>
+                  <span style="font-size:12px;color:var(--text-2);">Breakfast</span>
+                  <span style="margin-left:auto;font-size:12px;color:var(--text-3);">60</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:7px;">
+                  <span style="width:8px;height:8px;border-radius:50%;background:#C4965A;flex-shrink:0;display:block;"></span>
+                  <span style="font-size:12px;color:var(--text-2);">Lunch</span>
+                  <span style="margin-left:auto;font-size:12px;color:var(--text-3);">703</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:7px;">
+                  <span style="width:8px;height:8px;border-radius:50%;background:#9A8878;flex-shrink:0;display:block;"></span>
+                  <span style="font-size:12px;color:var(--text-2);">Dinner</span>
+                  <span style="margin-left:auto;font-size:12px;color:var(--text-3);">559</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:7px;">
+                  <span style="width:8px;height:8px;border-radius:50%;background:rgba(245,240,230,0.18);flex-shrink:0;display:block;"></span>
+                  <span style="font-size:12px;color:var(--text-2);">Snack</span>
+                  <span style="margin-left:auto;font-size:12px;color:var(--text-3);">508</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-bar" style="background:var(--bg);">
+        <div class="tab-item">
+          <div class="tab-icon-emoji">🍽</div>
+          <div class="tab-lbl">Today</div>
+        </div>
+        <div class="tab-item">
+          <div class="tab-icon-emoji active">🕐</div>
+          <div class="tab-lbl active">History</div>
+        </div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;margin-top:-26px;">
+          <div class="plus-btn">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 5V19M5 12H19" stroke="#0F0D0A" stroke-width="2.5" stroke-linecap="round"/></svg>
+          </div>
+        </div>
+        <div class="tab-item">
+          <div class="tab-icon-emoji">👤</div>
+          <div class="tab-lbl">Profile</div>
+        </div>
+        <div class="tab-item">
+          <div class="tab-icon-emoji">⚙️</div>
+          <div class="tab-lbl">Settings</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MENU ── -->
+  <div class="col">
+    <div class="col-label">Menu</div>
+    <div class="phone" style="background:var(--bg);">
+      <div class="status-bar" style="background:var(--bg);">
+        <div class="status-time">9:41</div>
+        <div class="status-icons" style="opacity:0.7;">
+          <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="#F5F0E6" stroke-opacity="0.3"/><rect x="2" y="2" width="16" height="8" rx="2" fill="#F5F0E6" opacity="0.85"/></svg>
+        </div>
+      </div>
+
+      <div class="screen" style="background:var(--bg);">
+        <div class="pad">
+          <div class="menu-top">
+            <div class="page-title-big">Menu</div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <div style="width:34px;height:34px;background:var(--surface2);border:1px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;opacity:0.6;">✦</div>
+              <div class="add-pill">Add <span class="add-count">0</span></div>
+            </div>
+          </div>
+
+          <div style="margin-bottom:12px;">
+            <div class="meal-pill">Lunch <span>▾</span></div>
+          </div>
+
+          <div class="loc-pills">
+            <div class="loc-pill active">Four Winds</div>
+            <div class="loc-pill inactive">Varsity</div>
+            <div class="loc-pill inactive">Grab N Go</div>
+          </div>
+
+          <div class="menu-search-bar">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="rgba(245,240,230,0.2)" stroke-width="1.3"/><path d="M10 10L12.5 12.5" stroke="rgba(245,240,230,0.2)" stroke-width="1.3" stroke-linecap="round"/></svg>
+            <span class="search-placeholder">Search menu</span>
+          </div>
+
+          <div class="menu-station">
+            <div>
+              <div class="station-name">Line 1 – Salad Bar</div>
+              <div class="station-sub">26 options</div>
+            </div>
+            <div class="station-right">
+              <div class="station-badge">26</div>
+              <span class="chevron">▾</span>
+            </div>
+          </div>
+          <div class="menu-station">
+            <div>
+              <div class="station-name">Line 2 – Honey Orange Chicken</div>
+              <div class="station-sub">8 options</div>
+            </div>
+            <div class="station-right">
+              <div class="station-badge">8</div>
+              <span class="chevron">▾</span>
+            </div>
+          </div>
+          <div class="menu-station">
+            <div>
+              <div class="station-name">Line 3 – Breakfast Burritos</div>
+              <div class="station-sub">10 options</div>
+            </div>
+            <div class="station-right">
+              <div class="station-badge">10</div>
+              <span class="chevron">▾</span>
+            </div>
+          </div>
+          <div class="menu-station">
+            <div>
+              <div class="station-name">Line 4 – Sweet & Sour Chicken</div>
+              <div class="station-sub">8 options</div>
+            </div>
+            <div class="station-right">
+              <div class="station-badge">8</div>
+              <span class="chevron">▾</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-bar" style="background:var(--bg);">
+        <div class="tab-item">
+          <div class="tab-icon-emoji">🍽</div>
+          <div class="tab-lbl">Today</div>
+        </div>
+        <div class="tab-item">
+          <div class="tab-icon-emoji">🕐</div>
+          <div class="tab-lbl">History</div>
+        </div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;margin-top:-26px;">
+          <div class="plus-btn">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 5V19M5 12H19" stroke="#0F0D0A" stroke-width="2.5" stroke-linecap="round"/></svg>
+          </div>
+        </div>
+        <div class="tab-item">
+          <div class="tab-icon-emoji">👤</div>
+          <div class="tab-lbl">Profile</div>
+        </div>
+        <div class="tab-item">
+          <div class="tab-icon-emoji">⚙️</div>
+          <div class="tab-lbl">Settings</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- verdict -->
+<div class="verdict">
+  <div class="verdict-title">The takeaway</div>
+  <div class="verdict-body">
+    The warm palette does real work here — swapping cold <strong>#121825 → #0F0D0A</strong> and neon blue <strong>#4F80FF → #C4965A</strong> makes the same layout feel noticeably more considered. The green / yellow / red macro bars disappearing is the biggest single win: replacing them with teal, amber, and clay removes the "generic fitness dashboard" signal entirely.
+    <br><br>
+    But the structural issues remain. The <strong>thick 8px progress bars</strong> still feel blunt. The <strong>floating amber + tab</strong> is calmer than blue but still disrupts the rhythm. The <strong>chunky rounded cards</strong> still tile awkwardly. The <strong>bold fire emoji</strong> still reads as templated. Color gets you 40% of the way — the other 60% is structure and typographic hierarchy.
+  </div>
+</div>
+
+</body>
+</html>

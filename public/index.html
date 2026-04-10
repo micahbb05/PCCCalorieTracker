@@ -8,519 +8,961 @@
   <link rel="shortcut icon" href="/assets/pcc-ios-logo-blue.png?v=20260311c">
   <link rel="apple-touch-icon" href="/assets/pcc-ios-logo-blue.png?v=20260311c">
   <title>PCC Calorie Tracker</title>
-  <meta name="description"
-    content="Track calories with PCC Dining menus built in, AI photo logging, barcode scanning, USDA search, Apple Health goals, and optional iCloud sync.">
+  <meta name="description" content="Track calories with PCC Dining menus built in, AI photo logging, barcode scanning, USDA search, Apple Health goals, and optional iCloud sync.">
 
-  <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://calorie-tracker-364e3.web.app/" />
   <meta property="og:title" content="PCC Calorie Tracker" />
-  <meta property="og:description"
-    content="Track calories with PCC Dining menus built in, AI photo logging, barcode scanning, USDA search, Apple Health goals, and optional iCloud sync." />
+  <meta property="og:description" content="Track calories with PCC Dining menus built in, AI photo logging, barcode scanning, USDA search, Apple Health goals, and optional iCloud sync." />
   <meta property="og:image" content="https://calorie-tracker-364e3.web.app/assets/og-image.png" />
+  <meta property="og:image:width" content="3024" />
+  <meta property="og:image:height" content="1722" />
 
-  <!-- Twitter -->
-  <meta property="twitter:card" content="summary_large_image" />
-  <meta property="twitter:url" content="https://calorie-tracker-364e3.web.app/" />
-  <meta property="twitter:title" content="PCC Calorie Tracker" />
-  <meta property="twitter:description"
-    content="Track calories with PCC Dining menus built in, AI photo logging, barcode scanning, USDA search, Apple Health goals, and optional iCloud sync." />
-  <meta property="twitter:image" content="https://calorie-tracker-364e3.web.app/assets/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="PCC Calorie Tracker" />
+  <meta name="twitter:description" content="Track calories with PCC Dining menus built in, AI photo logging, barcode scanning, USDA search, Apple Health goals, and optional iCloud sync." />
+  <meta name="twitter:image" content="https://calorie-tracker-364e3.web.app/assets/og-image.png" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap"
-    rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,400;1,500;1,600&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+
   <style>
     :root {
-      --bg: #f5f7fc;
-      --surface: rgba(255, 255, 255, 0.85);
-      --surface-solid: #ffffff;
-      --text: #0f172a;
-      --text-muted: #475569;
-      --text-lighter: #94a3b8;
-      --accent: #2563eb;
-      --accent-hover: #1d4ed8;
-      --accent-gradient: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-      --accent-gradient-hover: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-      --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-      --radius-md: 0.75rem;
-      --radius-lg: 1rem;
-      --radius-full: 9999px;
-      --transition-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
-      --transition-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+      --parchment:    #F5F0E6;
+      --linen:        #ECE6D8;
+      --sand:         #D9D1C0;
+      --bark:         #19120B;
+      --earth:        #5A4A3A;
+      --clay:         #9A8878;
+      --moss:         #1B3828;
+      --fern:         #2F5E42;
+      --sage:         #64927A;
+      --sage-pale:    #E8F0EB;
+      --amber:        #B8924A;
+      --white:        #FFFEF9;
     }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
 
     body {
-      font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
-      background-color: var(--bg);
-      color: var(--text);
-      line-height: 1.6;
+      font-family: 'Lora', Georgia, serif;
+      background: var(--parchment);
+      color: var(--bark);
+      line-height: 1.65;
       overflow-x: hidden;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
     }
 
-    /* Ambient Background Pattern */
-    .ambient-bg {
+    /* Grain texture layer over the whole page */
+    body::before {
+      content: '';
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      z-index: -1;
-      background:
-        radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.08) 0%, transparent 40%),
-        radial-gradient(circle at 85% 30%, rgba(99, 102, 241, 0.08) 0%, transparent 40%);
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23g)' opacity='0.045'/%3E%3C/svg%3E");
+      background-size: 300px 300px;
+      pointer-events: none;
+      z-index: 9999;
+      mix-blend-mode: multiply;
+    }
+
+    /* ─── NAV ─── */
+    #nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 200;
+      padding: 1.5rem 3rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: background 0.5s ease, box-shadow 0.5s ease;
+    }
+
+    #nav.scrolled {
+      background: rgba(245, 240, 230, 0.94);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 1px 0 rgba(25, 18, 11, 0.07);
+    }
+
+    .nav-logo {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: rgba(255, 253, 245, 0.9);
+      text-decoration: none;
+      letter-spacing: 0.01em;
+      transition: color 0.5s ease;
+    }
+
+    #nav.scrolled .nav-logo { color: var(--bark); }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 2.25rem;
+    }
+
+    .nav-link {
+      color: rgba(255,253,245,0.55);
+      text-decoration: none;
+      font-family: 'Lora', Georgia, serif;
+      font-size: 0.875rem;
+      font-weight: 400;
+      transition: color 0.3s ease;
+    }
+
+    .nav-link:hover { color: rgba(255,253,245,0.9); }
+    #nav.scrolled .nav-link { color: var(--earth); }
+    #nav.scrolled .nav-link:hover { color: var(--bark); }
+
+    @media (max-width: 640px) { .nav-link { display: none; } }
+
+    .nav-cta {
+      font-family: 'Lora', Georgia, serif;
+      font-size: 0.875rem;
+      font-weight: 400;
+      color: rgba(255,253,245,0.9) !important;
+      text-decoration: none;
+      padding: 0.5rem 1.25rem;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 999px;
+      transition: all 0.3s ease;
+    }
+
+    .nav-cta:hover {
+      background: rgba(255,255,255,0.1);
+      border-color: rgba(255,255,255,0.35);
+    }
+
+    #nav.scrolled .nav-cta {
+      color: var(--moss) !important;
+      border-color: rgba(27, 56, 40, 0.3);
+    }
+
+    #nav.scrolled .nav-cta:hover {
+      background: var(--sage-pale);
+      border-color: var(--fern);
+    }
+
+    /* ─── HERO ─── */
+    .hero {
+      background: var(--moss);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 0 8vw;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Photo background */
+    .hero-photo {
+      position: absolute;
+      inset: 0;
+      background: url('https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=1800&q=85') center 35%/cover no-repeat;
+      transform: scale(1.04);
+      transition: transform 8s ease;
+      filter: brightness(0.72) saturate(0.75);
+    }
+
+    .hero.loaded .hero-photo {
+      transform: scale(1);
+    }
+
+    /* Directional overlay — heavy on left where text lives, opens up on right */
+    .hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        105deg,
+        rgba(8, 16, 10, 0.92) 0%,
+        rgba(8, 16, 10, 0.78) 35%,
+        rgba(8, 16, 10, 0.45) 65%,
+        rgba(8, 16, 10, 0.18) 100%
+      );
+    }
+
+    /* Warm noise on hero */
+    .hero::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23g)' opacity='0.06'/%3E%3C/svg%3E");
+      background-size: 200px 200px;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .hero-content {
+      text-align: left;
+      position: relative;
+      z-index: 3;
+      max-width: 620px;
+      padding: 7rem 0 7rem;
+    }
+
+    .hero-eyebrow {
+      font-family: 'Lora', Georgia, serif;
+      font-style: italic;
+      font-size: 0.9375rem;
+      color: rgba(255, 253, 245, 0.45);
+      margin-bottom: 1.5rem;
+      letter-spacing: 0.01em;
+      display: block;
+    }
+
+    .hero-title {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: clamp(3.75rem, 9vw, 7.5rem);
+      font-weight: 300;
+      line-height: 0.95;
+      color: var(--white);
+      letter-spacing: -0.01em;
+      margin-bottom: 1.75rem;
+    }
+
+    .hero-title em {
+      font-style: italic;
+      font-weight: 300;
+      color: rgba(255, 253, 245, 0.52);
+    }
+
+    .hero-sub {
+      font-size: 1.0625rem;
+      color: rgba(255, 253, 245, 0.5);
+      font-weight: 400;
+      max-width: 420px;
+      margin: 0 0 2.75rem;
+      line-height: 1.8;
+    }
+
+    .hero-buttons {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    /* Scroll hint at bottom of hero */
+    .hero-scroll {
+      position: absolute;
+      bottom: 2.5rem;
+      left: 8vw;
+      z-index: 3;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+
+    .hero-scroll-label {
+      font-family: 'Lora', Georgia, serif;
+      font-style: italic;
+      font-size: 0.75rem;
+      color: rgba(255,253,245,0.28);
+      letter-spacing: 0.04em;
+    }
+
+    .hero-scroll-line {
+      width: 1px;
+      height: 40px;
+      background: linear-gradient(to bottom, rgba(255,253,245,0.35), transparent);
+      animation: scrollDrop 2.2s ease-in-out infinite;
+    }
+
+    @keyframes scrollDrop {
+      0%   { transform: scaleY(0); transform-origin: top; opacity: 1; }
+      50%  { transform: scaleY(1); transform-origin: top; opacity: 1; }
+      51%  { transform: scaleY(1); transform-origin: bottom; opacity: 1; }
+      100% { transform: scaleY(0); transform-origin: bottom; opacity: 0; }
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.625rem;
+      background: var(--white);
+      color: var(--moss);
+      font-family: 'Lora', Georgia, serif;
+      font-weight: 500;
+      font-size: 0.9375rem;
+      padding: 0.9rem 2rem;
+      border-radius: 999px;
+      text-decoration: none;
+      transition: all 0.35s ease;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.12);
+    }
+
+    .btn-primary:hover {
+      background: var(--parchment);
+      transform: translateY(-2px);
+      box-shadow: 0 14px 50px rgba(0,0,0,0.32), 0 4px 12px rgba(0,0,0,0.16);
+    }
+
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: transparent;
+      color: rgba(255, 253, 245, 0.55);
+      font-family: 'Lora', Georgia, serif;
+      font-size: 0.9375rem;
+      font-weight: 400;
+      font-style: italic;
+      padding: 0.9rem 1.75rem;
+      border-radius: 999px;
+      text-decoration: none;
+      border: 1px solid rgba(255,255,255,0.15);
+      transition: all 0.3s ease;
+    }
+
+    .btn-ghost:hover {
+      background: rgba(255,255,255,0.06);
+      color: rgba(255,253,245,0.85);
+      border-color: rgba(255,255,255,0.3);
+    }
+
+    
+
+    .phone-shell img {
+      width: 100%;
+      display: block;
+      border-radius: 33px;
       pointer-events: none;
     }
 
-    header {
-      background: var(--surface);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      padding: 1rem 1.5rem;
-      position: sticky;
-      top: 0;
-      z-index: 50;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.3);
-      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.03);
+    /* ─── WHAT IT DOES ─── */
+    .what-strip {
+      background: var(--linen);
+      border-top: 1px solid var(--sand);
+      border-bottom: 1px solid var(--sand);
+      padding: 2rem 3rem;
     }
 
-    nav {
+    .what-inner {
+      max-width: 920px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+    }
+
+    .what-item {
+      flex: 1;
+      text-align: center;
+      padding: 0.5rem 2.5rem;
+      font-family: 'Lora', Georgia, serif;
+    }
+
+    .what-item + .what-item {
+      border-left: 1px solid var(--sand);
+    }
+
+    .what-item strong {
+      display: block;
+      font-size: 0.9375rem;
+      font-weight: 500;
+      color: var(--bark);
+      margin-bottom: 0.2rem;
+    }
+
+    .what-item span {
+      font-size: 0.8125rem;
+      font-style: italic;
+      color: var(--clay);
+    }
+
+    @media (max-width: 700px) {
+      .what-inner { flex-direction: column; }
+      .what-item + .what-item {
+        border-left: none;
+        border-top: 1px solid var(--sand);
+      }
+      .what-strip { padding: 1.5rem; }
+    }
+
+    /* ─── SECTION: feature layout ─── */
+    .feature-section {
+      padding: 8rem 3rem;
+    }
+
+    .feature-section.on-linen {
+      background: var(--linen);
+    }
+
+    .feature-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7rem;
+      align-items: center;
+    }
+
+    .feature-inner.flip { direction: rtl; }
+    .feature-inner.flip > * { direction: ltr; }
+
+    @media (max-width: 880px) {
+      .feature-inner,
+      .feature-inner.flip {
+        grid-template-columns: 1fr;
+        direction: ltr;
+        gap: 3.5rem;
+        text-align: center;
+      }
+
+      .feature-list { align-items: center; }
+      .feature-section { padding: 5rem 1.75rem; }
+    }
+
+    .feature-label {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-style: italic;
+      font-size: 1.0625rem;
+      font-weight: 500;
+      color: var(--sage);
+      margin-bottom: 1rem;
+      display: block;
+    }
+
+    .feature-title {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: clamp(2rem, 4vw, 3.125rem);
+      font-weight: 600;
+      line-height: 1.08;
+      color: var(--bark);
+      letter-spacing: -0.02em;
+      margin-bottom: 1.5rem;
+    }
+
+    .feature-body {
+      font-family: 'Lora', Georgia, serif;
+      font-size: 1.0625rem;
+      color: var(--earth);
+      line-height: 1.85;
+      margin-bottom: 1rem;
+    }
+
+    .feature-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.375rem;
+      margin-top: 1.75rem;
+    }
+
+    .feature-list-item {
+      font-family: 'Lora', Georgia, serif;
+      font-size: 0.9375rem;
+      color: var(--clay);
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+    }
+
+    .feature-list-item::before {
+      content: '';
+      display: inline-block;
+      width: 18px;
+      height: 1px;
+      background: var(--amber);
+      flex-shrink: 0;
+    }
+
+    .feature-phone {
+      display: flex;
+      justify-content: center;
+    }
+
+    .feature-phone .phone-shell {
+      width: 100%;
+      max-width: 288px;
+      background: #0B0B0E;
+      border-radius: 40px;
+      padding: 7px;
+      box-shadow:
+        0 0 0 1px rgba(0,0,0,0.06),
+        0 32px 80px -8px rgba(0,0,0,0.16),
+        0 12px 30px rgba(0,0,0,0.08),
+        inset 0 0 0 1px #1A1A22;
+      transition: transform 0.7s cubic-bezier(0.34, 1.4, 0.64, 1),
+                  box-shadow 0.7s ease;
+    }
+
+    .feature-phone .phone-shell:hover {
+      transform: translateY(-14px) scale(1.012);
+      box-shadow:
+        0 0 0 1px rgba(0,0,0,0.06),
+        0 55px 100px -8px rgba(0,0,0,0.22),
+        0 20px 40px rgba(0,0,0,0.1),
+        inset 0 0 0 1.5px #1A1A22;
+    }
+
+    .feature-phone .phone-shell img {
+      width: 100%;
+      display: block;
+      border-radius: 33px;
+      pointer-events: none;
+    }
+
+    /* ─── ALSO INCLUDED ─── */
+    .also-section {
+      background: var(--parchment);
+      padding: 7rem 3rem;
+    }
+
+    .also-header {
+      text-align: center;
+      margin-bottom: 5rem;
+    }
+
+    .also-header h2 {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: clamp(2rem, 3.5vw, 2.875rem);
+      font-weight: 600;
+      color: var(--bark);
+      letter-spacing: -0.02em;
+      margin-bottom: 0.75rem;
+    }
+
+    .also-header p {
+      font-family: 'Lora', Georgia, serif;
+      font-style: italic;
+      font-size: 1.0625rem;
+      color: var(--clay);
+    }
+
+    .also-grid {
+      max-width: 960px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0;
+    }
+
+    .also-item {
+      padding: 2.5rem 2.75rem;
+      border-top: 1px solid var(--sand);
+    }
+
+    .also-item:not(:last-child) {
+      border-right: 1px solid var(--sand);
+    }
+
+    @media (max-width: 768px) {
+      .also-grid { grid-template-columns: 1fr; }
+      .also-item { border-right: none !important; }
+      .also-section { padding: 5rem 1.5rem; }
+    }
+
+    .also-item h3 {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--bark);
+      margin-bottom: 0.625rem;
+      letter-spacing: -0.015em;
+    }
+
+    .also-item p {
+      font-family: 'Lora', Georgia, serif;
+      font-size: 0.9375rem;
+      color: var(--earth);
+      line-height: 1.75;
+    }
+
+    /* ─── CLOSING CTA ─── */
+    .cta-section {
+      background: var(--moss);
+      padding: 9rem 3rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-section::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 80% 70% at 50% 50%, rgba(55,95,70,0.4) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .cta-section::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23g)' opacity='0.055'/%3E%3C/svg%3E");
+      background-size: 200px 200px;
+      pointer-events: none;
+    }
+
+    .cta-inner {
+      position: relative;
+      z-index: 1;
+    }
+
+    .cta-label {
+      font-family: 'Lora', Georgia, serif;
+      font-style: italic;
+      font-size: 1rem;
+      color: rgba(255,253,245,0.4);
+      margin-bottom: 1.5rem;
+    }
+
+    .cta-title {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: clamp(2.75rem, 6vw, 5rem);
+      font-weight: 600;
+      color: var(--white);
+      line-height: 1.02;
+      letter-spacing: -0.025em;
+      margin-bottom: 1rem;
+    }
+
+    .cta-title em {
+      font-style: italic;
+      font-weight: 500;
+      color: rgba(255,253,245,0.4);
+    }
+
+    .cta-body {
+      font-family: 'Lora', Georgia, serif;
+      font-size: 1.0625rem;
+      color: rgba(255,253,245,0.48);
+      margin-bottom: 3rem;
+      font-style: italic;
+    }
+
+    .cta-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.625rem;
+      background: var(--white);
+      color: var(--moss);
+      font-family: 'Lora', Georgia, serif;
+      font-weight: 500;
+      font-size: 0.9375rem;
+      padding: 1rem 2.25rem;
+      border-radius: 999px;
+      text-decoration: none;
+      transition: all 0.35s ease;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+    }
+
+    .cta-btn:hover {
+      background: var(--parchment);
+      transform: translateY(-3px);
+      box-shadow: 0 18px 50px rgba(0,0,0,0.35);
+    }
+
+    .cta-note {
+      margin-top: 1.5rem;
+      font-family: 'Lora', Georgia, serif;
+      font-style: italic;
+      font-size: 0.8125rem;
+      color: rgba(255,253,245,0.28);
+    }
+
+    /* ─── FOOTER ─── */
+    footer {
+      background: var(--linen);
+      padding: 2.5rem 3rem;
+      border-top: 1px solid var(--sand);
+    }
+
+    .footer-inner {
       max-width: 1100px;
       margin: 0 auto;
       display: flex;
       justify-content: space-between;
       align-items: center;
-    }
-
-    .logo {
-      font-weight: 800;
-      font-size: 1.25rem;
-      line-height: 1;
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      letter-spacing: -0.03em;
-    }
-
-    .logo svg {
-      width: 24px;
-      height: 24px;
-      stroke: var(--accent);
-    }
-
-    .nav-links {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-    }
-
-    nav a {
-      color: var(--text-muted);
-      text-decoration: none;
-      font-size: 0.9375rem;
-      font-weight: 500;
-      line-height: 1;
-      transition: all 0.2s ease;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-      padding: 0.45rem 0.75rem;
-      border-radius: 999px;
-      background: transparent;
-    }
-
-    @media (max-width: 600px) {
-      .github-link {
-        display: none !important;
-      }
-    }
-
-    nav a svg {
-      width: 16px;
-      height: 16px;
-      transition: transform 0.2s ease;
-    }
-
-    nav a:hover {
-      color: var(--text);
-      background: #f3f4f6;
-    }
-
-    nav a.back-btn:hover svg {
-      transform: translateX(-3px);
-    }
-
-    main {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 4rem 1.5rem;
-    }
-
-    /* Animations */
-    @keyframes fadeUp {
-      from {
-        opacity: 0;
-        transform: translateY(20px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .animate-fade-up {
-      opacity: 0;
-      animation: fadeUp 0.8s var(--transition-spring) forwards;
-    }
-
-    .delay-1 {
-      animation-delay: 0.1s;
-    }
-
-    .delay-2 {
-      animation-delay: 0.2s;
-    }
-
-    .delay-3 {
-      animation-delay: 0.3s;
-    }
-
-    .delay-4 {
-      animation-delay: 0.4s;
-    }
-
-    /* Hero Section */
-    .hero {
-      text-align: center;
-      max-width: 800px;
-      margin: 0 auto 5rem;
-      padding-top: 2rem;
-    }
-
-    h1 {
-      font-size: clamp(2.5rem, 6vw, 4rem);
-      font-weight: 800;
-      line-height: 1.1;
-      margin-bottom: 1.5rem;
-      letter-spacing: -0.04em;
-    }
-
-    .text-gradient {
-      background: linear-gradient(to right, #0f172a, #334155, #2563eb);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      display: inline-block;
-    }
-
-    .subtitle {
-      font-size: clamp(1.125rem, 2vw, 1.375rem);
-      color: var(--text-muted);
-      margin-bottom: 3rem;
-      max-width: 600px;
-      margin-inline: auto;
-      line-height: 1.7;
-      font-weight: 400;
-    }
-
-    .cta-container {
-      display: flex;
-      justify-content: center;
-      gap: 1rem;
       flex-wrap: wrap;
-    }
-
-    .cta {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.75rem;
-      background: var(--accent-gradient);
-      color: white;
-      padding: 0.875rem 2rem;
-      border-radius: var(--radius-full);
-      font-weight: 600;
-      font-size: 1.0625rem;
-      text-decoration: none;
-      transition: all 0.3s var(--transition-spring);
-      box-shadow: 0 8px 16px -4px rgba(37, 99, 235, 0.3);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .cta::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: linear-gradient(rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0));
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-
-    .cta:hover {
-      transform: translateY(-2px) scale(1.02);
-      box-shadow: 0 12px 20px -6px rgba(37, 99, 235, 0.4);
-      background: var(--accent-gradient-hover);
-    }
-
-    .cta:hover::before {
-      opacity: 1;
-    }
-
-    .cta.secondary {
-      background: var(--surface);
-      color: var(--text);
-      box-shadow: var(--shadow-md);
-      border: 1px solid rgba(0, 0, 0, 0.1);
-    }
-
-    .cta.secondary:hover {
-      background: var(--surface-solid);
-      color: var(--accent);
-      border-color: rgba(0, 0, 0, 0.2);
-    }
-
-    /* Showcase Features */
-    .showcase-feature {
-      display: flex;
-      flex-direction: column-reverse;
-      gap: 2rem;
-      align-items: center;
-      margin-bottom: 5rem;
-      text-align: center;
-    }
-
-    @media (min-width: 900px) {
-      .showcase-feature {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 5rem;
-        margin-bottom: 7rem;
-        text-align: left;
-      }
-
-      .showcase-feature.reverse {
-        direction: rtl;
-      }
-
-      .showcase-feature.reverse>* {
-        direction: ltr;
-      }
-    }
-
-    .showcase-text h2 {
-      font-size: clamp(2rem, 3.5vw, 2.5rem);
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      margin-bottom: 1.25rem;
-      line-height: 1.2;
-    }
-
-    .showcase-text p {
-      font-size: 1.125rem;
-      color: var(--text-muted);
-      margin-bottom: 1.5rem;
-    }
-
-    .showcase-image-container {
-      position: relative;
-      border-radius: 40px;
-      /* More rounded to mimic iOS device */
-      padding: 0.75rem;
-      background: #111;
-      /* Device bezel color */
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), inset 0 0 0 1px #333;
-      width: 100%;
-      max-width: 340px;
-      margin: 0 auto;
-      transition: transform 0.4s var(--transition-spring), box-shadow 0.4s var(--transition-spring);
-    }
-
-    .showcase-image-container:hover {
-      transform: translateY(-10px);
-      box-shadow: 0 35px 60px -15px rgba(0, 0, 0, 0.3), inset 0 0 0 1px #333;
-    }
-
-    .showcase-image-container img {
-      width: 100%;
-      height: auto;
-      display: block;
-      border-radius: 32px;
-      /* Inner screen corner radius */
-      pointer-events: none;
-      background: var(--surface-solid);
-    }
-
-    footer {
-      background: var(--surface-solid);
-      padding: 4rem 1.5rem;
-      text-align: center;
-      border-top: 1px solid rgba(0, 0, 0, 0.05);
-      margin-top: auto;
-    }
-
-    .footer-content {
-      max-width: 1100px;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 1.5rem;
+      gap: 1.25rem;
     }
 
     .footer-logo {
-      font-weight: 700;
-      font-size: 1.125rem;
-      color: var(--text);
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 1.1875rem;
+      font-weight: 600;
+      color: var(--bark);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 2rem;
     }
 
     .footer-links a {
-      color: var(--text-muted);
+      font-family: 'Lora', Georgia, serif;
+      font-style: italic;
+      font-size: 0.875rem;
+      color: var(--clay);
       text-decoration: none;
-      font-size: 0.875rem;
-      transition: color 0.2s;
+      transition: color 0.25s;
     }
 
-    .footer-links a:hover {
-      color: var(--text);
+    .footer-links a:hover { color: var(--bark); }
+
+    .footer-copy {
+      width: 100%;
+      font-family: 'Lora', Georgia, serif;
+      font-size: 0.8rem;
+      color: var(--clay);
+      opacity: 0.65;
     }
 
-    .copyright {
-      color: var(--text-lighter);
-      font-size: 0.875rem;
-      margin-top: 2rem;
+    @media (max-width: 640px) {
+      .footer-inner { flex-direction: column; text-align: center; }
+      .footer-links { justify-content: center; }
+      footer { padding: 2rem 1.5rem; }
+    }
+
+    /* ─── ANIMATIONS ─── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(26px);
+      transition: opacity 1s ease, transform 1s ease;
+    }
+
+    .reveal.in-view {
+      opacity: 1;
+      transform: none;
+    }
+
+    .reveal-d1 { transition-delay: 0.12s; }
+    .reveal-d2 { transition-delay: 0.24s; }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .hero-eyebrow  { animation: rise 0.8s ease 0.1s both; }
+    .hero-title    { animation: rise 0.9s ease 0.25s both; }
+    .hero-sub      { animation: rise 0.8s ease 0.4s both; }
+    .hero-buttons  { animation: rise 0.8s ease 0.55s both; }
+
+    @media (max-width: 600px) {
+      #nav { padding: 1.25rem 1.5rem; }
+      .hero { padding: 8rem 1.5rem 0; }
+      .what-strip { padding: 1.5rem; }
+      .cta-section { padding: 6rem 1.5rem; }
     }
   </style>
 </head>
 
 <body>
-  <div class="ambient-bg"></div>
 
-  <header>
-    <nav>
-      <div class="logo">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-          class="lucide lucide-activity">
-          <path
-            d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.48 12H2" />
-        </svg>
-        Calorie Tracker
-      </div>
-      <div class="nav-links">
-        <a href="https://github.com/micahbb05/PCCCalorieTracker" class="github-link" target="_blank" rel="noopener noreferrer">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-github"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.2c3-.3 6-1.5 6-6.5a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 5 3 6.2 6 6.5a4.8 4.8 0 0 0-1 3.2v4"/><path d="M9 18c-4.5 1.6-5-2-7-2"/></svg>
-          View on GitHub
-        </a>
-        <a href="/privacy-policy">Privacy Policy</a>
-      </div>
-    </nav>
-  </header>
+  <!-- ─── NAV ─── -->
+  <nav id="nav">
+    <a href="/" class="nav-logo">Calorie Tracker</a>
+    <div class="nav-right">
+      <a href="https://github.com/micahbb05/PCCCalorieTracker" class="nav-link" target="_blank" rel="noopener noreferrer">GitHub</a>
+      <a href="/privacy-policy" class="nav-link">Privacy</a>
+      <a href="https://apps.apple.com/us/app/pcc-calorie-tracker/id6759851781" class="nav-cta" target="_blank" rel="noopener noreferrer">Download Free</a>
+    </div>
+  </nav>
 
-  <main>
-    <section class="hero animate-fade-up">
-      <h1>
-        <span class="text-gradient">Track your calories</span><br>
-        with zero friction
+  <!-- ─── HERO ─── -->
+  <section class="hero" id="hero">
+    <div class="hero-photo"></div>
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <p class="hero-eyebrow">Free on iPhone &middot; Built for PCC</p>
+
+      <h1 class="hero-title">
+        Eat at PCC<br><em>with intention.</em>
       </h1>
-      <p class="subtitle">Calorie Tracker makes it effortlessly easy to monitor your nutrition. Connect to campus menus,
-        use AI to estimate portions from photos, and track your daily macros all in one place.</p>
 
-      <div class="cta-container animate-fade-up delay-1">
-        <a href="https://testflight.apple.com/join/GfbNC6TX" class="cta">
-          Join TestFlight Beta
+      <p class="hero-sub">
+        Campus menus, AI photo logging, and Apple Health — all in one place, so you can stop guessing and start knowing.
+      </p>
+
+      <div class="hero-buttons">
+        <a href="https://apps.apple.com/us/app/pcc-calorie-tracker/id6759851781" class="btn-primary" target="_blank" rel="noopener noreferrer">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+          Download on App Store
         </a>
-        <a href="/demo" class="cta secondary">
-          Try Web Demo
-        </a>
-      </div>
-    </section>
-
-    <!-- App Screenshots Block -->
-    <div class="showcase-feature animate-fade-up delay-2">
-      <div class="showcase-text">
-        <h2>PCC Dining menus built in</h2>
-        <p>Your campus menus are updated daily. Connect directly to PCC Dining and view today's accurate calorie and
-          protein content without ever looking up individual ingredients.</p>
-        <p>You can even snap a tray photo and get intelligent AI portion estimates based on what's available today.</p>
-      </div>
-      <div class="showcase-image-container">
-        <!-- Using the provided Menu screenshot -->
-        <img src="assets/screenshots/menu.jpg" alt="PCC Dining Menu Integration"
-          onerror="this.src='https://placehold.co/800x1700/e2e8f0/475569?text=Menu+Screenshot'">
+        <a href="/demo" class="btn-ghost">Try the web demo</a>
       </div>
     </div>
 
-    <div class="showcase-feature reverse animate-fade-up delay-3">
-      <div class="showcase-text">
-        <h2>Your daily targets at a glance</h2>
-        <p>A beautifully simple unified dashboard automatically adjusts your daily calorie goals based on your active
-          energy and step data from Apple Health.</p>
-        <p>Easily track your essential nutrients and daily macros to keep yourself on track.</p>
+    <div class="hero-scroll">
+      <span class="hero-scroll-label">Scroll</span>
+      <div class="hero-scroll-line"></div>
+    </div>
+  </section>
+
+  <!-- ─── WHAT IT DOES ─── -->
+  <div class="what-strip">
+    <div class="what-inner">
+      <div class="what-item">
+        <strong>Live campus menus</strong>
+        <span>Updated every day</span>
       </div>
-      <div class="showcase-image-container">
-        <!-- Using the provided Today dashboard screenshot -->
-        <img src="assets/screenshots/today.jpg" alt="Today Dashboard Metrics"
-          onerror="this.src='https://placehold.co/800x1700/e2e8f0/475569?text=Today+Screenshot'">
+      <div class="what-item">
+        <strong>AI photo logging</strong>
+        <span>Snap a tray, get estimates</span>
+      </div>
+      <div class="what-item">
+        <strong>Apple Health sync</strong>
+        <span>Goals that adjust to you</span>
       </div>
     </div>
+  </div>
 
-    <div class="showcase-feature animate-fade-up delay-4">
-      <div class="showcase-text">
-        <h2>Insightful review over time</h2>
-        <p>Review comprehensive historical data spanning from 7 days up to 2 years. Identify long-term trends and
-          correlations in your nutritional habits in simple, easy to read charts.</p>
-        <p>All your data is kept securely on your device, with optional private iCloud sync for continuity across your
-          Apple ecosystem.</p>
+  <!-- ─── FEATURE 1: CAMPUS MENUS ─── -->
+  <section class="feature-section">
+    <div class="feature-inner reveal">
+      <div class="feature-text">
+        <span class="feature-label">Campus Dining</span>
+        <h2 class="feature-title">No more guessing what's on the menu.</h2>
+        <p class="feature-body">Every meal served at Four Winds, Varsity, and Grab N Go is pulled in daily and ready to log. You can see calorie counts and protein before you even pick up a tray.</p>
+        <p class="feature-body">If you'd rather just take a photo, AI can estimate your portions based on what's actually being served that day.</p>
+        <div class="feature-list">
+          <span class="feature-list-item">Four Winds, Varsity, and Grab N Go</span>
+          <span class="feature-list-item">Browse by meal &mdash; Breakfast, Lunch, Dinner</span>
+          <span class="feature-list-item">AI tray photo estimation</span>
+        </div>
       </div>
-      <div class="showcase-image-container">
-        <!-- Using the provided History screenshot -->
-        <img src="assets/screenshots/history.jpg" alt="History and Insights"
-          onerror="this.src='https://placehold.co/800x1700/e2e8f0/475569?text=History+Screenshot'">
+      <div class="feature-phone">
+        <div class="phone-shell">
+          <img src="assets/screenshots/menu.jpg" alt="Campus dining menus screen" loading="lazy">
+        </div>
       </div>
     </div>
-  </main>
+  </section>
 
+  <!-- ─── FEATURE 2: TODAY ─── -->
+  <section class="feature-section on-linen">
+    <div class="feature-inner flip reveal">
+      <div class="feature-text">
+        <span class="feature-label">Daily Dashboard</span>
+        <h2 class="feature-title">Know where you stand, right now.</h2>
+        <p class="feature-body">Your Today view shows calories left, what you've eaten, and how your macros are tracking — all updated as you go. Simple, clear, no noise.</p>
+        <p class="feature-body">Your daily calorie goal shifts automatically based on how active you've been, pulled from Apple Health so it always reflects your actual day.</p>
+        <div class="feature-list">
+          <span class="feature-list-item">Calories consumed and remaining</span>
+          <span class="feature-list-item">Protein, Carbs, and Fat at a glance</span>
+          <span class="feature-list-item">Goals that adjust to your activity</span>
+        </div>
+      </div>
+      <div class="feature-phone">
+        <div class="phone-shell">
+          <img src="assets/screenshots/today.jpg" alt="Today calorie dashboard" loading="lazy">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── FEATURE 3: HISTORY ─── -->
+  <section class="feature-section">
+    <div class="feature-inner reveal">
+      <div class="feature-text">
+        <span class="feature-label">History &amp; Trends</span>
+        <h2 class="feature-title">Patterns are easier to spot than you'd think.</h2>
+        <p class="feature-body">Pull up the last 7 days or the last 2 years. See your average intake, how your meals split across the day, and whether you're actually moving in the right direction.</p>
+        <p class="feature-body">Everything stays on your device. If you want it on your other Apple devices too, iCloud sync takes care of that quietly in the background.</p>
+        <div class="feature-list">
+          <span class="feature-list-item">7 days to 2 years of history</span>
+          <span class="feature-list-item">Meal distribution by type</span>
+          <span class="feature-list-item">Stays private, on your device</span>
+        </div>
+      </div>
+      <div class="feature-phone">
+        <div class="phone-shell">
+          <img src="assets/screenshots/history.jpg" alt="History and trends screen" loading="lazy">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── ALSO INCLUDED ─── -->
+  <section class="also-section">
+    <div class="also-header reveal">
+      <h2>A few more things worth knowing.</h2>
+      <p>For when you're eating off campus, or just can't find it in the dining menu.</p>
+    </div>
+    <div class="also-grid">
+      <div class="also-item reveal">
+        <h3>Barcode Scanner</h3>
+        <p>Scan any packaged food and the nutrition info fills in automatically. Good for snacks from your room or off-campus runs.</p>
+      </div>
+      <div class="also-item reveal reveal-d1">
+        <h3>USDA Food Search</h3>
+        <p>Search millions of foods by name. Useful when you're cooking for yourself or eating somewhere the menus don't cover.</p>
+      </div>
+      <div class="also-item reveal reveal-d2">
+        <h3>No Account Needed</h3>
+        <p>Download it and use it. No email, no password, no subscription. Your data is yours, kept locally unless you choose to sync.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── CTA ─── -->
+  <section class="cta-section">
+    <div class="cta-inner">
+      <p class="cta-label">Free on iPhone</p>
+      <h2 class="cta-title">
+        Ready when<br><em>you are.</em>
+      </h2>
+      <p class="cta-body">No account. No subscription. Just download and start.</p>
+      <a href="https://apps.apple.com/us/app/pcc-calorie-tracker/id6759851781" class="cta-btn" target="_blank" rel="noopener noreferrer">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+        Download on App Store
+      </a>
+      <p class="cta-note">Requires iOS 16 or later &middot; iPhone</p>
+    </div>
+  </section>
+
+  <!-- ─── FOOTER ─── -->
   <footer>
-    <div class="footer-content">
-      <div class="footer-logo" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-          stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-          class="lucide lucide-activity">
-          <path
-            d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.48 12H2" />
-        </svg>
-        Calorie Tracker
-      </div>
+    <div class="footer-inner">
+      <div class="footer-logo">PCC Calorie Tracker</div>
       <div class="footer-links">
+        <a href="https://github.com/micahbb05/PCCCalorieTracker" target="_blank" rel="noopener noreferrer">GitHub</a>
         <a href="/privacy-policy">Privacy Policy</a>
       </div>
-      <div class="copyright">
-        &copy; 2026 Calorie Tracker. All rights reserved. Not officially affiliated with Pensacola Christian College.
-      </div>
+      <p class="footer-copy">&copy; 2026 Calorie Tracker &mdash; Not officially affiliated with Pensacola Christian College.</p>
     </div>
   </footer>
-</body>
 
+  <script>
+    // Hero photo slow zoom
+    document.getElementById('hero').classList.add('loaded');
+
+    // Nav scroll state
+    const nav = document.getElementById('nav');
+    let ticking = false;
+
+    function updateNav() {
+      nav.classList.toggle('scrolled', window.scrollY > 50);
+      ticking = false;
+    }
+
+    window.addEventListener('scroll', () => {
+      if (!ticking) { requestAnimationFrame(updateNav); ticking = true; }
+    }, { passive: true });
+
+    // Scroll-reveal
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('in-view');
+          observer.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.07, rootMargin: '0px 0px -40px 0px' });
+
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+  </script>
+
+</body>
 </html>

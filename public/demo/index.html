@@ -7,40 +7,311 @@
   <link rel="shortcut icon" href="/demo/pcc-ios-logo-blue.png?v=20260311c" />
   <link rel="apple-touch-icon" href="/demo/pcc-ios-logo-blue.png?v=20260311c" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Web Demo — PCC Calorie Tracker</title>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Inter:wght@400;500;600;700&family=Outfit:wght@500;700&display=swap"
-    rel="stylesheet">
-  <title>PCC Calorie Tracker - Demo</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+
+  <!-- React app bundle -->
   <script type="module" crossorigin src="/demo/assets/index-BxP6SIhm.js"></script>
   <link rel="stylesheet" crossorigin href="/demo/assets/index-DOmJ0xdq.css">
+
+  <!-- ─── v3 overrides: loaded AFTER bundle so cascade wins ─── -->
+  <style>
+    /* Remap the bundle's CSS variables to v3 tokens */
+    :root {
+      --bg-color:      #F5F0E6;
+      --surface:       #FFFEF9;
+      --surface-hover: #EDE8DC;
+      --border:        #D9D1C0;
+      --primary:       #1B3828;
+      --primary-glow:  transparent;
+      --secondary:     #2F5E42;
+      --success:       #4A7A5A;
+      --text-main:     #19120B;
+      --text-muted:    #9A8878;
+      --radius:        14px;
+    }
+
+    /* Body */
+    body {
+      font-family: 'Lora', Georgia, serif !important;
+      background: #F5F0E6 !important;
+    }
+
+    /* Kill the blue ambient blobs */
+    .ambient-bg { display: none !important; }
+
+    /* Headings → Cormorant */
+    h1, h2, h3, h4, .outfit {
+      font-family: 'Cormorant Garamond', Georgia, serif !important;
+    }
+
+    .title {
+      font-family: 'Cormorant Garamond', Georgia, serif !important;
+      font-weight: 500 !important;
+      letter-spacing: -0.02em !important;
+      font-size: clamp(2rem, 5vw, 2.75rem) !important;
+    }
+
+    .subtitle {
+      font-family: 'Lora', Georgia, serif !important;
+      font-style: italic !important;
+      color: #9A8878 !important;
+    }
+
+    /* Segmented control */
+    .segmented-control {
+      background: #EDE8DC !important;
+      border-color: #D9D1C0 !important;
+    }
+
+    .segmented-control button {
+      font-family: 'Lora', Georgia, serif !important;
+      font-weight: 500 !important;
+      font-size: 0.9375rem !important;
+    }
+
+    .segmented-control button.active {
+      color: #19120B !important;
+      box-shadow: 0 1px 4px rgba(25,18,11,0.08) !important;
+    }
+
+    /* Cards */
+    .card {
+      background: #FFFEF9 !important;
+      border-color: #D9D1C0 !important;
+      box-shadow: 0 2px 12px rgba(25,18,11,0.05) !important;
+    }
+
+    .card.interactive:hover {
+      background: #F5F0E6 !important;
+      border-color: #C0B89E !important;
+      box-shadow: 0 6px 20px rgba(25,18,11,0.08) !important;
+    }
+
+    /* Buttons */
+    .glass-btn {
+      font-family: 'Lora', Georgia, serif !important;
+      font-weight: 500 !important;
+      border-color: #D9D1C0 !important;
+    }
+
+    .glass-btn.primary {
+      background: #1B3828 !important;
+      border-color: #1B3828 !important;
+    }
+
+    .glass-btn.primary:hover {
+      background: #2F5E42 !important;
+    }
+
+    .icon-btn {
+      border-color: #D9D1C0 !important;
+    }
+
+    .icon-btn.add-btn {
+      background: #1B3828 !important;
+      border-color: #1B3828 !important;
+    }
+
+    .icon-btn.add-btn:hover {
+      background: #2F5E42 !important;
+    }
+
+    /* Nav within the old bundle (hidden by our v3 nav) */
+    header { display: none !important; }
+
+    /* ─── Inline style overrides (hardcoded in React components) ─── */
+
+    /* Empty-state card: dashed → solid */
+    #app .card[style*="dashed"] {
+      border-style: solid !important;
+      border-color: #D9D1C0 !important;
+      background: #FFFEF9 !important;
+    }
+
+    /* Macro progress bar tracks (#e5e7eb → sand) */
+    #app div[style*="#e5e7eb"] {
+      background: #E0D9CB !important;
+    }
+
+    /* Protein bar fill (#3b82f6 blue → sage) */
+    #app div[style*="#3b82f6"] {
+      background: #64927A !important;
+    }
+
+    /* Carbs bar fill (#10b981 green → amber) */
+    #app div[style*="#10b981"] {
+      background: #B8924A !important;
+    }
+
+    /* Fat bar fill (#f59e0b yellow → warm earth) */
+    #app div[style*="#f59e0b"] {
+      background: #9A6E3A !important;
+    }
+
+    /* Meal entry badge (blue-gray → warm linen) */
+    #app .badge[style*="#f1f5f9"] {
+      background: #EDE8DC !important;
+      border-color: #D9D1C0 !important;
+    }
+
+    /* Menu calorie badge (light blue → sage pale) */
+    #app .badge[style*="#e0f2fe"] {
+      background: #E8F0EB !important;
+      color: #2F5E42 !important;
+    }
+
+    /* Default badge: override bundle's hardcoded green (#10b98126) */
+    #app .badge {
+      background: #EDE8DC !important;
+      border-color: #D9D1C0 !important;
+      color: var(--text-main) !important;
+    }
+
+    /* Delete button red stays red — intentional */
+
+    /* ─── v3 site nav ─── */
+    .v3-nav {
+      background: rgba(245, 240, 230, 0.96);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid #D9D1C0;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      font-family: 'Lora', Georgia, serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .v3-nav-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 1.375rem 3rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .v3-logo {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #19120B;
+      text-decoration: none;
+      letter-spacing: 0.01em;
+    }
+
+    .v3-nav-right {
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+    }
+
+    .v3-back {
+      font-family: 'Lora', Georgia, serif;
+      font-style: italic;
+      font-size: 0.875rem;
+      color: #9A8878;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: color 0.25s ease;
+    }
+
+    .v3-back:hover { color: #19120B; }
+
+    .v3-back svg {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+      transition: transform 0.25s ease;
+    }
+
+    .v3-back:hover svg { transform: translateX(-3px); }
+
+    .v3-download {
+      font-family: 'Lora', Georgia, serif;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #1B3828;
+      text-decoration: none;
+      padding: 0.5rem 1.25rem;
+      border: 1px solid rgba(27, 56, 40, 0.28);
+      border-radius: 999px;
+      transition: all 0.3s ease;
+    }
+
+    .v3-download:hover {
+      background: #E8F0EB;
+      border-color: #2F5E42;
+    }
+
+    /* Demo banner */
+    .v3-demo-banner {
+      background: #EDE8DC;
+      border-bottom: 1px solid #D9D1C0;
+      padding: 0.625rem 3rem;
+      text-align: center;
+      font-family: 'Lora', Georgia, serif;
+      font-style: italic;
+      font-size: 0.875rem;
+      color: #9A8878;
+    }
+
+    .v3-demo-banner a {
+      color: #2F5E42;
+      text-decoration: underline;
+      text-decoration-color: rgba(47,94,66,0.35);
+      text-underline-offset: 2px;
+    }
+
+    @media (max-width: 640px) {
+      .v3-nav-inner { padding: 1.25rem 1.5rem; }
+      .v3-download { display: none; }
+      .v3-demo-banner { padding: 0.625rem 1.5rem; font-size: 0.8125rem; }
+    }
+
+    /* Grain texture over everything */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23g)' opacity='0.04'/%3E%3C/svg%3E");
+      background-size: 300px 300px;
+      pointer-events: none;
+      z-index: 9999;
+      mix-blend-mode: multiply;
+    }
+  </style>
 </head>
 
 <body>
-  <div class="ambient-bg"></div>
-  <header>
-    <nav>
-      <div class="logo">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-          stroke="var(--secondary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-          class="lucide lucide-activity">
-          <path
-            d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.48 12H2" />
-        </svg>
-        Calorie Tracker
-      </div>
-      <div class="nav-links">
-        <a href="/index.html" class="back-btn">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-          </svg>
-          Back to Home
-        </a>
-      </div>
-    </nav>
-  </header>
-  <div id="app"></div>
-</body>
 
+  <!-- v3 site nav -->
+  <nav class="v3-nav">
+    <div class="v3-nav-inner">
+      <a href="/" class="v3-logo">Calorie Tracker</a>
+      <div class="v3-nav-right">
+        <a href="/" class="v3-back">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"/></svg>
+          Back to home
+        </a>
+        <a href="https://apps.apple.com/us/app/pcc-calorie-tracker/id6759851781" class="v3-download" target="_blank" rel="noopener noreferrer">Download Free</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Demo notice -->
+  <div class="v3-demo-banner">
+    This is a limited web preview. For the full experience, <a href="https://apps.apple.com/us/app/pcc-calorie-tracker/id6759851781" target="_blank" rel="noopener noreferrer">download the app</a>.
+  </div>
+
+  <!-- React app -->
+  <div id="app"></div>
+
+</body>
 </html>

@@ -19,7 +19,7 @@ extension ContentView {
                     VStack(alignment: .leading, spacing: 18) {
                         HStack {
                             Text("Calorie Trends")
-                                .font(.system(size: 30, weight: .bold, design: .rounded))
+                                .font(.system(size: 30, weight: .bold, design: .default))
                                 .foregroundStyle(textPrimary)
                             Spacer()
                             Menu {
@@ -64,8 +64,8 @@ extension ContentView {
 
                         VStack(alignment: .leading, spacing: 14) {
                             HStack(spacing: 14) {
-                                calorieTrendLegendChip(title: "Consumed", color: accent)
-                                calorieTrendLegendChip(title: "Burned", color: .orange)
+                                calorieTrendLegendChip(title: "Consumed", color: calorieTrendConsumedColor)
+                                calorieTrendLegendChip(title: "Burned", color: calorieTrendBurnedColor)
                                 calorieTrendLegendChip(title: "Average", color: textSecondary.opacity(0.75), isDashed: true)
                                 Spacer()
                             }
@@ -79,7 +79,7 @@ extension ContentView {
                             .frame(height: 320)
                         }
                         .padding(18)
-                        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.15))
+                        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.18))
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 24)
@@ -117,7 +117,7 @@ extension ContentView {
                     VStack(alignment: .leading, spacing: 18) {
                         HStack {
                             Text("Weight Change")
-                                .font(.system(size: 30, weight: .bold, design: .rounded))
+                                .font(.system(size: 30, weight: .bold, design: .default))
                                 .foregroundStyle(textPrimary)
                             Spacer()
                             Menu {
@@ -198,7 +198,7 @@ extension ContentView {
                             }
                         }
                         .padding(18)
-                        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.15))
+                        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.18))
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 24)
@@ -322,7 +322,7 @@ extension ContentView {
                         series: .value("Series", point.series == .consumed ? "Consumed Average" : "Burned Average")
                     )
                     .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
-                    .foregroundStyle(point.series == .consumed ? accent.opacity(0.5) : Color.orange.opacity(0.5))
+                    .foregroundStyle(point.series == .consumed ? calorieTrendConsumedColor.opacity(0.5) : calorieTrendBurnedColor.opacity(0.5))
                 }
 
                 ForEach(linePoints) { point in
@@ -333,7 +333,7 @@ extension ContentView {
                     )
                     .interpolationMethod(interpolation)
                     .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
-                    .foregroundStyle(accent)
+                    .foregroundStyle(calorieTrendConsumedColor)
                 }
 
                 ForEach(linePoints) { point in
@@ -344,7 +344,7 @@ extension ContentView {
                     )
                     .interpolationMethod(interpolation)
                     .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
-                    .foregroundStyle(Color.orange)
+                    .foregroundStyle(calorieTrendBurnedColor)
                 }
             }
         }
@@ -376,6 +376,10 @@ extension ContentView {
             }
         }
     }
+
+    private var calorieTrendConsumedColor: Color { accent }
+
+    private var calorieTrendBurnedColor: Color { AppTheme.info }
 
     // MARK: - Weight Change
 
@@ -688,9 +692,9 @@ extension ContentView {
 
     func color(for state: CalorieGoalState) -> Color {
         switch state {
-        case .green: return Color.green
+        case .green:  return Color.green
         case .yellow: return Color.yellow
-        case .red: return Color.red
+        case .red:    return Color.red
         }
     }
 
@@ -729,59 +733,131 @@ extension ContentView {
     }
 
     func paletteForNutrient(_ key: String, progress: Double) -> (start: Color, end: Color) {
+        if appThemeStyleRaw == AppThemeStyle.blueprint.rawValue {
+            return blueprintPaletteForNutrient(key, progress: progress)
+        }
         switch key.lowercased() {
+        // Ember: each macro maps to the warm palette (teal / amber / clay)
         case "g_protein":
             return (
-                interpolateColor(from: UIColor.systemMint, to: UIColor.systemGreen, progress: progress),
-                interpolateColor(from: UIColor.systemGreen, to: UIColor.systemTeal, progress: progress)
+                interpolateColor(from: UIColor(red: 0.482, green: 0.659, blue: 0.620, alpha: 1.0),
+                                 to: UIColor(red: 0.353, green: 0.565, blue: 0.533, alpha: 1.0), progress: progress),
+                interpolateColor(from: UIColor(red: 0.353, green: 0.565, blue: 0.533, alpha: 1.0),
+                                 to: UIColor(red: 0.282, green: 0.490, blue: 0.459, alpha: 1.0), progress: progress)
             )
         case "g_carbs":
             return (
-                interpolateColor(from: UIColor.systemYellow, to: UIColor.systemOrange, progress: progress),
-                interpolateColor(from: UIColor(red: 1.0, green: 0.84, blue: 0.20, alpha: 1.0), to: UIColor.systemYellow, progress: progress)
+                interpolateColor(from: UIColor(red: 0.769, green: 0.588, blue: 0.353, alpha: 1.0),
+                                 to: UIColor(red: 0.651, green: 0.478, blue: 0.259, alpha: 1.0), progress: progress),
+                interpolateColor(from: UIColor(red: 0.651, green: 0.478, blue: 0.259, alpha: 1.0),
+                                 to: UIColor(red: 0.549, green: 0.384, blue: 0.188, alpha: 1.0), progress: progress)
             )
         case "g_fat", "g_saturated_fat", "g_trans_fat":
             return (
-                interpolateColor(from: UIColor.systemPink, to: UIColor.systemRed, progress: progress),
-                interpolateColor(from: UIColor.systemPink.withAlphaComponent(0.85), to: UIColor.systemOrange, progress: progress)
+                interpolateColor(from: UIColor(red: 0.604, green: 0.533, blue: 0.471, alpha: 1.0),
+                                 to: UIColor(red: 0.502, green: 0.435, blue: 0.380, alpha: 1.0), progress: progress),
+                interpolateColor(from: UIColor(red: 0.502, green: 0.435, blue: 0.380, alpha: 1.0),
+                                 to: UIColor(red: 0.412, green: 0.353, blue: 0.306, alpha: 1.0), progress: progress)
             )
         case "g_sugar", "g_added_sugar":
             return (
-                interpolateColor(from: UIColor.systemOrange, to: UIColor.systemRed, progress: progress),
-                interpolateColor(from: UIColor.systemYellow, to: UIColor.systemOrange, progress: progress)
+                interpolateColor(from: UIColor(red: 0.722, green: 0.447, blue: 0.290, alpha: 1.0),
+                                 to: UIColor(red: 0.604, green: 0.353, blue: 0.216, alpha: 1.0), progress: progress),
+                interpolateColor(from: UIColor(red: 0.604, green: 0.353, blue: 0.216, alpha: 1.0),
+                                 to: UIColor(red: 0.510, green: 0.275, blue: 0.153, alpha: 1.0), progress: progress)
             )
         case "mg_sodium":
             return (
-                interpolateColor(from: UIColor.systemBlue, to: UIColor.systemIndigo, progress: progress),
-                interpolateColor(from: UIColor.systemCyan, to: UIColor.systemBlue, progress: progress)
+                interpolateColor(from: UIColor(red: 0.447, green: 0.518, blue: 0.580, alpha: 1.0),
+                                 to: UIColor(red: 0.353, green: 0.420, blue: 0.490, alpha: 1.0), progress: progress),
+                interpolateColor(from: UIColor(red: 0.353, green: 0.420, blue: 0.490, alpha: 1.0),
+                                 to: UIColor(red: 0.275, green: 0.341, blue: 0.408, alpha: 1.0), progress: progress)
             )
         case "mg_calcium":
             return (
-                interpolateColor(from: UIColor.systemTeal, to: UIColor.systemBlue, progress: progress),
-                interpolateColor(from: UIColor.systemMint, to: UIColor.systemTeal, progress: progress)
+                interpolateColor(from: UIColor(red: 0.482, green: 0.659, blue: 0.620, alpha: 1.0),
+                                 to: UIColor(red: 0.400, green: 0.576, blue: 0.620, alpha: 1.0), progress: progress),
+                interpolateColor(from: UIColor(red: 0.400, green: 0.576, blue: 0.620, alpha: 1.0),
+                                 to: UIColor(red: 0.318, green: 0.490, blue: 0.537, alpha: 1.0), progress: progress)
             )
         case "mg_iron":
             return (
-                interpolateColor(from: UIColor.systemRed, to: UIColor(red: 0.58, green: 0.12, blue: 0.18, alpha: 1.0), progress: progress),
-                interpolateColor(from: UIColor.systemOrange, to: UIColor.systemRed, progress: progress)
+                interpolateColor(from: UIColor(red: 0.722, green: 0.408, blue: 0.345, alpha: 1.0),
+                                 to: UIColor(red: 0.580, green: 0.290, blue: 0.235, alpha: 1.0), progress: progress),
+                interpolateColor(from: UIColor(red: 0.580, green: 0.290, blue: 0.235, alpha: 1.0),
+                                 to: UIColor(red: 0.459, green: 0.208, blue: 0.165, alpha: 1.0), progress: progress)
             )
         case "mg_vitamin_c":
             return (
-                interpolateColor(from: UIColor.systemGreen, to: UIColor.systemTeal, progress: progress),
-                interpolateColor(from: UIColor.systemMint, to: UIColor.systemGreen, progress: progress)
+                interpolateColor(from: UIColor(red: 0.451, green: 0.647, blue: 0.502, alpha: 1.0),
+                                 to: UIColor(red: 0.353, green: 0.549, blue: 0.404, alpha: 1.0), progress: progress),
+                interpolateColor(from: UIColor(red: 0.353, green: 0.549, blue: 0.404, alpha: 1.0),
+                                 to: UIColor(red: 0.275, green: 0.459, blue: 0.322, alpha: 1.0), progress: progress)
             )
         default:
             return (
-                interpolateColor(from: UIColor.systemPurple, to: UIColor.systemBlue, progress: progress),
-                interpolateColor(from: UIColor.systemIndigo, to: UIColor.systemPurple, progress: progress)
+                interpolateColor(from: UIColor(red: 0.553, green: 0.482, blue: 0.620, alpha: 1.0),
+                                 to: UIColor(red: 0.451, green: 0.380, blue: 0.518, alpha: 1.0), progress: progress),
+                interpolateColor(from: UIColor(red: 0.451, green: 0.380, blue: 0.518, alpha: 1.0),
+                                 to: UIColor(red: 0.361, green: 0.298, blue: 0.427, alpha: 1.0), progress: progress)
             )
         }
     }
 
-    /// Vivid bar colors so the calorie state is obvious at a glance.
-    static let barGreen = Color(red: 0.22, green: 0.78, blue: 0.35)
-    static let barYellow = Color(red: 1.0, green: 0.76, blue: 0.12)
-    static let barRed = Color(red: 0.95, green: 0.26, blue: 0.21)
+    private func blueprintPaletteForNutrient(_ key: String, progress: Double) -> (start: Color, end: Color) {
+        switch key.lowercased() {
+        case "g_protein":
+            return (
+                interpolateColor(from: UIColor.systemMint,  to: UIColor.systemTeal,   progress: progress),
+                interpolateColor(from: UIColor.systemTeal,  to: UIColor.systemCyan,   progress: progress)
+            )
+        case "g_carbs":
+            return (
+                interpolateColor(from: UIColor.systemYellow, to: UIColor.systemOrange, progress: progress),
+                interpolateColor(from: UIColor.systemOrange, to: UIColor.systemRed,    progress: progress)
+            )
+        case "g_fat", "g_saturated_fat", "g_trans_fat":
+            return (
+                interpolateColor(from: UIColor.systemOrange, to: UIColor.systemYellow, progress: progress),
+                interpolateColor(from: UIColor.systemYellow, to: UIColor.systemOrange, progress: progress)
+            )
+        case "g_sugar", "g_added_sugar":
+            return (
+                interpolateColor(from: UIColor.systemPink, to: UIColor.systemRed,  progress: progress),
+                interpolateColor(from: UIColor.systemRed,  to: UIColor.systemPink, progress: progress)
+            )
+        case "mg_sodium":
+            return (
+                interpolateColor(from: UIColor.systemBlue, to: UIColor.systemCyan, progress: progress),
+                interpolateColor(from: UIColor.systemCyan, to: UIColor.systemBlue, progress: progress)
+            )
+        case "mg_calcium":
+            return (
+                interpolateColor(from: UIColor.systemGreen, to: UIColor.systemMint, progress: progress),
+                interpolateColor(from: UIColor.systemMint,  to: UIColor.systemTeal, progress: progress)
+            )
+        case "mg_iron":
+            return (
+                interpolateColor(from: UIColor.systemRed,  to: UIColor.systemPink,  progress: progress),
+                interpolateColor(from: UIColor.systemPink, to: UIColor.systemOrange, progress: progress)
+            )
+        case "mg_vitamin_c":
+            return (
+                interpolateColor(from: UIColor.systemGreen, to: UIColor.systemTeal, progress: progress),
+                interpolateColor(from: UIColor.systemTeal,  to: UIColor.systemMint, progress: progress)
+            )
+        default:
+            return (
+                interpolateColor(from: UIColor.systemIndigo,  to: UIColor.systemPurple, progress: progress),
+                interpolateColor(from: UIColor.systemPurple, to: UIColor.systemIndigo,  progress: progress)
+            )
+        }
+    }
+
+    /// Calorie progress bar colors — keep green/yellow/red for readability
+    static let barGreen  = Color(red: 0.22, green: 0.78, blue: 0.35)
+    static let barYellow = Color(red: 1.0,  green: 0.76, blue: 0.12)
+    static let barRed    = Color(red: 0.95, green: 0.26, blue: 0.21)
 
     func calorieBarPalette(consumed: Int, goal: Int, burned: Int) -> (start: Color, end: Color) {
         switch calorieGoalState(consumed: consumed, goal: goal, burned: burned, goalType: goalType) {

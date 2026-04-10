@@ -304,15 +304,19 @@ extension ContentView {
     }
 
     func color(for mealGroup: MealGroup) -> Color {
+        if appThemeStyleRaw == AppThemeStyle.blueprint.rawValue {
+            switch mealGroup {
+            case .breakfast: return Color(red: 0.15, green: 0.83, blue: 0.55) // mint green
+            case .lunch:     return Color(red: 0.99, green: 0.80, blue: 0.11) // golden yellow
+            case .dinner:    return Color(red: 1.0,  green: 0.42, blue: 0.29) // coral red
+            case .snack:     return Color(red: 0.23, green: 0.51, blue: 1.0)  // bright blue
+            }
+        }
         switch mealGroup {
-        case .dinner:
-            return Color(red: 1.0, green: 0.42, blue: 0.29)
-        case .lunch:
-            return Color(red: 0.99, green: 0.80, blue: 0.11)
-        case .breakfast:
-            return Color(red: 0.15, green: 0.83, blue: 0.55)
-        case .snack:
-            return Color(red: 0.23, green: 0.51, blue: 1.0)
+        case .breakfast: return Color(red: 0.88, green: 0.68, blue: 0.36) // warm gold — morning
+        case .lunch:     return Color(red: 0.42, green: 0.70, blue: 0.54) // muted sage — midday
+        case .dinner:    return Color(red: 0.52, green: 0.56, blue: 0.80) // dusty slate blue — evening
+        case .snack:     return Color(red: 0.76, green: 0.50, blue: 0.55) // muted rose — treat
         }
     }
 

@@ -26,14 +26,24 @@ struct PlateEstimateResultView: View {
     @State private var isAdjusterKeyboardVisible = false
     @FocusState private var isAdjusterAmountFieldFocused: Bool
 
+    @AppStorage("appThemeStyle") private var appThemeStyleRaw: String = AppThemeStyle.ember.rawValue
+
+    private var isBlueprint: Bool { appThemeStyleRaw == AppThemeStyle.blueprint.rawValue }
+
     private var surfacePrimary: Color {
-        colorScheme == .dark ? Color(red: 0.13, green: 0.15, blue: 0.20) : Color.white
+        colorScheme == .dark
+            ? (isBlueprint ? Color(red: 0.13, green: 0.15, blue: 0.20) : Color(red: 0.140, green: 0.118, blue: 0.094))
+            : Color.white
     }
     private var textPrimary: Color {
-        colorScheme == .dark ? Color(red: 0.95, green: 0.96, blue: 0.98) : Color(red: 0.12, green: 0.14, blue: 0.18)
+        colorScheme == .dark
+            ? (isBlueprint ? Color(red: 0.95, green: 0.96, blue: 0.98) : Color(red: 0.961, green: 0.941, blue: 0.902))
+            : (isBlueprint ? Color(red: 0.10, green: 0.11, blue: 0.14) : Color(red: 0.12, green: 0.10, blue: 0.08))
     }
     private var textSecondary: Color {
-        colorScheme == .dark ? Color(red: 0.78, green: 0.81, blue: 0.86) : Color(red: 0.43, green: 0.47, blue: 0.54)
+        colorScheme == .dark
+            ? (isBlueprint ? Color(red: 0.78, green: 0.81, blue: 0.86) : Color(red: 0.62, green: 0.60, blue: 0.58))
+            : (isBlueprint ? Color(red: 0.45, green: 0.47, blue: 0.52) : Color(red: 0.45, green: 0.42, blue: 0.38))
     }
     private var accent: Color { AppTheme.accent }
 
@@ -73,8 +83,8 @@ struct PlateEstimateResultView: View {
         let hasLoggableItems = !itemsOnPlate.isEmpty
         let gradientBg = LinearGradient(
             colors: [
-                colorScheme == .dark ? Color(red: 0.07, green: 0.08, blue: 0.12) : Color(red: 0.95, green: 0.97, blue: 0.99),
-                colorScheme == .dark ? Color(red: 0.10, green: 0.11, blue: 0.17) : Color(red: 0.91, green: 0.94, blue: 0.98)
+                colorScheme == .dark ? Color(red: 0.059, green: 0.051, blue: 0.039) : Color(red: 0.97, green: 0.95, blue: 0.92),
+                colorScheme == .dark ? Color(red: 0.078, green: 0.063, blue: 0.039) : Color(red: 0.93, green: 0.90, blue: 0.86)
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -139,7 +149,7 @@ struct PlateEstimateResultView: View {
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(textSecondary.opacity(0.22), lineWidth: 0.5)
+                            .stroke(textSecondary.opacity(0.18), lineWidth: 0.5)
                     )
                     .padding(.top, 6)
                     .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 8, trailing: 16))
@@ -197,7 +207,7 @@ struct PlateEstimateResultView: View {
                             trackedNutrientKeys: trackedNutrientKeys,
                             displayedNutrientKeys: displayedTotalNutrientKeys,
                             surface: surfacePrimary.opacity(0.95),
-                            stroke: textSecondary.opacity(0.15),
+                            stroke: textSecondary.opacity(0.18),
                             titleColor: textPrimary,
                             labelColor: textSecondary,
                             valueColor: textPrimary
@@ -271,7 +281,7 @@ struct PlateEstimateResultView: View {
                             displayedNutrientKeys: nil,
                             showNAForMissingNutrients: true,
                             surface: surfacePrimary.opacity(0.95),
-                            stroke: textSecondary.opacity(0.15),
+                            stroke: textSecondary.opacity(0.18),
                             titleColor: textPrimary,
                             labelColor: textSecondary,
                             valueColor: textPrimary
@@ -363,7 +373,7 @@ struct PlateEstimateResultView: View {
                 .foregroundStyle(accent)
 
             Text(item.name)
-                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .font(.system(size: 28, weight: .bold, design: .default))
                 .foregroundStyle(textPrimary)
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
@@ -817,7 +827,7 @@ private struct PlateSwipeDeleteRow: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(textSecondary.opacity(0.15), lineWidth: 1)
+                .stroke(textSecondary.opacity(0.18), lineWidth: 1)
         )
         .contentShape(Rectangle())
         .onTapGesture(perform: onOpen)

@@ -565,6 +565,7 @@ struct ContentView: View {
     /// When false, base servings always come from the menu's serving size.
     @AppStorage("useAIBaseServings") var useAIBaseServings: Bool = true
     @AppStorage("smartMealRemindersEnabled") var smartMealRemindersEnabled: Bool = false
+    @AppStorage("appThemeStyle") var appThemeStyleRaw: String = AppThemeStyle.ember.rawValue
 
     @State var entries: [MealEntry] = []
     @State var exercises: [ExerciseEntry] = []

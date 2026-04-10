@@ -82,7 +82,7 @@ extension ContentView {
                 .padding(.bottom, 6)
 
             ScrollView {
-                VStack(spacing: 10) {
+                VStack(spacing: 14) {
                     AppSettingsTabView(
                         trackedNutrientKeys: $trackedNutrientKeys,
                         availableNutrients: availableNutrients,
@@ -91,6 +91,7 @@ extension ContentView {
                         manualBMRCalories: $storedManualBMRCalories,
                         useAIBaseServings: $useAIBaseServings,
                         smartMealRemindersEnabled: $smartMealRemindersEnabled,
+                        appThemeStyleRaw: $appThemeStyleRaw,
                         cloudSyncStatusTitle: cloudSyncStatusTitle,
                         cloudSyncStatusDetail: cloudSyncStatusDetail,
                         cloudSyncStatusTint: cloudSyncStatusTint,
@@ -106,24 +107,29 @@ extension ContentView {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("App & Privacy")
                             .font(.headline.weight(.semibold))
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(textPrimary)
 
                         VStack(spacing: 0) {
                             Button {
                                 hasCompletedOnboarding = false
                                 Haptics.impact(.light)
                             } label: {
-                                HStack {
-                                    Label("Replay Onboarding", systemImage: "arrow.counterclockwise")
-                                        .foregroundStyle(.primary)
+                                HStack(spacing: 12) {
+                                    Image(systemName: "arrow.counterclockwise")
+                                        .symbolRenderingMode(.monochrome)
+                                        .foregroundStyle(textPrimary)
+                                        .frame(width: 20)
+                                    Text("Replay Onboarding")
+                                        .foregroundStyle(textPrimary)
                                     Spacer()
                                 }
-                                .padding(18)
+                                .padding(.horizontal, 18)
+                                .padding(.vertical, 16)
                             }
                             .buttonStyle(.plain)
 
                             Divider()
-                                .overlay(Color.secondary.opacity(0.18))
+                                .overlay(Color.white.opacity(0.08))
 
                             Button {
                                 do {
@@ -134,12 +140,17 @@ extension ContentView {
                                     exportErrorMessage = "Couldn’t generate export. Please try again."
                                 }
                             } label: {
-                                HStack {
-                                    Label("Export Data", systemImage: "square.and.arrow.up")
-                                        .foregroundStyle(.primary)
+                                HStack(spacing: 12) {
+                                    Image(systemName: "square.and.arrow.up")
+                                        .symbolRenderingMode(.monochrome)
+                                        .foregroundStyle(textPrimary)
+                                        .frame(width: 20)
+                                    Text("Export Data")
+                                        .foregroundStyle(textPrimary)
                                     Spacer()
                                 }
-                                .padding(18)
+                                .padding(.horizontal, 18)
+                                .padding(.vertical, 16)
                             }
                             .buttonStyle(.plain)
                             .sheet(isPresented: $isShowingExportShareSheet, onDismiss: {
@@ -153,43 +164,45 @@ extension ContentView {
                             }
 
                             Divider()
-                                .overlay(Color.secondary.opacity(0.18))
+                                .overlay(Color.white.opacity(0.08))
 
                             Button {
                                 if let url = URL(string: "https://calorie-tracker-364e3.web.app/privacy") {
                                     UIApplication.shared.open(url)
                                 }
                             } label: {
-                                HStack {
-                                    Label("Privacy Policy", systemImage: "doc.text")
-                                        .foregroundStyle(.primary)
+                                HStack(spacing: 12) {
+                                    Image(systemName: "doc.text")
+                                        .symbolRenderingMode(.monochrome)
+                                        .foregroundStyle(textPrimary)
+                                        .frame(width: 20)
+                                    Text("Privacy Policy")
+                                        .foregroundStyle(textPrimary)
                                     Spacer()
                                     Image(systemName: "arrow.up.right")
                                         .font(.caption.weight(.semibold))
-                                        .foregroundStyle(.secondary)
+                                        .symbolRenderingMode(.monochrome)
+                                        .foregroundStyle(textSecondary)
                                 }
-                                .padding(18)
+                                .padding(.horizontal, 18)
+                                .padding(.vertical, 16)
                             }
                             .buttonStyle(.plain)
                         }
                     }
                     .padding(18)
                     .background(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color(uiColor: .secondarySystemBackground).opacity(colorScheme == .dark ? 0.82 : 0.55))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .stroke(Color.white.opacity(colorScheme == .dark ? 0.08 : 0.14), lineWidth: 1)
-                        )
-                        .shadow(
-                            color: Color.black.opacity(colorScheme == .dark ? 0.20 : 0.08),
-                            radius: colorScheme == .dark ? 10 : 6,
-                            x: 0,
-                            y: 2
-                        )
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(surfacePrimary)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                            )
+                            .shadow(color: .black.opacity(0.20), radius: 14, x: 0, y: 8)
                     )
                 }
                 .padding(.horizontal, 16)
+                .padding(.top, 16)
                 .padding(.bottom, 4)
             }
             .scrollDismissesKeyboard(.interactively)

@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/pcc-ios-logo-blue.png?v=20260311c">
   <link rel="shortcut icon" href="/assets/pcc-ios-logo-blue.png?v=20260311c">
   <link rel="apple-touch-icon" href="/assets/pcc-ios-logo-blue.png?v=20260311c">
@@ -44,7 +44,17 @@
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; }
+    html {
+      scroll-behavior: smooth;
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    html::-webkit-scrollbar,
+    body::-webkit-scrollbar {
+      width: 0;
+      height: 0;
+    }
 
     body {
       font-family: 'Lora', Georgia, serif;
@@ -74,6 +84,7 @@
       top: 0; left: 0; right: 0;
       z-index: 200;
       padding: 1.5rem 3rem;
+      padding-top: calc(1.5rem + env(safe-area-inset-top));
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -81,9 +92,7 @@
     }
 
     #nav.scrolled {
-      background: rgba(245, 240, 230, 0.94);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
+      background: #F5F0E6;
       box-shadow: 0 1px 0 rgba(25, 18, 11, 0.07);
     }
 
@@ -750,7 +759,25 @@
     .hero-buttons  { animation: rise 0.8s ease 0.55s both; }
 
     @media (max-width: 600px) {
-      #nav { padding: 1.25rem 1.5rem; }
+      #nav { padding: 1.25rem 1.5rem; padding-top: calc(1.25rem + env(safe-area-inset-top)); }
+      #nav {
+        --mobile-safe-top-bg: rgba(8, 16, 10, 0.9);
+        isolation: isolate;
+      }
+      #nav::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: calc(env(safe-area-inset-top) + 8px);
+        background: var(--mobile-safe-top-bg);
+        pointer-events: none;
+        z-index: 0;
+        transition: background 0.5s ease;
+      }
+      #nav > * { position: relative; z-index: 1; }
+      #nav.scrolled { --mobile-safe-top-bg: #F5F0E6; }
       .hero { padding: 8rem 1.5rem 0; }
       .what-strip { padding: 1.5rem; }
       .cta-section { padding: 6rem 1.5rem; }

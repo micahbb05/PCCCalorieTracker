@@ -77,7 +77,7 @@ struct OnboardingFlowView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("Welcome")
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .font(.system(size: 32, weight: .bold, design: .default))
                     .foregroundStyle(textPrimary)
 
                 Spacer()
@@ -126,7 +126,7 @@ struct OnboardingFlowView: View {
         VStack(alignment: .leading, spacing: 22) {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Calorie Tracker")
-                    .font(.system(size: 38, weight: .bold, design: .rounded))
+                    .font(.system(size: 38, weight: .bold, design: .default))
                     .foregroundStyle(textPrimary)
 
                 Text("Set up the app once and start logging with calorie goals, Health data, and the nutrients that matter to you.")
@@ -404,7 +404,7 @@ struct OnboardingFlowView: View {
                 .foregroundStyle(textSecondary)
 
             Text(title)
-                .font(.system(size: 30, weight: .bold, design: .rounded))
+                .font(.system(size: 30, weight: .bold, design: .default))
                 .foregroundStyle(textPrimary)
 
             Text(detail)

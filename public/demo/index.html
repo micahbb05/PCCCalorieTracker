@@ -6,7 +6,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/demo/pcc-ios-logo-blue.png?v=20260311c" />
   <link rel="shortcut icon" href="/demo/pcc-ios-logo-blue.png?v=20260311c" />
   <link rel="apple-touch-icon" href="/demo/pcc-ios-logo-blue.png?v=20260311c" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Web Demo — PCC Calorie Tracker</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -175,15 +175,14 @@
 
     /* ─── v3 site nav ─── */
     .v3-nav {
-      background: rgba(245, 240, 230, 0.96);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
+      background: #F5F0E6;
       border-bottom: 1px solid #D9D1C0;
       position: sticky;
-      top: 0;
+      top: calc(-1 * env(safe-area-inset-top));
       z-index: 1000;
       font-family: 'Lora', Georgia, serif;
       -webkit-font-smoothing: antialiased;
+      padding-top: env(safe-area-inset-top);
     }
 
     .v3-nav-inner {

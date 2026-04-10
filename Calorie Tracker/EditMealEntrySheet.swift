@@ -105,7 +105,7 @@ struct EditMealEntrySheet: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Edit Entry")
-                            .font(.system(size: 32, weight: .bold, design: .rounded))
+                            .font(.system(size: 32, weight: .bold, design: .default))
                             .foregroundStyle(textPrimary)
                         Text("Adjust food name, calories, and nutrients.")
                             .font(.subheadline)
@@ -230,7 +230,7 @@ struct EditMealEntrySheet: View {
                         }
                     }
                     .padding(18)
-                    .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.15))
+                    .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.18))
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 18)

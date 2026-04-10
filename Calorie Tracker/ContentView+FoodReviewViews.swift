@@ -37,7 +37,7 @@ extension ContentView {
 
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Search Food")
-                                .font(.system(size: 30, weight: .bold, design: .rounded))
+                                .font(.system(size: 30, weight: .bold, design: .default))
                                 .foregroundStyle(textPrimary)
                             Text("Search USDA FoodData Central")
                                 .font(.subheadline)
@@ -98,12 +98,12 @@ extension ContentView {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
-                .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
+                .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.18))
 
                 if let usdaSearchError {
                     Text(usdaSearchError)
                         .font(.caption)
-                        .foregroundStyle(Color.orange)
+                        .foregroundStyle(Color(red: 0.604, green: 0.533, blue: 0.471))
                 }
 
                 if isUSDASearchLoading {
@@ -163,14 +163,14 @@ extension ContentView {
                             VStack(alignment: .leading, spacing: 6) {
                                 if isFoodReviewNameEditable(for: item) {
                                     TextField("Food name", text: $foodReviewNameText)
-                                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                                        .font(.system(size: 28, weight: .bold, design: .default))
                                         .foregroundStyle(textPrimary)
                                         .submitLabel(.done)
                                         .focused($foodReviewFocusedField, equals: .name)
                                         .inputStyle(surface: surfacePrimary.opacity(0.94), text: textPrimary, secondary: textSecondary)
                                 } else {
                                     Text(item.name)
-                                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                                        .font(.system(size: 28, weight: .bold, design: .default))
                                         .foregroundStyle(textPrimary)
                                         .lineLimit(2)
                                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -334,7 +334,7 @@ extension ContentView {
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
+            .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.18))
         }
         .buttonStyle(.plain)
     }
@@ -356,7 +356,7 @@ extension ContentView {
             displayedNutrientKeys: item.displayedNutrientKeys,
             showNAForMissingNutrients: showNAForMissingNutrients,
             surface: surfacePrimary.opacity(0.95),
-            stroke: textSecondary.opacity(0.15),
+            stroke: textSecondary.opacity(0.18),
             titleColor: textPrimary,
             labelColor: textSecondary,
             valueColor: textPrimary

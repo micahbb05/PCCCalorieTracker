@@ -76,7 +76,7 @@ struct QuickAddMenuImportView: View {
 
                         VStack(alignment: .leading, spacing: 4) {
                             Text("PCC Menu")
-                                .font(.system(size: 32, weight: .bold, design: .rounded))
+                                .font(.system(size: 32, weight: .bold, design: .default))
                                 .foregroundStyle(textPrimary)
                             Text("\(sourceTitle) • \(mealTitle)")
                                 .font(.subheadline)
@@ -111,7 +111,7 @@ struct QuickAddMenuImportView: View {
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 12)
-                        .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
+                        .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.18))
 
                         if isLoading {
                             statusCard(title: "Loading menu", message: "Pulling today's dining options.") {
@@ -236,7 +236,7 @@ struct QuickAddMenuImportView: View {
                     }
                 }
                 .padding(16)
-                .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
+                .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.18))
             }
         }
     }
@@ -304,7 +304,7 @@ struct QuickAddMenuImportView: View {
                 .padding(.bottom, 18)
             }
         }
-        .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
+        .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.18))
     }
 
     private func toggleLine(_ lineID: String) {
@@ -331,6 +331,6 @@ struct QuickAddMenuImportView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(24)
-        .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
+        .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.18))
     }
 }

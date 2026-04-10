@@ -29,7 +29,7 @@ extension ContentView {
             }
         }
         .padding(18)
-        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.15))
+        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.18))
     }
 
     var aiTextMealCard: some View {
@@ -78,7 +78,7 @@ extension ContentView {
 
         }
         .padding(18)
-        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.15))
+        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.18))
     }
 
     var aiModeOrDivider: some View {
@@ -142,7 +142,7 @@ extension ContentView {
             }
         }
         .padding(16)
-        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.15))
+        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.18))
         .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
@@ -151,7 +151,7 @@ extension ContentView {
     func summaryMetric(title: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(value)
-                .font(.system(size: 30, weight: .bold, design: .rounded))
+                .font(.system(size: 30, weight: .bold, design: .default))
                 .monospacedDigit()
                 .foregroundStyle(textPrimary)
             Text(title)
@@ -168,17 +168,18 @@ extension ContentView {
                 RoundedRectangle(cornerRadius: 28, style: .continuous)
                     .fill(
                         LinearGradient(
-                            colors: [
-                                Color(red: 0.03, green: 0.07, blue: 0.19),
-                                Color(red: 0.05, green: 0.10, blue: 0.24)
-                            ],
+                            colors: appThemeStyleRaw == AppThemeStyle.blueprint.rawValue
+                                ? [Color(red: 0.03, green: 0.07, blue: 0.19), Color(red: 0.05, green: 0.10, blue: 0.24)]
+                                : [Color(red: 0.140, green: 0.118, blue: 0.094), Color(red: 0.170, green: 0.143, blue: 0.114)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
 
                 Circle()
-                    .fill(Color(red: 0.20, green: 0.23, blue: 0.48).opacity(0.38))
+                    .fill(appThemeStyleRaw == AppThemeStyle.blueprint.rawValue
+                        ? Color(red: 0.20, green: 0.23, blue: 0.48).opacity(0.38)
+                        : Color(red: 0.769, green: 0.588, blue: 0.353).opacity(0.07))
                     .frame(width: 230, height: 230)
                     .offset(x: 74, y: -26)
 
@@ -187,19 +188,19 @@ extension ContentView {
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(calorieHeroDisplay.value.map(String.init) ?? "--")
-                                .font(.system(size: 56, weight: .bold, design: .rounded))
+                                .font(.system(size: 56, weight: .bold, design: .default))
                                 .monospacedDigit()
-                                .foregroundStyle(.white)
+                                .foregroundStyle(textPrimary)
                             Text(calorieHeroDisplay.title)
-                                .font(.system(size: 20, weight: .medium, design: .rounded))
-                                .foregroundStyle(Color.white.opacity(0.70))
+                                .font(.system(size: 20, weight: .medium, design: .default))
+                                .foregroundStyle(textPrimary.opacity(0.60))
                         }
 
                         Spacer()
 
                         Image(systemName: "flame")
                             .font(.system(size: 34, weight: .regular))
-                            .foregroundStyle(Color.orange)
+                            .foregroundStyle(Color(red: 0.769, green: 0.588, blue: 0.353))
                             .padding(.top, 10)
                     }
 
@@ -224,14 +225,14 @@ extension ContentView {
 
                     HStack {
                         Text("Consumed: \(totalCalories)")
-                            .font(.system(size: 18, weight: .medium, design: .rounded))
+                            .font(.system(size: 18, weight: .medium, design: .default))
                             .monospacedDigit()
-                            .foregroundStyle(Color.white.opacity(0.72))
+                            .foregroundStyle(textPrimary.opacity(0.55))
                         Spacer()
                         Text("Goal: \(displayedCalorieGoal.map(String.init) ?? "--")")
-                            .font(.system(size: 18, weight: .medium, design: .rounded))
+                            .font(.system(size: 18, weight: .medium, design: .default))
                             .monospacedDigit()
-                            .foregroundStyle(Color.white.opacity(0.72))
+                            .foregroundStyle(textPrimary.opacity(0.55))
                     }
                 }
                 .padding(24)
@@ -265,7 +266,7 @@ extension ContentView {
                 }
             }
             .padding(20)
-            .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.15))
+            .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.18))
             .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)

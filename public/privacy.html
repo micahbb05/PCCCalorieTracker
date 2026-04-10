@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/pcc-ios-logo-blue.png?v=20260311c">
   <link rel="shortcut icon" href="/assets/pcc-ios-logo-blue.png?v=20260311c">
   <link rel="apple-touch-icon" href="/assets/pcc-ios-logo-blue.png?v=20260311c">
@@ -56,13 +56,12 @@
 
     /* ─── NAV ─── */
     .site-nav {
-      background: rgba(245, 240, 230, 0.94);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
+      background: #F5F0E6;
       border-bottom: 1px solid var(--sand);
       position: sticky;
-      top: 0;
+      top: calc(-1 * env(safe-area-inset-top));
       z-index: 100;
+      padding-top: env(safe-area-inset-top);
     }
 
     .site-nav-inner {

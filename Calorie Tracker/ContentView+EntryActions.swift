@@ -287,29 +287,22 @@ extension ContentView {
     func netCalorieColor(_ net: Int) -> Color {
         switch goalType {
         case .deficit:
-            // Negative net = deficit, positive = surplus
             if net >= 0 {
-                // At or above maintenance while aiming for a deficit
                 return .red
             }
             let deficit = -net
             if deficit >= storedDeficitCalories {
-                // At or beyond target deficit
                 return .green
             } else {
-                // In a deficit but smaller than target
                 return .yellow
             }
         case .surplus:
-            // Positive net = surplus, negative = unintended deficit
             if net < 0 {
                 return .red
             }
             if net <= storedSurplusCalories {
-                // Within target surplus range
                 return .green
             } else {
-                // Surplus larger than goal
                 return .red
             }
         case .fixed:
@@ -676,13 +669,11 @@ extension ContentView {
             isAddConfirmationPresented = true
         }
 
-        addConfirmationTask = Task {
+        addConfirmationTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(1.35))
             guard !Task.isCancelled else { return }
-            await MainActor.run {
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
-                    isAddConfirmationPresented = false
-                }
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
+                isAddConfirmationPresented = false
             }
         }
     }
@@ -697,13 +688,11 @@ extension ContentView {
         barcodeErrorToastTask?.cancel()
         barcodeErrorToastMessage = message
 
-        barcodeErrorToastTask = Task {
+        barcodeErrorToastTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(1.35))
             guard !Task.isCancelled else { return }
-            await MainActor.run {
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
-                    barcodeErrorToastMessage = nil
-                }
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
+                barcodeErrorToastMessage = nil
             }
         }
     }

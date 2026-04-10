@@ -3,6 +3,20 @@ import SwiftUI
 struct NutrientSelectionList: View {
     @Binding var trackedNutrientKeys: [String]
     let availableNutrients: [NutrientDefinition]
+    let accentColor: Color
+    let neutralColor: Color
+
+    init(
+        trackedNutrientKeys: Binding<[String]>,
+        availableNutrients: [NutrientDefinition],
+        accentColor: Color = AppTheme.accent,
+        neutralColor: Color = AppTheme.neutral
+    ) {
+        _trackedNutrientKeys = trackedNutrientKeys
+        self.availableNutrients = availableNutrients
+        self.accentColor = accentColor
+        self.neutralColor = neutralColor
+    }
 
     private var selectedKeys: Set<String> {
         Set(trackedNutrientKeys)
@@ -20,14 +34,14 @@ struct NutrientSelectionList: View {
                         ZStack {
                             Circle()
                                 .strokeBorder(
-                                    isSelected ? Color(red: 0.20, green: 0.50, blue: 0.98) : Color.white.opacity(0.24),
+                                    isSelected ? accentColor : neutralColor.opacity(0.45),
                                     lineWidth: 2
                                 )
                                 .frame(width: 24, height: 24)
 
                             if isSelected {
                                 Circle()
-                                    .fill(Color(red: 0.20, green: 0.50, blue: 0.98))
+                                    .fill(accentColor)
                                     .frame(width: 12, height: 12)
                             }
                         }
@@ -44,7 +58,7 @@ struct NutrientSelectionList: View {
                             .padding(.vertical, 4)
                             .background(
                                 Capsule(style: .continuous)
-                                    .fill(Color.white.opacity(0.08))
+                                    .fill(neutralColor.opacity(0.18))
                             )
                     }
                     .contentShape(Rectangle())

@@ -4,30 +4,47 @@ import SwiftUI
 
 extension ContentView {
 
+    private var isBlueprint: Bool { appThemeStyleRaw == AppThemeStyle.blueprint.rawValue }
+    private var themeStyle: AppThemeStyle { isBlueprint ? .blueprint : .ember }
+
     var surfacePrimary: Color {
-        colorScheme == .dark ? Color(red: 0.13, green: 0.15, blue: 0.20) : Color.white
+        colorScheme == .dark
+            ? AppTheme.surfaceBase(for: themeStyle)
+            : Color.white
     }
 
     var surfaceSecondary: Color {
-        colorScheme == .dark ? Color(red: 0.17, green: 0.19, blue: 0.25) : Color(red: 0.97, green: 0.98, blue: 1.00)
+        colorScheme == .dark
+            ? AppTheme.inputSurface(for: themeStyle)
+            : (isBlueprint ? Color(red: 0.96, green: 0.97, blue: 0.99) : Color(red: 0.97, green: 0.96, blue: 0.94))
     }
 
     var textPrimary: Color {
-        colorScheme == .dark ? Color(red: 0.95, green: 0.96, blue: 0.98) : Color(red: 0.12, green: 0.14, blue: 0.18)
+        colorScheme == .dark
+            ? (isBlueprint ? Color(red: 0.95, green: 0.96, blue: 0.98) : Color(red: 0.961, green: 0.941, blue: 0.902))
+            : (isBlueprint ? Color(red: 0.10, green: 0.11, blue: 0.14) : Color(red: 0.12, green: 0.10, blue: 0.08))
     }
 
     var textSecondary: Color {
-        colorScheme == .dark ? Color(red: 0.78, green: 0.81, blue: 0.86) : Color(red: 0.43, green: 0.47, blue: 0.54)
+        colorScheme == .dark
+            ? AppTheme.secondaryText
+            : (isBlueprint ? Color(red: 0.45, green: 0.47, blue: 0.52) : Color(red: 0.45, green: 0.42, blue: 0.38))
     }
 
     var accent: Color { AppTheme.accent }
+    var dividerColor: Color { AppTheme.divider(for: themeStyle) }
+    var inactiveControlFill: Color { AppTheme.inactiveFill(for: themeStyle) }
 
     var backgroundTop: Color {
-        colorScheme == .dark ? Color(red: 0.07, green: 0.08, blue: 0.12) : Color(red: 0.95, green: 0.97, blue: 0.99)
+        colorScheme == .dark
+            ? (isBlueprint ? Color(red: 0.07, green: 0.08, blue: 0.12) : Color(red: 0.059, green: 0.051, blue: 0.039))
+            : (isBlueprint ? Color(red: 0.96, green: 0.97, blue: 0.99) : Color(red: 0.97, green: 0.95, blue: 0.92))
     }
 
     var backgroundBottom: Color {
-        colorScheme == .dark ? Color(red: 0.10, green: 0.11, blue: 0.17) : Color(red: 0.91, green: 0.94, blue: 0.98)
+        colorScheme == .dark
+            ? (isBlueprint ? Color(red: 0.10, green: 0.11, blue: 0.17) : Color(red: 0.078, green: 0.063, blue: 0.039))
+            : (isBlueprint ? Color(red: 0.92, green: 0.93, blue: 0.97) : Color(red: 0.93, green: 0.90, blue: 0.86))
     }
 
     var centralCalendar: Calendar {

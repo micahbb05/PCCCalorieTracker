@@ -363,14 +363,14 @@ extension ContentView {
                 .id("addEntryButton")
         }
         .padding(18)
-        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.15))
+        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.18))
         .id("addManualEntryCard")
     }
 
     func pageHeader(title: String, subtitle: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.system(size: 32, weight: .bold, design: .rounded))
+                .font(.system(size: 32, weight: .bold, design: .default))
                 .foregroundStyle(textPrimary)
             Text(subtitle)
                 .font(.subheadline)
@@ -385,7 +385,7 @@ extension ContentView {
     func tabHeader(title: String, subtitle: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.system(size: 32, weight: .bold, design: .rounded))
+                .font(.system(size: 32, weight: .bold, design: .default))
                 .foregroundStyle(textPrimary)
             if let subtitle, !subtitle.isEmpty {
                 Text(subtitle)

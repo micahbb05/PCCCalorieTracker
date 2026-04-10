@@ -9,8 +9,10 @@ struct MealDistributionRingView: View {
 
     var body: some View {
         ZStack {
+            let warmWhite = Color(red: 0.961, green: 0.941, blue: 0.902)
+
             Circle()
-                .stroke(Color.white.opacity(0.08), lineWidth: 18)
+                .stroke(warmWhite.opacity(0.08), lineWidth: 18)
 
             ForEach(Array(segments.enumerated()), id: \.offset) { index, segment in
                 Circle()
@@ -21,12 +23,12 @@ struct MealDistributionRingView: View {
 
             VStack(spacing: 2) {
                 Text("\(Int(totalCalories))")
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .font(.system(size: 28, weight: .bold, design: .default))
+                    .foregroundStyle(warmWhite)
                     .monospacedDigit()
                 Text("calories")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.62))
+                    .foregroundStyle(warmWhite.opacity(0.62))
             }
         }
         .padding(6)

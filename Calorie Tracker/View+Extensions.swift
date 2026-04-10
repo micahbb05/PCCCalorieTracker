@@ -10,11 +10,14 @@ extension View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke(stroke, lineWidth: 1)
         )
-        .shadow(color: .black.opacity(0.14), radius: 14, x: 0, y: 8)
+        .shadow(color: .black.opacity(0.22), radius: 16, x: 0, y: 10)
     }
 
     func inputStyle(surface: Color, text: Color, secondary: Color) -> some View {
-        padding(.horizontal, 12)
+        _ = secondary
+        let style = AppThemeStyle.active
+        let resolvedDivider = AppTheme.divider(for: style)
+        return padding(.horizontal, 12)
             .padding(.vertical, 10)
             .foregroundStyle(text)
             .tint(text)
@@ -24,7 +27,7 @@ extension View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(secondary.opacity(0.35), lineWidth: 1)
+                    .stroke(resolvedDivider.opacity(0.62), lineWidth: 1)
             )
     }
 

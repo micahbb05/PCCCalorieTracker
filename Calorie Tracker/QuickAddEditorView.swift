@@ -164,7 +164,7 @@ struct QuickAddEditorView: View {
 
                         VStack(alignment: .leading, spacing: 4) {
                             Text(item == nil ? "New Quick Add" : "Edit Quick Add")
-                                .font(.system(size: 32, weight: .bold, design: .rounded))
+                                .font(.system(size: 32, weight: .bold, design: .default))
                                 .foregroundStyle(textPrimary)
                             Text("Save a reusable food for one-tap adding.")
                                 .font(.subheadline)
@@ -380,7 +380,7 @@ struct QuickAddEditorView: View {
                             }
                         }
                         .padding(18)
-                        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.15))
+                        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.18))
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 18)
@@ -1080,7 +1080,7 @@ struct QuickAddEditorView: View {
     private func quickAddBarcodeErrorToast(message: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "exclamationmark.circle.fill")
-                .foregroundStyle(Color.orange)
+                .foregroundStyle(Color(red: 0.604, green: 0.533, blue: 0.471))
             Text(message)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(textPrimary)
@@ -1138,7 +1138,7 @@ struct QuickAddEditorView: View {
 
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Search Food")
-                                .font(.system(size: 32, weight: .bold, design: .rounded))
+                                .font(.system(size: 32, weight: .bold, design: .default))
                                 .foregroundStyle(textPrimary)
                             Text("Search USDA FoodData Central")
                                 .font(.subheadline)
@@ -1183,7 +1183,7 @@ struct QuickAddEditorView: View {
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 12)
-                        .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
+                        .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.18))
 
                         if let usdaSearchError {
                             Text(usdaSearchError)
@@ -1325,7 +1325,7 @@ struct QuickAddEditorView: View {
 
                         VStack(alignment: .leading, spacing: 4) {
                             Text("AI Describe Food")
-                                .font(.system(size: 32, weight: .bold, design: .rounded))
+                                .font(.system(size: 32, weight: .bold, design: .default))
                                 .foregroundStyle(textPrimary)
                             Text("Describe what you ate to import calories and nutrients.")
                                 .font(.subheadline)
@@ -1413,7 +1413,7 @@ struct QuickAddEditorView: View {
 
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Select AI Result")
-                                .font(.system(size: 32, weight: .bold, design: .rounded))
+                                .font(.system(size: 32, weight: .bold, design: .default))
                                 .foregroundStyle(textPrimary)
                             Text("Choose one item to import into this quick add.")
                                 .font(.subheadline)

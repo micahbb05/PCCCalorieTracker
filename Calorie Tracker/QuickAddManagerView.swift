@@ -65,7 +65,7 @@ struct QuickAddManagerView: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Manage Quick Add Foods")
-                            .font(.system(size: 32, weight: .bold, design: .rounded))
+                            .font(.system(size: 32, weight: .bold, design: .default))
                             .foregroundStyle(textPrimary)
                         Text("Create and edit reusable foods.")
                             .font(.subheadline)
@@ -97,7 +97,7 @@ struct QuickAddManagerView: View {
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
-                    .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
+                    .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.18))
 
                     if filteredFoods.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
@@ -109,7 +109,7 @@ struct QuickAddManagerView: View {
                                 .foregroundStyle(textSecondary)
                         }
                         .padding(18)
-                        .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
+                        .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.18))
                     } else {
                         List {
                             ForEach(filteredFoods) { item in

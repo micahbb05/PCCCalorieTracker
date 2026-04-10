@@ -82,30 +82,46 @@ struct MenuSheetView: View {
         return max(selectedAmount / baseAmount, 0)
     }
 
+    @AppStorage("appThemeStyle") private var appThemeStyleRaw: String = AppThemeStyle.ember.rawValue
+
+    private var isBlueprint: Bool { appThemeStyleRaw == AppThemeStyle.blueprint.rawValue }
+
     private var surfacePrimary: Color {
-        colorScheme == .dark ? Color(red: 0.13, green: 0.15, blue: 0.20) : Color.white
+        colorScheme == .dark
+            ? (isBlueprint ? Color(red: 0.13, green: 0.15, blue: 0.20) : Color(red: 0.140, green: 0.118, blue: 0.094))
+            : Color.white
     }
 
     private var surfaceSecondary: Color {
-        colorScheme == .dark ? Color(red: 0.17, green: 0.19, blue: 0.25) : Color(red: 0.97, green: 0.98, blue: 1.00)
+        colorScheme == .dark
+            ? (isBlueprint ? Color(red: 0.17, green: 0.19, blue: 0.25) : Color(red: 0.170, green: 0.143, blue: 0.114))
+            : (isBlueprint ? Color(red: 0.96, green: 0.97, blue: 0.99) : Color(red: 0.97, green: 0.96, blue: 0.94))
     }
 
     private var textPrimary: Color {
-        colorScheme == .dark ? Color(red: 0.95, green: 0.96, blue: 0.98) : Color(red: 0.12, green: 0.14, blue: 0.18)
+        colorScheme == .dark
+            ? (isBlueprint ? Color(red: 0.95, green: 0.96, blue: 0.98) : Color(red: 0.961, green: 0.941, blue: 0.902))
+            : (isBlueprint ? Color(red: 0.10, green: 0.11, blue: 0.14) : Color(red: 0.12, green: 0.10, blue: 0.08))
     }
 
     private var textSecondary: Color {
-        colorScheme == .dark ? Color(red: 0.78, green: 0.81, blue: 0.86) : Color(red: 0.43, green: 0.47, blue: 0.54)
+        colorScheme == .dark
+            ? (isBlueprint ? Color(red: 0.78, green: 0.81, blue: 0.86) : Color(red: 0.62, green: 0.60, blue: 0.58))
+            : (isBlueprint ? Color(red: 0.45, green: 0.47, blue: 0.52) : Color(red: 0.45, green: 0.42, blue: 0.38))
     }
 
     private var accent: Color { AppTheme.accent }
 
     private var backgroundTop: Color {
-        colorScheme == .dark ? Color(red: 0.07, green: 0.08, blue: 0.12) : Color(red: 0.95, green: 0.97, blue: 0.99)
+        colorScheme == .dark
+            ? (isBlueprint ? Color(red: 0.07, green: 0.08, blue: 0.12) : Color(red: 0.059, green: 0.051, blue: 0.039))
+            : (isBlueprint ? Color(red: 0.96, green: 0.97, blue: 0.99) : Color(red: 0.97, green: 0.95, blue: 0.92))
     }
 
     private var backgroundBottom: Color {
-        colorScheme == .dark ? Color(red: 0.10, green: 0.11, blue: 0.17) : Color(red: 0.91, green: 0.94, blue: 0.98)
+        colorScheme == .dark
+            ? (isBlueprint ? Color(red: 0.10, green: 0.11, blue: 0.17) : Color(red: 0.078, green: 0.063, blue: 0.039))
+            : (isBlueprint ? Color(red: 0.92, green: 0.93, blue: 0.97) : Color(red: 0.93, green: 0.90, blue: 0.86))
     }
 
     private var scrollContentBottomPadding: CGFloat {
@@ -354,7 +370,7 @@ struct MenuSheetView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Menu")
-                    .font(.system(size: 36, weight: .bold, design: .rounded))
+                    .font(.system(size: 36, weight: .bold, design: .default))
                     .foregroundStyle(textPrimary)
                     .padding(.top, -4)
                 Menu {
@@ -406,7 +422,7 @@ struct MenuSheetView: View {
             } else {
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("\(selectedCount)")
-                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .font(.system(size: 22, weight: .bold, design: .default))
                         .foregroundStyle(textPrimary)
                         .monospacedDigit()
                     Text("selected")
@@ -489,7 +505,7 @@ struct MenuSheetView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
+        .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.18))
         .accessibilityIdentifier("pccMenu.searchCard")
     }
 
@@ -523,7 +539,7 @@ struct MenuSheetView: View {
                         }
                     }
                     .padding(16)
-                    .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
+                    .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.18))
                 }
             }
         }
@@ -631,7 +647,7 @@ struct MenuSheetView: View {
                 .accessibilityIdentifier("pccMenu.lineContent.\(line.id)")
             }
         }
-        .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
+        .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.18))
     }
 
     private func grabNGoSelectAllRow(for line: MenuLine) -> some View {
@@ -684,7 +700,7 @@ struct MenuSheetView: View {
         VStack(spacing: 16) {
             Image(systemName: systemImage)
                 .font(.system(size: 28, weight: .semibold))
-                .foregroundStyle(systemImage.contains("exclamationmark") ? Color.orange : accent)
+                .foregroundStyle(systemImage.contains("exclamationmark") ? Color(red: 0.604, green: 0.533, blue: 0.471) : accent)
 
             VStack(spacing: 6) {
                 Text(title)
@@ -700,7 +716,7 @@ struct MenuSheetView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(24)
-        .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
+        .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.18))
     }
 
     private func statusCard(systemImage: String, title: String, message: String) -> some View {
@@ -1196,7 +1212,7 @@ struct MenuSheetView: View {
                                 .foregroundStyle(accent)
 
                             Text(item.name)
-                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                                .font(.system(size: 28, weight: .bold, design: .default))
                                 .foregroundStyle(textPrimary)
                                 .lineLimit(3)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -1272,7 +1288,7 @@ struct MenuSheetView: View {
                             trackedNutrientKeys: trackedNutrientKeys,
                             displayedNutrientKeys: nil,
                             surface: surfacePrimary.opacity(0.95),
-                            stroke: textSecondary.opacity(0.15),
+                            stroke: textSecondary.opacity(0.18),
                             titleColor: textPrimary,
                             labelColor: textSecondary,
                             valueColor: textPrimary

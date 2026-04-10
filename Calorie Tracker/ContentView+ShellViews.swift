@@ -608,7 +608,7 @@ extension ContentView {
     var barcodeErrorToastView: some View {
         HStack(spacing: 10) {
             Image(systemName: "exclamationmark.circle.fill")
-                .foregroundStyle(Color.orange)
+                .foregroundStyle(Color(red: 0.604, green: 0.533, blue: 0.471))
             Text(barcodeErrorToastMessage ?? "Barcode lookup failed.")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(textPrimary)
@@ -971,12 +971,14 @@ extension ContentView {
         .padding(.bottom, 14)
         .background(
             RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(surfacePrimary.opacity(0.94))
+                .fill(appThemeStyleRaw == AppThemeStyle.blueprint.rawValue
+                    ? surfacePrimary.opacity(0.94)
+                    : Color(red: 0.13, green: 0.13, blue: 0.14).opacity(0.97))
                 .overlay(
                     RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .stroke(textSecondary.opacity(0.18), lineWidth: 1)
+                        .stroke(Color.white.opacity(0.10), lineWidth: 1)
                 )
-                .shadow(color: .black.opacity(0.24), radius: 24, x: 0, y: 10)
+                .shadow(color: .black.opacity(0.30), radius: 24, x: 0, y: 10)
                 .ignoresSafeArea(edges: .bottom)
         )
         .overlay(alignment: .top) {

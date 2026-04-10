@@ -27,20 +27,31 @@ struct ProfileGoalsView: View {
     let calibrationConfidenceText: String
     let onRequestHealthAccess: () -> Void
     @Environment(\.colorScheme) private var colorScheme
+    @AppStorage("appThemeStyle") private var appThemeStyleRaw: String = AppThemeStyle.ember.rawValue
+
+    private var isBlueprint: Bool { appThemeStyleRaw == AppThemeStyle.blueprint.rawValue }
+    private var themeStyle: AppThemeStyle { isBlueprint ? .blueprint : .ember }
+
+    private var cardSurface: Color {
+        AppTheme.surfaceElevated(for: themeStyle)
+    }
+
+    private var titleColor: Color {
+        isBlueprint ? Color(red: 0.95, green: 0.96, blue: 0.98) : Color(red: 0.961, green: 0.941, blue: 0.902)
+    }
+
+    private var secondaryTextColor: Color {
+        colorScheme == .dark ? AppTheme.secondaryText : Color(red: 0.45, green: 0.42, blue: 0.38)
+    }
 
     private var cardBackground: some View {
         RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .fill(Color(uiColor: .secondarySystemBackground).opacity(colorScheme == .dark ? 0.82 : 0.55))
+            .fill(cardSurface)
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color.white.opacity(colorScheme == .dark ? 0.08 : 0.14), lineWidth: 1)
+                    .stroke(AppTheme.divider(for: themeStyle).opacity(0.45), lineWidth: 1)
             )
-            .shadow(
-                color: Color.black.opacity(colorScheme == .dark ? 0.20 : 0.08),
-                radius: colorScheme == .dark ? 10 : 6,
-                x: 0,
-                y: 2
-            )
+            .shadow(color: .black.opacity(0.20), radius: 14, x: 0, y: 8)
     }
 
     var body: some View {
@@ -65,8 +76,7 @@ struct ProfileGoalsView: View {
                             Toggle("", isOn: $isCalibrationEnabled)
                                 .labelsHidden()
                                 .accessibilityLabel("Enable smart adjustment")
-                                .tint(Color(red: 0.19, green: 0.52, blue: 1.0))
-                        }
+                            }
                     ) {
                         smartAdjustmentSection
                     }
@@ -77,12 +87,11 @@ struct ProfileGoalsView: View {
                             Toggle("", isOn: $isCalibrationEnabled)
                                 .labelsHidden()
                                 .accessibilityLabel("Enable smart adjustment")
-                                .tint(Color(red: 0.19, green: 0.52, blue: 1.0))
-                        }
+                            }
                     ) {
                         Text("Auto-adjusts burned calories from your weekly Health weigh-ins.")
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(secondaryTextColor)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -103,7 +112,7 @@ struct ProfileGoalsView: View {
             HStack(spacing: 12) {
                 Text(title)
                     .font(.headline.weight(.semibold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(titleColor)
 
                 Spacer(minLength: 0)
 
@@ -123,13 +132,13 @@ struct ProfileGoalsView: View {
                 VStack(alignment: .leading, spacing: 5) {
                     Text(bodyProfileSummaryText)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
 
                     if isUsingSyncedHealthFallback {
                         Text("Source: \(syncedHealthSourceLabel ?? "iPhone").")
                             .font(.caption2)
-                            .foregroundStyle(.secondary.opacity(0.85))
+                            .foregroundStyle(Color.white.opacity(0.30))
                     }
                 }
 
@@ -149,7 +158,7 @@ struct ProfileGoalsView: View {
             } else if healthAuthorizationState != .connected, !isUsingSyncedHealthFallback {
                 Text(healthAuthorizationState.detail)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -167,26 +176,26 @@ struct ProfileGoalsView: View {
                         .padding(.vertical, 10)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(Color(red: 0.19, green: 0.52, blue: 1.0))
+                .tint(AppTheme.accent)
 
                 Text("Using your manual BMR until Health data is connected.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
             } else if healthAuthorizationState == .unavailable, isUsingSyncedHealthFallback {
                 Text("This device cannot read Health directly. Showing synced profile and workout data from your \(syncedHealthSourceLabel ?? "iPhone").")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
             } else if healthAuthorizationState == .unavailable {
                 Text("This device cannot read Health directly. Open the app on iPhone to sync profile and workout data.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
             } else if !isUsingHealthDerivedBMR && bmrSourceRaw != ContentView.BMRSource.manual.rawValue {
                 Text("Health is connected, but some body data is still missing. Using your manual BMR until Health provides complete profile data.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -207,7 +216,7 @@ struct ProfileGoalsView: View {
                     title: "Surplus Goal",
                     subtitle: "Added to burned calories",
                     helperText: nil,
-                    accent: Color(red: 0.19, green: 0.52, blue: 1.0)
+                    accent: AppTheme.accent
                 )
             } else if goalTypeRaw == "fixed" {
                 DeficitGoalEditor(
@@ -215,7 +224,7 @@ struct ProfileGoalsView: View {
                     title: "Fixed Calorie Goal",
                     subtitle: "Total calories to eat each day",
                     helperText: nil,
-                    accent: Color(red: 0.19, green: 0.52, blue: 1.0),
+                    accent: AppTheme.accent,
                     maxCalories: 6000
                 )
             } else {
@@ -224,7 +233,7 @@ struct ProfileGoalsView: View {
                     title: "Deficit Goal",
                     subtitle: "Subtracted from burned calories",
                     helperText: nil,
-                    accent: Color(red: 0.19, green: 0.52, blue: 1.0)
+                    accent: AppTheme.accent
                 )
             }
 
@@ -232,9 +241,8 @@ struct ProfileGoalsView: View {
                 Toggle(isOn: $useWeekendDeficit) {
                     Text("Different goal on weekend")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(titleColor)
                 }
-                .tint(Color(red: 0.19, green: 0.52, blue: 1.0))
 
                 if useWeekendDeficit {
                     DeficitGoalEditor(
@@ -242,7 +250,7 @@ struct ProfileGoalsView: View {
                         title: goalTypeRaw == "surplus" ? "Weekend Surplus" : "Weekend Deficit",
                         subtitle: "Used on Saturday & Sunday",
                         helperText: nil,
-                        accent: Color(red: 0.19, green: 0.52, blue: 1.0)
+                        accent: AppTheme.accent
                     )
                 }
             }
@@ -250,7 +258,7 @@ struct ProfileGoalsView: View {
             if healthAuthorizationState == .connected, isUsingHealthDerivedBMR, goalTypeRaw != "fixed" {
                 Text("Burned today includes BMR plus active calories (steps and exercise) personalized with your available profile data.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -269,7 +277,7 @@ struct ProfileGoalsView: View {
     private var smartAdjustmentSection: some View {
         Text(smartAdjustmentSummaryText)
             .font(.subheadline)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Color.white.opacity(0.45))
             .fixedSize(horizontal: false, vertical: true)
     }
 
@@ -309,11 +317,11 @@ struct ProfileGoalsView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(titleColor)
                 if let subtitle {
                     Text(subtitle)
                         .font(.caption2)
-                        .foregroundStyle(.secondary.opacity(0.8))
+                        .foregroundStyle(Color.white.opacity(0.30))
                 }
             }
 
@@ -328,7 +336,7 @@ struct ProfileGoalsView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.white.opacity(0.05), lineWidth: 1)
+                .stroke(Color.white.opacity(0.07), lineWidth: 1)
         )
     }
 
@@ -356,11 +364,11 @@ struct ProfileGoalsView: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.white.opacity(0.40))
 
             Text(value)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.primary)
+                .foregroundStyle(titleColor)
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
         }
@@ -373,7 +381,7 @@ struct ProfileGoalsView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.white.opacity(0.05), lineWidth: 1)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
         )
     }
 
@@ -411,7 +419,7 @@ struct ProfileGoalsView: View {
                     .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(.white.opacity(0.92))
                     .frame(width: 34, height: 30)
-                    .background(Circle().fill(Color(red: 0.19, green: 0.52, blue: 1.0)))
+                    .background(Circle().fill(AppTheme.accent))
             }
             .buttonStyle(.plain)
         }
@@ -442,7 +450,7 @@ struct ProfileGoalsView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.white.opacity(0.40))
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             Text(value)
@@ -450,7 +458,7 @@ struct ProfileGoalsView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
                 .monospacedDigit()
-                .foregroundStyle(.primary)
+                .foregroundStyle(titleColor)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
@@ -461,7 +469,7 @@ struct ProfileGoalsView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.white.opacity(0.05), lineWidth: 1)
+                .stroke(Color.white.opacity(0.07), lineWidth: 1)
         )
     }
 }

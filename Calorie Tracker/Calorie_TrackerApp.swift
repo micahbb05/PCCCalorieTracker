@@ -105,11 +105,29 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 @main
 struct Calorie_TrackerApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @AppStorage("appThemeStyle") private var appThemeStyleRaw: String = AppThemeStyle.ember.rawValue
+
+    init() {
+        AppTheme.applyControlAppearance(style: AppThemeStyle.active)
+    }
+
+    private var accentColor: Color {
+        appThemeStyleRaw == AppThemeStyle.blueprint.rawValue
+            ? Color(red: 0.20, green: 0.50, blue: 0.98)
+            : Color(red: 0.769, green: 0.588, blue: 0.353)
+    }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .preferredColorScheme(.dark)
+                .tint(accentColor)
+                .onAppear {
+                    AppTheme.applyControlAppearance(style: AppThemeStyle(rawValue: appThemeStyleRaw) ?? .ember)
+                }
+                .onChange(of: appThemeStyleRaw) { _, newValue in
+                    AppTheme.applyControlAppearance(style: AppThemeStyle(rawValue: newValue) ?? .ember)
+                }
         }
     }
 }

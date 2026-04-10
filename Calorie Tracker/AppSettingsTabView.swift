@@ -8,6 +8,7 @@ struct AppSettingsTabView: View {
     @Binding var manualBMRCalories: Int
     @Binding var useAIBaseServings: Bool
     @Binding var smartMealRemindersEnabled: Bool
+    @Binding var appThemeStyleRaw: String
     let cloudSyncStatusTitle: String
     let cloudSyncStatusDetail: String
     let cloudSyncStatusTint: Color
@@ -16,30 +17,68 @@ struct AppSettingsTabView: View {
     let onRetryCloudSync: () -> Void
     @Environment(\.colorScheme) private var colorScheme
 
+    private var isBlueprint: Bool { appThemeStyleRaw == AppThemeStyle.blueprint.rawValue }
+
+    private var cardSurface: Color {
+        AppTheme.surfaceElevated(for: activeThemeStyle)
+    }
+
     private var cardBackground: some View {
         RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .fill(Color(uiColor: .secondarySystemBackground).opacity(colorScheme == .dark ? 0.82 : 0.55))
+            .fill(cardSurface)
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color.white.opacity(colorScheme == .dark ? 0.08 : 0.14), lineWidth: 1)
+                    .stroke(AppTheme.divider(for: activeThemeStyle).opacity(0.45), lineWidth: 1)
             )
-            .shadow(
-                color: Color.black.opacity(colorScheme == .dark ? 0.20 : 0.08),
-                radius: colorScheme == .dark ? 10 : 6,
-                x: 0,
-                y: 2
-            )
+            .shadow(color: .black.opacity(0.20), radius: 14, x: 0, y: 8)
+    }
+
+    private var titleColor: Color {
+        isBlueprint ? Color(red: 0.95, green: 0.96, blue: 0.98) : Color(red: 0.961, green: 0.941, blue: 0.902)
+    }
+
+    private var secondaryTextColor: Color {
+        colorScheme == .dark ? AppTheme.secondaryText : Color(red: 0.45, green: 0.42, blue: 0.38)
+    }
+
+    private var activeThemeStyle: AppThemeStyle {
+        AppThemeStyle(rawValue: appThemeStyleRaw) ?? .ember
+    }
+
+    private var nutritionAccentColor: Color {
+        AppTheme.accent(for: activeThemeStyle)
+    }
+
+    private var nutritionNeutralColor: Color {
+        AppTheme.neutral(for: activeThemeStyle)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            settingsCard(title: "Appearance") {
+                Picker("Theme", selection: $appThemeStyleRaw) {
+                    ForEach(AppThemeStyle.allCases) { style in
+                        Text(style.title).tag(style.rawValue)
+                    }
+                }
+                .accessibilityLabel("App Theme")
+                .pickerStyle(.segmented)
+
+                Text("Ember is a warm amber theme. Blueprint is the original cool blue theme.")
+                    .font(.caption)
+                    .foregroundStyle(secondaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             settingsCard(
                 title: "Nutrition Tracking",
                 subtitle: "Choose which nutrients appear throughout the app."
             ) {
                 NutrientSelectionList(
                     trackedNutrientKeys: $trackedNutrientKeys,
-                    availableNutrients: availableNutrients
+                    availableNutrients: availableNutrients,
+                    accentColor: nutritionAccentColor,
+                    neutralColor: nutritionNeutralColor
                 )
             }
 
@@ -49,18 +88,18 @@ struct AppSettingsTabView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Let AI adjust base servings")
                                 .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(titleColor)
                         }
 
                         Spacer(minLength: 0)
 
                         Toggle("", isOn: $useAIBaseServings)
                             .labelsHidden()
-                            .tint(Color(red: 0.19, green: 0.52, blue: 1.0))
                     }
 
                     Text("Only affects AI plate estimates for items with unclear menu units like \"serving\" or \"each.\" When on, AI can infer the base serving. When off, the menu serving is used.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -71,24 +110,24 @@ struct AppSettingsTabView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Smart meal reminders")
                                 .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(titleColor)
                         }
 
                         Spacer(minLength: 0)
 
                         Toggle("", isOn: $smartMealRemindersEnabled)
                             .labelsHidden()
-                            .tint(Color(red: 0.19, green: 0.52, blue: 1.0))
                     }
 
                     Text("Learns the meal types and times you usually log, then reminds you only after that meal appears to be missed.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
             settingsCard(title: "App Icon") {
-                Picker("App Icon", selection: $selectedAppIconChoiceRaw) {
+                Picker("App Icon", selection: selectedAppIconBinding) {
                     ForEach(AppIconChoice.allCases) { option in
                         Text(option.title).tag(option.rawValue)
                     }
@@ -107,7 +146,7 @@ struct AppSettingsTabView: View {
 
                 Text("Automatic uses Health profile data when available. Manual always uses your configured manual BMR.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if bmrSourceRaw == ContentView.BMRSource.manual.rawValue {
@@ -116,26 +155,53 @@ struct AppSettingsTabView: View {
                         title: "Manual BMR",
                         subtitle: "Calories burned at rest each day",
                         helperText: "Used while BMR Source is set to Manual.",
-                        accent: Color(red: 0.19, green: 0.52, blue: 1.0),
+                        accent: AppTheme.accent,
                         minCalories: 800,
                         maxCalories: 4000
                     )
                 }
             }
         }
+        .onAppear(perform: normalizePickerSelections)
+    }
+
+    private var selectedAppIconBinding: Binding<String> {
+        Binding(
+            get: {
+                AppIconChoice(rawValue: selectedAppIconChoiceRaw)?.rawValue
+                    ?? AppIconChoice.standard.rawValue
+            },
+            set: { newValue in
+                selectedAppIconChoiceRaw = AppIconChoice(rawValue: newValue)?.rawValue
+                    ?? AppIconChoice.standard.rawValue
+            }
+        )
     }
 
     private var bmrSourceBinding: Binding<String> {
         Binding(
-            get: { bmrSourceRaw },
+            get: {
+                ContentView.BMRSource(rawValue: bmrSourceRaw)?.rawValue
+                    ?? ContentView.BMRSource.automatic.rawValue
+            },
             set: { newValue in
                 var transaction = Transaction()
                 transaction.disablesAnimations = true
                 withTransaction(transaction) {
-                    bmrSourceRaw = newValue
+                    bmrSourceRaw = ContentView.BMRSource(rawValue: newValue)?.rawValue
+                        ?? ContentView.BMRSource.automatic.rawValue
                 }
             }
         )
+    }
+
+    private func normalizePickerSelections() {
+        if AppIconChoice(rawValue: selectedAppIconChoiceRaw) == nil {
+            selectedAppIconChoiceRaw = AppIconChoice.standard.rawValue
+        }
+        if ContentView.BMRSource(rawValue: bmrSourceRaw) == nil {
+            bmrSourceRaw = ContentView.BMRSource.automatic.rawValue
+        }
     }
 
     private func settingsCard<Content: View>(
@@ -146,12 +212,12 @@ struct AppSettingsTabView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
                 .font(.headline.weight(.semibold))
-                .foregroundStyle(.primary)
+                .foregroundStyle(titleColor)
 
             if let subtitle, !subtitle.isEmpty {
                 Text(subtitle)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
             }
 

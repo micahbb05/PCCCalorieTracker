@@ -633,13 +633,13 @@ extension ContentView {
     var cloudSyncStatusTint: Color {
         switch cloudSyncStatusLevel {
         case .checking, .uploading:
-            return accent
+            return AppTheme.info
         case .synced:
-            return Color.green
+            return AppTheme.success
         case .warning:
-            return Color.orange
+            return AppTheme.warning
         case .error:
-            return Color.red
+            return AppTheme.danger
         }
     }
 

@@ -70,11 +70,11 @@ struct QuickAddPickerView: View {
     }
 
     private var backgroundTop: Color {
-        colorScheme == .dark ? Color(red: 0.07, green: 0.08, blue: 0.12) : Color(red: 0.95, green: 0.97, blue: 0.99)
+        colorScheme == .dark ? Color(red: 0.059, green: 0.051, blue: 0.039) : Color(red: 0.97, green: 0.95, blue: 0.92)
     }
 
     private var backgroundBottom: Color {
-        colorScheme == .dark ? Color(red: 0.10, green: 0.11, blue: 0.17) : Color(red: 0.91, green: 0.94, blue: 0.98)
+        colorScheme == .dark ? Color(red: 0.078, green: 0.063, blue: 0.039) : Color(red: 0.93, green: 0.90, blue: 0.86)
     }
 
     var body: some View {
@@ -163,7 +163,7 @@ struct QuickAddPickerView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
-                .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
+                .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.18))
 
                 if filteredFoods.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
@@ -176,7 +176,7 @@ struct QuickAddPickerView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(18)
-                    .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
+                    .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.18))
                 } else {
                     LazyVStack(spacing: 12) {
                         ForEach(filteredFoods) { item in
@@ -227,7 +227,7 @@ struct QuickAddPickerView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .top, spacing: 14) {
                 Text("Quick Add")
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .font(.system(size: 32, weight: .bold, design: .default))
                     .foregroundStyle(textPrimary)
 
                 Spacer(minLength: 8)
@@ -396,7 +396,7 @@ struct QuickAddPickerView: View {
                                 .foregroundStyle(accent)
 
                             Text(item.name)
-                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                                .font(.system(size: 28, weight: .bold, design: .default))
                                 .foregroundStyle(textPrimary)
                                 .lineLimit(3)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -472,7 +472,7 @@ struct QuickAddPickerView: View {
                             trackedNutrientKeys: trackedNutrientKeys,
                             displayedNutrientKeys: nil,
                             surface: surfacePrimary.opacity(0.95),
-                            stroke: textSecondary.opacity(0.15),
+                            stroke: textSecondary.opacity(0.18),
                             titleColor: textPrimary,
                             labelColor: textSecondary,
                             valueColor: textPrimary

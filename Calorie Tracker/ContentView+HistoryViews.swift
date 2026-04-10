@@ -66,7 +66,7 @@ extension ContentView {
             }
         }
         .padding(18)
-        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.15))
+        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.18))
     }
 
     @ViewBuilder
@@ -148,7 +148,6 @@ extension ContentView {
                 statusColor = Color.red
             }
         } else if summary.totalCalories < dayBurned {
-            // Under burned = in deficit; adapted to that day's goal type
             if dayGoalType == .deficit && summary.totalCalories > dayGoal {
                 statusText = "Above Goal"
                 statusColor = Color.yellow
@@ -163,7 +162,6 @@ extension ContentView {
             statusText = "Over Burned"
             statusColor = Color.red
         } else {
-            // totalCalories == dayBurned (at maintenance)
             statusText = dayGoalType == .surplus ? "Below Goal" : "Above Goal"
             statusColor = Color.yellow
         }
@@ -180,7 +178,7 @@ extension ContentView {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
                     Text(summary.date.formatted(.dateTime.month(.abbreviated).day().year()))
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .font(.system(size: 28, weight: .bold, design: .default))
                         .foregroundStyle(textPrimary)
 
                         VStack(alignment: .leading, spacing: 16) {
@@ -200,12 +198,12 @@ extension ContentView {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(18)
-                        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.15))
+                        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.18))
 
                         if !dayMealDistribution.isEmpty {
                             mealDistributionCard(dayMealDistribution)
                                 .padding(18)
-                                .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.15))
+                                .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.18))
                         }
 
                         VStack(alignment: .leading, spacing: 14) {
@@ -231,7 +229,7 @@ extension ContentView {
                             }
                         }
                         .padding(18)
-                        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.15))
+                        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.18))
 
                         Spacer(minLength: 0)
                     }
@@ -254,7 +252,7 @@ extension ContentView {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(calories.formatted())")
-                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                        .font(.system(size: 30, weight: .bold, design: .default))
                         .monospacedDigit()
                         .foregroundStyle(textPrimary)
                     Text("Calories")
@@ -335,7 +333,7 @@ extension ContentView {
                 .frame(height: 220)
         }
         .padding(18)
-        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.15))
+        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.18))
     }
 
     var netCalorieHistoryCard: some View {
@@ -394,11 +392,11 @@ extension ContentView {
             if summary.hasData {
                 (
                     Text("\(netSign(summary.net))\(abs(summary.net).formatted())")
-                        .font(.system(size: 40, weight: .bold, design: .rounded))
+                        .font(.system(size: 40, weight: .bold, design: .default))
                         .foregroundStyle(netColor)
                     +
                     Text(" cal/day")
-                        .font(.system(size: 40, weight: .bold, design: .rounded))
+                        .font(.system(size: 40, weight: .bold, design: .default))
                         .foregroundStyle(textPrimary)
                 )
             } else {
@@ -408,7 +406,7 @@ extension ContentView {
             }
         }
         .padding(18)
-        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.15))
+        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.18))
     }
 
     var historyMealDistributionCard: some View {
@@ -470,7 +468,7 @@ extension ContentView {
             }
         }
         .padding(18)
-        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.15))
+        .cardStyle(surface: surfacePrimary, stroke: textSecondary.opacity(0.18))
     }
 
     var weightChangeComparisonButton: some View {
@@ -610,7 +608,7 @@ extension ContentView {
                                     .font(.title2.weight(.semibold))
                                     .foregroundStyle(accent)
                                 Text("Weekly Insight")
-                                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                                    .font(.system(size: 28, weight: .bold, design: .default))
                                     .foregroundStyle(textPrimary)
                             }
 
@@ -629,7 +627,7 @@ extension ContentView {
                                     ForEach(Array(sections.enumerated()), id: \.offset) { _, section in
                                         VStack(alignment: .leading, spacing: 6) {
                                             Text(section.title)
-                                                .font(.system(size: 18, weight: .bold, design: .rounded))
+                                                .font(.system(size: 18, weight: .bold, design: .default))
                                                 .foregroundStyle(textPrimary)
                                                 .multilineTextAlignment(.leading)
                                                 .fixedSize(horizontal: false, vertical: true)

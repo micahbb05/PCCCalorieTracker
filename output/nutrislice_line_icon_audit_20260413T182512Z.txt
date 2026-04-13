@@ -1,0 +1,120 @@
+Nutrislice Line Name -> FoodIcon ML Audit
+Generated: 2026-04-13T18:25:12Z
+Model: /Users/micah/Documents/Calorie Tracker/Calorie Tracker/FoodIconClassifier.mlmodel
+Confidence threshold: 0.45
+Date window (America/Chicago): 2026-04-13 to 2026-04-26
+
+Venue summary:
+- Four Winds: lines=286, flagged=46 (fallback=32, mismatch=14), menu-days-with-lines=13, meal-fetches-with-lines=26
+- Varsity: lines=254, flagged=26 (fallback=26, mismatch=0), menu-days-with-lines=13, meal-fetches-with-lines=35
+- Grab N Go: lines=146, flagged=36 (fallback=36, mismatch=0), menu-days-with-lines=10, meal-fetches-with-lines=30
+
+Flagged lines (all):
+- [Four Winds] 2026-04-13 Dinner | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Four Winds] 2026-04-13 Lunch | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Four Winds] 2026-04-14 Dinner | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Four Winds] 2026-04-14 Dinner | Line 2 - BBQ Chicken | line=FoodIconBarbecue (0.59) | dominant-items=FoodIconChicken (67%, 3/7) | reason=line-vs-items-mismatch | items=Baked Sweet Potatoes ; Grilled Chicken Breast ; BBQ Chicken Breast
+- [Four Winds] 2026-04-14 Lunch | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Four Winds] 2026-04-15 Dinner | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Four Winds] 2026-04-15 Dinner | Line 3 - Dessert Bar | line=FoodIconProtein (0.52) | dominant-items=FoodIconCake (67%, 3/3) | reason=line-vs-items-mismatch | items=Chocolate Chip Cookie ; Birthday Cake Cookie ; Iced Yellow Cake
+- [Four Winds] 2026-04-15 Lunch | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Four Winds] 2026-04-16 Dinner | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Four Winds] 2026-04-16 Lunch | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Four Winds] 2026-04-17 Dinner | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Four Winds] 2026-04-17 Dinner | Line 3 - Dessert Bar | line=FoodIconProtein (0.52) | dominant-items=FoodIconCookie (67%, 3/3) | reason=line-vs-items-mismatch | items=Chocolate Chip Cookie ; Double Chocolate Cookies ; Confetti Cake
+- [Four Winds] 2026-04-17 Dinner | Line 5 - Italian Sausage Rigatoni | line=FoodIconSausage (0.79) | dominant-items=FoodIconSalad (67%, 3/6) | reason=line-vs-items-mismatch | items=Italian Sausage Rigatoni ; Roasted Potatoes ; Green Beans
+- [Four Winds] 2026-04-17 Lunch | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Four Winds] 2026-04-18 Dinner | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Four Winds] 2026-04-18 Dinner | Line 3 - Dessert Bar | line=FoodIconProtein (0.52) | dominant-items=FoodIconCookie (100%, 2/3) | reason=line-vs-items-mismatch | items=Chocolate Chip Cookie ; Oreo Chunk Cookies ; Vanilla Pudding
+- [Four Winds] 2026-04-18 Lunch | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Four Winds] 2026-04-18 Lunch | Line 3 - Dessert Bar | line=FoodIconProtein (0.52) | dominant-items=FoodIconCookie (100%, 2/3) | reason=line-vs-items-mismatch | items=Chocolate Chip Cookie ; Oreo Chunk Cookies ; Vanilla Pudding
+- [Four Winds] 2026-04-19 Dinner | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Four Winds] 2026-04-19 Lunch | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Four Winds] 2026-04-19 Lunch | Line 2 - Fried Chicken | line=FoodIconChicken (0.93) | dominant-items=FoodIconCookingPot (67%, 3/6) | reason=line-vs-items-mismatch | items=Buttered Biscuits ; Mashed Potatoes ; Boneless Fried Chicken
+- [Four Winds] 2026-04-19 Lunch | Line 4 - Baked Ziti | line=<fallback> (0.16) | dominant-items=FoodIconSalad (67%, 3/6) | reason=fallback | items=Baked Ziti ; Roasted Potatoes ; Italian Vegetable Blend
+- [Four Winds] 2026-04-19 Lunch | Line 6 - Baked Ziti | line=<fallback> (0.16) | dominant-items=FoodIconSalad (67%, 3/6) | reason=fallback | items=Baked Ziti ; Roasted Potatoes ; Italian Vegetable Blend
+- [Four Winds] 2026-04-19 Lunch | Line 7 - Fried Chicken | line=FoodIconChicken (0.93) | dominant-items=FoodIconCookingPot (67%, 3/6) | reason=line-vs-items-mismatch | items=Buttered Biscuits ; Mashed Potatoes ; Boneless Fried Chicken
+- [Four Winds] 2026-04-20 Dinner | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Four Winds] 2026-04-20 Dinner | Line 3 - Dessert Bar | line=FoodIconProtein (0.52) | dominant-items=FoodIconCookie (67%, 3/3) | reason=line-vs-items-mismatch | items=Chocolate Chip Cookies ; White Chocolate Chip Cookie ; Iced Devil's Food Cake
+- [Four Winds] 2026-04-20 Lunch | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Four Winds] 2026-04-21 Dinner | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Four Winds] 2026-04-21 Lunch | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Four Winds] 2026-04-21 Lunch | Line 3 - Stroganoff | line=<fallback> (0.01) | dominant-items=FoodIconIceCreamSandwich (100%, 1/7) | reason=fallback | items=Beef Stroganoff ; Roasted Broccoli ; Roasted Red Potatoes
+- [Four Winds] 2026-04-22 Dinner | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Four Winds] 2026-04-22 Dinner | Line 3 - Dessert Bar | line=FoodIconProtein (0.52) | dominant-items=FoodIconCake (67%, 3/3) | reason=line-vs-items-mismatch | items=Chocolate Chip Cookie ; Birthday Cake Cookie ; Iced Yellow Cake
+- [Four Winds] 2026-04-22 Dinner | Line 4 - Indian Red Curry | line=<fallback> (0.23) | dominant-items=FoodIconChicken (50%, 2/6) | reason=fallback | items=Lime Basmati Rice ; Indian Red Curry Chicken ; Roasted Cauliflower
+- [Four Winds] 2026-04-22 Lunch | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Four Winds] 2026-04-22 Lunch | Line 4 - Indian Red Curry | line=<fallback> (0.23) | dominant-items=FoodIconCake (33%, 3/7) | reason=fallback | items=Lime Basmati Rice ; Indian Red Curry Chicken ; Roasted Cauliflower
+- [Four Winds] 2026-04-23 Dinner | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Four Winds] 2026-04-23 Lunch | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Four Winds] 2026-04-23 Lunch | Line 3 - Brunch | line=<fallback> (0.01) | dominant-items=FoodIconPancakes (33%, 6/8) | reason=fallback | items=Waffles ; French Toast ; Cheese Omelet
+- [Four Winds] 2026-04-24 Dinner | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Four Winds] 2026-04-24 Dinner | Line 3 - Dessert Bar | line=FoodIconProtein (0.52) | dominant-items=FoodIconCookie (67%, 3/3) | reason=line-vs-items-mismatch | items=Chocolate Chip Cookie ; Double Chocolate Cookies ; Confetti Cake
+- [Four Winds] 2026-04-24 Dinner | Line 5 - Spaghetti with Meat Sauce | line=FoodIconPasta (0.97) | dominant-items=FoodIconSalad (67%, 3/6) | reason=line-vs-items-mismatch | items=Spaghetti and Meat Sauce ; Rosemary Garlic Roasted Potatoes ; Chuckwagon Blend Vegetables
+- [Four Winds] 2026-04-24 Lunch | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Four Winds] 2026-04-25 Dinner | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Four Winds] 2026-04-25 Dinner | Line 3 - Dessert Bar | line=FoodIconProtein (0.52) | dominant-items=FoodIconCookie (100%, 2/3) | reason=line-vs-items-mismatch | items=Chocolate Chip Cookie ; Oreo Chunk Cookies ; Chocolate Chip Pudding
+- [Four Winds] 2026-04-25 Lunch | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Four Winds] 2026-04-25 Lunch | Line 3 - Dessert Bar | line=FoodIconProtein (0.52) | dominant-items=FoodIconCookie (100%, 2/3) | reason=line-vs-items-mismatch | items=Chocolate Chip Cookie ; Oreo Chunk Cookies ; Chocolate Chip Pudding
+- [Grab N Go] 2026-04-13 Breakfast | Continental Breakfast | line=<fallback> (0.15) | dominant-items=FoodIconBread (20%, 5/6) | reason=fallback | items=Eggo Waffle ; Sliced Bagel ; Lucky Charms Cereal
+- [Grab N Go] 2026-04-13 Dinner | Get Well Kit | line=<fallback> (0.01) | dominant-items=FoodIconGlassWater (33%, 6/10) | reason=fallback | items=Chicken Noodle Soup ; Applesauce Cup ; Strawberry Orange Jello Cup
+- [Grab N Go] 2026-04-13 Dinner | Pepperoni Hot Pocket Sticks | line=<fallback> (0.15) | dominant-items=FoodIconApple (100%, 1/4) | reason=fallback | items=Pepperoni Hot Pockets Sticks ; Assorted Chips ; Cinnamon Applesauce Cup
+- [Grab N Go] 2026-04-13 Lunch | Get Well Kit | line=<fallback> (0.01) | dominant-items=FoodIconGlassWater (33%, 6/10) | reason=fallback | items=Chicken Noodle Soup ; Applesauce Cup ; Strawberry Orange Jello Cup
+- [Grab N Go] 2026-04-13 Lunch | Pepperoni Hot Pocket Sticks | line=<fallback> (0.15) | dominant-items=FoodIconApple (100%, 1/4) | reason=fallback | items=Pepperoni Hot Pockets Sticks ; Assorted Chips ; Cinnamon Applesauce Cup
+- [Grab N Go] 2026-04-14 Breakfast | Continental Breakfast | line=<fallback> (0.15) | dominant-items=FoodIconBread (20%, 5/6) | reason=fallback | items=Eggo Waffle ; Sliced Bagel ; Lucky Charms Cereal
+- [Grab N Go] 2026-04-14 Dinner | Get Well Kit | line=<fallback> (0.01) | dominant-items=FoodIconGlassWater (33%, 6/10) | reason=fallback | items=Chicken Noodle Soup ; Applesauce Cup ; Strawberry Orange Jello Cup
+- [Grab N Go] 2026-04-14 Lunch | Get Well Kit | line=<fallback> (0.01) | dominant-items=FoodIconGlassWater (33%, 6/10) | reason=fallback | items=Chicken Noodle Soup ; Applesauce Cup ; Strawberry Orange Jello Cup
+- [Grab N Go] 2026-04-15 Breakfast | Continental Breakfast | line=<fallback> (0.15) | dominant-items=FoodIconBread (20%, 5/6) | reason=fallback | items=Eggo Waffle ; Sliced Bagel ; Lucky Charms Cereal
+- [Grab N Go] 2026-04-15 Dinner | Chipotle Chicken Quesadilla | line=<fallback> (0.39) | dominant-items=FoodIconCookie (100%, 1/5) | reason=fallback | items=Chipotle Chicken Quesadilla ; Tortilla Chips ; Salsa
+- [Grab N Go] 2026-04-15 Dinner | Get Well Kit | line=<fallback> (0.01) | dominant-items=FoodIconGlassWater (33%, 6/10) | reason=fallback | items=Chicken Noodle Soup ; Applesauce Cup ; Strawberry Orange Jello Cup
+- [Grab N Go] 2026-04-15 Lunch | Get Well Kit | line=<fallback> (0.01) | dominant-items=FoodIconGlassWater (33%, 6/10) | reason=fallback | items=Chicken Noodle Soup ; Applesauce Cup ; Strawberry Orange Jello Cup
+- [Grab N Go] 2026-04-16 Breakfast | Continental Breakfast | line=<fallback> (0.15) | dominant-items=FoodIconBread (20%, 5/6) | reason=fallback | items=Eggo Waffle ; Sliced Bagel ; Lucky Charms Cereal
+- [Grab N Go] 2026-04-16 Dinner | Get Well Kit | line=<fallback> (0.01) | dominant-items=FoodIconGlassWater (33%, 6/10) | reason=fallback | items=Chicken Noodle Soup ; Applesauce Cup ; Strawberry Orange Jello Cup
+- [Grab N Go] 2026-04-16 Dinner | Italian Sub | line=<fallback> (0.42) | dominant-items=FoodIconApple (100%, 1/6) | reason=fallback | items=Italian Sub ; Assorted Chips ; Applesauce Cup
+- [Grab N Go] 2026-04-16 Lunch | Get Well Kit | line=<fallback> (0.01) | dominant-items=FoodIconGlassWater (33%, 6/10) | reason=fallback | items=Chicken Noodle Soup ; Applesauce Cup ; Strawberry Orange Jello Cup
+- [Grab N Go] 2026-04-16 Lunch | Italian Sub | line=<fallback> (0.42) | dominant-items=FoodIconApple (100%, 1/6) | reason=fallback | items=Italian Sub ; Assorted Chips ; Applesauce Cup
+- [Grab N Go] 2026-04-17 Breakfast | Continental Breakfast | line=<fallback> (0.15) | dominant-items=FoodIconBread (20%, 5/6) | reason=fallback | items=Eggo Waffle ; Sliced Bagel ; Lucky Charms Cereal
+- [Grab N Go] 2026-04-17 Dinner | Get Well Kit | line=<fallback> (0.01) | dominant-items=FoodIconGlassWater (33%, 6/10) | reason=fallback | items=Chicken Noodle Soup ; Applesauce Cup ; Strawberry Orange Jello Cup
+- [Grab N Go] 2026-04-17 Lunch | Get Well Kit | line=<fallback> (0.01) | dominant-items=FoodIconGlassWater (33%, 6/10) | reason=fallback | items=Chicken Noodle Soup ; Applesauce Cup ; Strawberry Orange Jello Cup
+- [Grab N Go] 2026-04-20 Breakfast | Continental Breakfast | line=<fallback> (0.15) | dominant-items=FoodIconBread (20%, 5/6) | reason=fallback | items=Eggo Waffle ; Sliced Bagel ; Lucky Charms Cereal
+- [Grab N Go] 2026-04-20 Dinner | Get Well Kit | line=<fallback> (0.01) | dominant-items=FoodIconGlassWater (33%, 6/10) | reason=fallback | items=Chicken Noodle Soup ; Applesauce Cup ; Strawberry Orange Jello Cup
+- [Grab N Go] 2026-04-20 Lunch | Get Well Kit | line=<fallback> (0.01) | dominant-items=FoodIconGlassWater (33%, 6/10) | reason=fallback | items=Chicken Noodle Soup ; Applesauce Cup ; Strawberry Orange Jello Cup
+- [Grab N Go] 2026-04-21 Breakfast | Continental Breakfast | line=<fallback> (0.15) | dominant-items=FoodIconBread (20%, 5/6) | reason=fallback | items=Eggo Waffle ; Sliced Bagel ; Lucky Charms Cereal
+- [Grab N Go] 2026-04-21 Dinner | Get Well Kit | line=<fallback> (0.01) | dominant-items=FoodIconGlassWater (33%, 6/10) | reason=fallback | items=Chicken Noodle Soup ; Applesauce Cup ; Strawberry Orange Jello Cup
+- [Grab N Go] 2026-04-21 Lunch | Get Well Kit | line=<fallback> (0.01) | dominant-items=FoodIconGlassWater (33%, 6/10) | reason=fallback | items=Chicken Noodle Soup ; Applesauce Cup ; Strawberry Orange Jello Cup
+- [Grab N Go] 2026-04-22 Breakfast | Continental Breakfast | line=<fallback> (0.15) | dominant-items=FoodIconBread (20%, 5/6) | reason=fallback | items=Eggo Waffle ; Sliced Bagel ; Lucky Charms Cereal
+- [Grab N Go] 2026-04-22 Dinner | Chipotle Chicken Quesadilla | line=<fallback> (0.39) | dominant-items=FoodIconCookie (100%, 1/5) | reason=fallback | items=Chipotle Chicken Quesadilla ; Tortilla Chips ; Salsa
+- [Grab N Go] 2026-04-22 Dinner | Get Well Kit | line=<fallback> (0.01) | dominant-items=FoodIconGlassWater (33%, 6/10) | reason=fallback | items=Chicken Noodle Soup ; Applesauce Cup ; Strawberry Orange Jello Cup
+- [Grab N Go] 2026-04-22 Lunch | Get Well Kit | line=<fallback> (0.01) | dominant-items=FoodIconGlassWater (33%, 6/10) | reason=fallback | items=Chicken Noodle Soup ; Applesauce Cup ; Strawberry Orange Jello Cup
+- [Grab N Go] 2026-04-23 Breakfast | Continental Breakfast | line=<fallback> (0.15) | dominant-items=FoodIconBread (20%, 5/6) | reason=fallback | items=Eggo Waffle ; Sliced Bagel ; Lucky Charms Cereal
+- [Grab N Go] 2026-04-23 Dinner | Get Well Kit | line=<fallback> (0.01) | dominant-items=FoodIconGlassWater (33%, 6/10) | reason=fallback | items=Chicken Noodle Soup ; Applesauce Cup ; Strawberry Orange Jello Cup
+- [Grab N Go] 2026-04-23 Lunch | Get Well Kit | line=<fallback> (0.01) | dominant-items=FoodIconGlassWater (33%, 6/10) | reason=fallback | items=Chicken Noodle Soup ; Applesauce Cup ; Strawberry Orange Jello Cup
+- [Grab N Go] 2026-04-24 Breakfast | Continental Breakfast | line=<fallback> (0.15) | dominant-items=FoodIconBread (20%, 5/6) | reason=fallback | items=Eggo Waffle ; Sliced Bagel ; Lucky Charms Cereal
+- [Grab N Go] 2026-04-24 Dinner | Get Well Kit | line=<fallback> (0.01) | dominant-items=FoodIconGlassWater (33%, 6/10) | reason=fallback | items=Chicken Noodle Soup ; Applesauce Cup ; Strawberry Orange Jello Cup
+- [Grab N Go] 2026-04-24 Lunch | Get Well Kit | line=<fallback> (0.01) | dominant-items=FoodIconGlassWater (33%, 6/10) | reason=fallback | items=Chicken Noodle Soup ; Applesauce Cup ; Strawberry Orange Jello Cup
+- [Varsity] 2026-04-13 Dinner | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Varsity] 2026-04-13 Lunch | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Varsity] 2026-04-14 Dinner | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Varsity] 2026-04-14 Lunch | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Ketchup
+- [Varsity] 2026-04-15 Dinner | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Varsity] 2026-04-15 Lunch | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Varsity] 2026-04-16 Dinner | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Varsity] 2026-04-16 Lunch | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Varsity] 2026-04-17 Dinner | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Varsity] 2026-04-17 Lunch | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Varsity] 2026-04-18 Breakfast | Line 1 - Closed | line=<fallback> (0.01) | dominant-items=<none> (0%, 0/1) | reason=fallback | items=Closed
+- [Varsity] 2026-04-19 Breakfast | Line 1 - Closed | line=<fallback> (0.01) | dominant-items=<none> (0%, 0/1) | reason=fallback | items=Closed
+- [Varsity] 2026-04-19 Dinner | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Varsity] 2026-04-19 Lunch | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Varsity] 2026-04-19 Lunch | Line 2 - Baked Ziti | line=<fallback> (0.16) | dominant-items=FoodIconSalad (50%, 4/7) | reason=fallback | items=Baked Ziti ; Rosemary Garlic Roasted Potatoes ; Italian Vegetable Blend
+- [Varsity] 2026-04-20 Dinner | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Varsity] 2026-04-20 Lunch | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Varsity] 2026-04-21 Dinner | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Varsity] 2026-04-21 Lunch | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Varsity] 2026-04-22 Dinner | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Varsity] 2026-04-22 Lunch | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Varsity] 2026-04-23 Dinner | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Varsity] 2026-04-23 Lunch | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Varsity] 2026-04-24 Dinner | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Varsity] 2026-04-24 Lunch | Condiment Options | line=<fallback> (0.01) | dominant-items=FoodIconBarbecue (100%, 1/5) | reason=fallback | items=Mayonnaise ; BBQ Sauce ; Hot Sauce
+- [Varsity] 2026-04-25 Breakfast | Line 1 - Closed | line=<fallback> (0.01) | dominant-items=<none> (0%, 0/1) | reason=fallback | items=Closed

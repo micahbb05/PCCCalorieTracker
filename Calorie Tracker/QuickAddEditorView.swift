@@ -74,6 +74,7 @@ struct QuickAddEditorView: View {
     @State private var isUSDASearchKeyboardVisible = false
     @State private var aiImportRequestedPickerSource: PlateImagePickerView.Source?
     @State private var isAITextImportPresented = false
+    @State private var isAITextImportKeyboardVisible = false
     @State private var aiImportTextInput = ""
     @State private var isAIImportLoading = false
     @State private var aiImportError: String?
@@ -1372,8 +1373,19 @@ struct QuickAddEditorView: View {
                     .padding(.top, 18)
                     .padding(.bottom, 40)
                 }
+                .scrollDismissesKeyboard(.interactively)
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in
+            isAITextImportKeyboardVisible = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            isAITextImportKeyboardVisible = false
+        }
+        .onDisappear {
+            isAITextImportKeyboardVisible = false
+        }
+        .interactiveDismissDisabled(isAITextImportKeyboardVisible)
     }
 
     private var quickAddAIImportSelectionSheet: some View {

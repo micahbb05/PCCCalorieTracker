@@ -40,7 +40,7 @@ LUCIDE_BY_FOOD_ICON: dict[str, str] = {
     "FoodIconEgg": "egg",
     "FoodIconEggFried": "egg-fried",
     "FoodIconFish": "fish",
-    "FoodIconFries": "popcorn",
+    # Custom-drawn in-repo fries box glyph; do not sync this from Lucide core.
     "FoodIconGlassWater": "glass-water",
     "FoodIconGrape": "grape",
     "FoodIconHam": "ham",
@@ -67,8 +67,8 @@ LUCIDE_BY_FOOD_ICON: dict[str, str] = {
     "FoodIconSnail": "snail",
     "FoodIconSoup": "soup",
     "FoodIconSushi": "fish",
-    # Lucide has no taco; sandwich reads closer to a filled handheld than a second hamburger.
-    "FoodIconTaco": "sandwich",
+    # Temporary fallback per app request: use cylinder glyph for taco.
+    "FoodIconTaco": "cylinder",
     "FoodIconUtensils": "utensils",
     "FoodIconUtensilsCrossed": "utensils-crossed",
     "FoodIconVegan": "vegan",

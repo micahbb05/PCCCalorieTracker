@@ -347,8 +347,8 @@ extension ContentView {
         let iconName = foodLogIcon(for: entry.name)
 
         return HStack(alignment: .center, spacing: 12) {
-            foodLogIconView(iconName, size: 27)
-                .frame(width: 38, alignment: .center)
+            foodLogIconView(iconName, size: 29)
+                .frame(width: 40, alignment: .center)
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 8) {

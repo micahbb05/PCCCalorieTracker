@@ -1,0 +1,18 @@
+Nutrislice Line Name -> FoodIcon ML Audit
+Generated: 2026-04-13T18:35:53Z
+Model: /Users/micah/Documents/Calorie Tracker/Calorie Tracker/FoodIconClassifier.mlmodel
+Confidence threshold: 0.45
+Date window (America/Chicago): 2026-04-13 to 2026-04-26
+
+Venue summary:
+- Four Winds: lines=286, flagged=6 (fallback=0, mismatch=6), menu-days-with-lines=13, meal-fetches-with-lines=26
+- Varsity: lines=254, flagged=0 (fallback=0, mismatch=0), menu-days-with-lines=13, meal-fetches-with-lines=35
+- Grab N Go: lines=146, flagged=0 (fallback=0, mismatch=0), menu-days-with-lines=10, meal-fetches-with-lines=30
+
+Flagged lines (all):
+- [Four Winds] 2026-04-15 Dinner | Line 3 - Dessert Bar | line=FoodIconCookie (0.87) | dominant-items=FoodIconCake (67%, 3/3) | reason=line-vs-items-mismatch | items=Chocolate Chip Cookie ; Birthday Cake Cookie ; Iced Yellow Cake
+- [Four Winds] 2026-04-17 Dinner | Line 5 - Italian Sausage Rigatoni | line=FoodIconPasta (0.92) | dominant-items=FoodIconSalad (67%, 3/6) | reason=line-vs-items-mismatch | items=Italian Sausage Rigatoni ; Roasted Potatoes ; Green Beans
+- [Four Winds] 2026-04-19 Lunch | Line 2 - Fried Chicken | line=FoodIconChicken (0.94) | dominant-items=FoodIconCookingPot (67%, 3/6) | reason=line-vs-items-mismatch | items=Buttered Biscuits ; Mashed Potatoes ; Boneless Fried Chicken
+- [Four Winds] 2026-04-19 Lunch | Line 7 - Fried Chicken | line=FoodIconChicken (0.94) | dominant-items=FoodIconCookingPot (67%, 3/6) | reason=line-vs-items-mismatch | items=Buttered Biscuits ; Mashed Potatoes ; Boneless Fried Chicken
+- [Four Winds] 2026-04-22 Dinner | Line 3 - Dessert Bar | line=FoodIconCookie (0.87) | dominant-items=FoodIconCake (67%, 3/3) | reason=line-vs-items-mismatch | items=Chocolate Chip Cookie ; Birthday Cake Cookie ; Iced Yellow Cake
+- [Four Winds] 2026-04-24 Dinner | Line 5 - Spaghetti with Meat Sauce | line=FoodIconPasta (0.97) | dominant-items=FoodIconSalad (67%, 3/6) | reason=line-vs-items-mismatch | items=Spaghetti and Meat Sauce ; Rosemary Garlic Roasted Potatoes ; Chuckwagon Blend Vegetables

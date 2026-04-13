@@ -778,25 +778,34 @@
     .hero-buttons  { animation: rise 0.8s ease 0.55s both; }
 
     @media (max-width: 600px) {
-      #nav { padding: 1.25rem 1.5rem; padding-top: calc(1.25rem + env(safe-area-inset-top)); }
       #nav {
-        --mobile-safe-top-bg: rgba(8, 16, 10, 0.9);
-        isolation: isolate;
-      }
-      #nav::before {
-        content: '';
+        display: flex;
         position: absolute;
         top: 0;
         left: 0;
         right: 0;
-        height: calc(env(safe-area-inset-top) + 8px);
-        background: var(--mobile-safe-top-bg);
-        pointer-events: none;
-        z-index: 0;
-        transition: background 0.5s ease;
+        background: transparent !important;
+        box-shadow: none !important;
       }
-      #nav > * { position: relative; z-index: 1; }
-      #nav.scrolled { --mobile-safe-top-bg: #F5F0E6; }
+      #nav.scrolled {
+        background: transparent !important;
+        box-shadow: none !important;
+      }
+      #nav .nav-logo,
+      #nav.scrolled .nav-logo {
+        color: rgba(255, 253, 245, 0.9) !important;
+      }
+      #nav .nav-cta,
+      #nav.scrolled .nav-cta {
+        color: rgba(255, 253, 245, 0.9) !important;
+        border-color: rgba(255, 255, 255, 0.2) !important;
+        background: transparent !important;
+      }
+      #nav .nav-cta:hover,
+      #nav.scrolled .nav-cta:hover {
+        background: rgba(255, 255, 255, 0.1) !important;
+        border-color: rgba(255, 255, 255, 0.35) !important;
+      }
       .hero { padding: 8rem 1.5rem 0; }
       .what-strip { padding: 1.5rem; }
       .cta-section { padding: 6rem 1.5rem; }

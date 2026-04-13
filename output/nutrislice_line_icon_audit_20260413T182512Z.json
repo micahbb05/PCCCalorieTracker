@@ -1,0 +1,1978 @@
+{
+  "confidenceThreshold" : 0.45000000000000001,
+  "dateWindow" : {
+    "end" : "2026-04-26",
+    "start" : "2026-04-13"
+  },
+  "fetchFailures" : [
+
+  ],
+  "flaggedLines" : [
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-13",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-14",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-15",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-16",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-17",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 2,
+      "date" : "2026-04-18",
+      "dominantItemLabel" : "FoodIconCookie",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.5159761560484396,
+      "lineLabel" : "FoodIconProtein",
+      "lineName" : "Line 3 - Dessert Bar",
+      "menuType" : "Lunch",
+      "reason" : "line-vs-items-mismatch",
+      "sampleItems" : [
+        "Chocolate Chip Cookie",
+        "Oreo Chunk Cookies",
+        "Vanilla Pudding"
+      ],
+      "totalItems" : 3,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-18",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 3,
+      "date" : "2026-04-19",
+      "dominantItemLabel" : "FoodIconCookingPot",
+      "dominantItemShare" : 0.66666666666666663,
+      "lineConfidence" : 0.9343561374369298,
+      "lineLabel" : "FoodIconChicken",
+      "lineName" : "Line 2 - Fried Chicken",
+      "menuType" : "Lunch",
+      "reason" : "line-vs-items-mismatch",
+      "sampleItems" : [
+        "Buttered Biscuits",
+        "Mashed Potatoes",
+        "Boneless Fried Chicken"
+      ],
+      "totalItems" : 6,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 3,
+      "date" : "2026-04-19",
+      "dominantItemLabel" : "FoodIconSalad",
+      "dominantItemShare" : 0.66666666666666663,
+      "lineConfidence" : 0.16108047097771683,
+      "lineLabel" : null,
+      "lineName" : "Line 4 - Baked Ziti",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Baked Ziti",
+        "Roasted Potatoes",
+        "Italian Vegetable Blend"
+      ],
+      "totalItems" : 6,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 3,
+      "date" : "2026-04-19",
+      "dominantItemLabel" : "FoodIconSalad",
+      "dominantItemShare" : 0.66666666666666663,
+      "lineConfidence" : 0.16108047097771683,
+      "lineLabel" : null,
+      "lineName" : "Line 6 - Baked Ziti",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Baked Ziti",
+        "Roasted Potatoes",
+        "Italian Vegetable Blend"
+      ],
+      "totalItems" : 6,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 3,
+      "date" : "2026-04-19",
+      "dominantItemLabel" : "FoodIconCookingPot",
+      "dominantItemShare" : 0.66666666666666663,
+      "lineConfidence" : 0.9343561374369298,
+      "lineLabel" : "FoodIconChicken",
+      "lineName" : "Line 7 - Fried Chicken",
+      "menuType" : "Lunch",
+      "reason" : "line-vs-items-mismatch",
+      "sampleItems" : [
+        "Buttered Biscuits",
+        "Mashed Potatoes",
+        "Boneless Fried Chicken"
+      ],
+      "totalItems" : 6,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-19",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-20",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-21",
+      "dominantItemLabel" : "FoodIconIceCreamSandwich",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Line 3 - Stroganoff",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Beef Stroganoff",
+        "Roasted Broccoli",
+        "Roasted Red Potatoes"
+      ],
+      "totalItems" : 7,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-21",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 3,
+      "date" : "2026-04-22",
+      "dominantItemLabel" : "FoodIconCake",
+      "dominantItemShare" : 0.33333333333333331,
+      "lineConfidence" : 0.2341292746776564,
+      "lineLabel" : null,
+      "lineName" : "Line 4 - Indian Red Curry",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Lime Basmati Rice",
+        "Indian Red Curry Chicken",
+        "Roasted Cauliflower"
+      ],
+      "totalItems" : 7,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-22",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 6,
+      "date" : "2026-04-23",
+      "dominantItemLabel" : "FoodIconPancakes",
+      "dominantItemShare" : 0.33333333333333331,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Line 3 - Brunch",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Waffles",
+        "French Toast",
+        "Cheese Omelet"
+      ],
+      "totalItems" : 8,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-23",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-24",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 2,
+      "date" : "2026-04-25",
+      "dominantItemLabel" : "FoodIconCookie",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.5159761560484396,
+      "lineLabel" : "FoodIconProtein",
+      "lineName" : "Line 3 - Dessert Bar",
+      "menuType" : "Lunch",
+      "reason" : "line-vs-items-mismatch",
+      "sampleItems" : [
+        "Chocolate Chip Cookie",
+        "Oreo Chunk Cookies",
+        "Chocolate Chip Pudding"
+      ],
+      "totalItems" : 3,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-25",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-13",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 3,
+      "date" : "2026-04-14",
+      "dominantItemLabel" : "FoodIconChicken",
+      "dominantItemShare" : 0.66666666666666663,
+      "lineConfidence" : 0.59389996291866765,
+      "lineLabel" : "FoodIconBarbecue",
+      "lineName" : "Line 2 - BBQ Chicken",
+      "menuType" : "Dinner",
+      "reason" : "line-vs-items-mismatch",
+      "sampleItems" : [
+        "Baked Sweet Potatoes",
+        "Grilled Chicken Breast",
+        "BBQ Chicken Breast"
+      ],
+      "totalItems" : 7,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-14",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 3,
+      "date" : "2026-04-15",
+      "dominantItemLabel" : "FoodIconCake",
+      "dominantItemShare" : 0.66666666666666663,
+      "lineConfidence" : 0.5159761560484396,
+      "lineLabel" : "FoodIconProtein",
+      "lineName" : "Line 3 - Dessert Bar",
+      "menuType" : "Dinner",
+      "reason" : "line-vs-items-mismatch",
+      "sampleItems" : [
+        "Chocolate Chip Cookie",
+        "Birthday Cake Cookie",
+        "Iced Yellow Cake"
+      ],
+      "totalItems" : 3,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-15",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-16",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 3,
+      "date" : "2026-04-17",
+      "dominantItemLabel" : "FoodIconCookie",
+      "dominantItemShare" : 0.66666666666666663,
+      "lineConfidence" : 0.5159761560484396,
+      "lineLabel" : "FoodIconProtein",
+      "lineName" : "Line 3 - Dessert Bar",
+      "menuType" : "Dinner",
+      "reason" : "line-vs-items-mismatch",
+      "sampleItems" : [
+        "Chocolate Chip Cookie",
+        "Double Chocolate Cookies",
+        "Confetti Cake"
+      ],
+      "totalItems" : 3,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 3,
+      "date" : "2026-04-17",
+      "dominantItemLabel" : "FoodIconSalad",
+      "dominantItemShare" : 0.66666666666666663,
+      "lineConfidence" : 0.78892986073949223,
+      "lineLabel" : "FoodIconSausage",
+      "lineName" : "Line 5 - Italian Sausage Rigatoni",
+      "menuType" : "Dinner",
+      "reason" : "line-vs-items-mismatch",
+      "sampleItems" : [
+        "Italian Sausage Rigatoni",
+        "Roasted Potatoes",
+        "Green Beans"
+      ],
+      "totalItems" : 6,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-17",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 2,
+      "date" : "2026-04-18",
+      "dominantItemLabel" : "FoodIconCookie",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.5159761560484396,
+      "lineLabel" : "FoodIconProtein",
+      "lineName" : "Line 3 - Dessert Bar",
+      "menuType" : "Dinner",
+      "reason" : "line-vs-items-mismatch",
+      "sampleItems" : [
+        "Chocolate Chip Cookie",
+        "Oreo Chunk Cookies",
+        "Vanilla Pudding"
+      ],
+      "totalItems" : 3,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-18",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-19",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 3,
+      "date" : "2026-04-20",
+      "dominantItemLabel" : "FoodIconCookie",
+      "dominantItemShare" : 0.66666666666666663,
+      "lineConfidence" : 0.5159761560484396,
+      "lineLabel" : "FoodIconProtein",
+      "lineName" : "Line 3 - Dessert Bar",
+      "menuType" : "Dinner",
+      "reason" : "line-vs-items-mismatch",
+      "sampleItems" : [
+        "Chocolate Chip Cookies",
+        "White Chocolate Chip Cookie",
+        "Iced Devil's Food Cake"
+      ],
+      "totalItems" : 3,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-20",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-21",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 3,
+      "date" : "2026-04-22",
+      "dominantItemLabel" : "FoodIconCake",
+      "dominantItemShare" : 0.66666666666666663,
+      "lineConfidence" : 0.5159761560484396,
+      "lineLabel" : "FoodIconProtein",
+      "lineName" : "Line 3 - Dessert Bar",
+      "menuType" : "Dinner",
+      "reason" : "line-vs-items-mismatch",
+      "sampleItems" : [
+        "Chocolate Chip Cookie",
+        "Birthday Cake Cookie",
+        "Iced Yellow Cake"
+      ],
+      "totalItems" : 3,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 2,
+      "date" : "2026-04-22",
+      "dominantItemLabel" : "FoodIconChicken",
+      "dominantItemShare" : 0.5,
+      "lineConfidence" : 0.2341292746776564,
+      "lineLabel" : null,
+      "lineName" : "Line 4 - Indian Red Curry",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Lime Basmati Rice",
+        "Indian Red Curry Chicken",
+        "Roasted Cauliflower"
+      ],
+      "totalItems" : 6,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-22",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-23",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 3,
+      "date" : "2026-04-24",
+      "dominantItemLabel" : "FoodIconCookie",
+      "dominantItemShare" : 0.66666666666666663,
+      "lineConfidence" : 0.5159761560484396,
+      "lineLabel" : "FoodIconProtein",
+      "lineName" : "Line 3 - Dessert Bar",
+      "menuType" : "Dinner",
+      "reason" : "line-vs-items-mismatch",
+      "sampleItems" : [
+        "Chocolate Chip Cookie",
+        "Double Chocolate Cookies",
+        "Confetti Cake"
+      ],
+      "totalItems" : 3,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 3,
+      "date" : "2026-04-24",
+      "dominantItemLabel" : "FoodIconSalad",
+      "dominantItemShare" : 0.66666666666666663,
+      "lineConfidence" : 0.9703759822160426,
+      "lineLabel" : "FoodIconPasta",
+      "lineName" : "Line 5 - Spaghetti with Meat Sauce",
+      "menuType" : "Dinner",
+      "reason" : "line-vs-items-mismatch",
+      "sampleItems" : [
+        "Spaghetti and Meat Sauce",
+        "Rosemary Garlic Roasted Potatoes",
+        "Chuckwagon Blend Vegetables"
+      ],
+      "totalItems" : 6,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-24",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 2,
+      "date" : "2026-04-25",
+      "dominantItemLabel" : "FoodIconCookie",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.5159761560484396,
+      "lineLabel" : "FoodIconProtein",
+      "lineName" : "Line 3 - Dessert Bar",
+      "menuType" : "Dinner",
+      "reason" : "line-vs-items-mismatch",
+      "sampleItems" : [
+        "Chocolate Chip Cookie",
+        "Oreo Chunk Cookies",
+        "Chocolate Chip Pudding"
+      ],
+      "totalItems" : 3,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-25",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 0,
+      "date" : "2026-04-18",
+      "dominantItemLabel" : null,
+      "dominantItemShare" : 0,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Line 1 - Closed",
+      "menuType" : "Breakfast",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Closed"
+      ],
+      "totalItems" : 1,
+      "venue" : "Varsity"
+    },
+    {
+      "classifiedItems" : 0,
+      "date" : "2026-04-19",
+      "dominantItemLabel" : null,
+      "dominantItemShare" : 0,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Line 1 - Closed",
+      "menuType" : "Breakfast",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Closed"
+      ],
+      "totalItems" : 1,
+      "venue" : "Varsity"
+    },
+    {
+      "classifiedItems" : 0,
+      "date" : "2026-04-25",
+      "dominantItemLabel" : null,
+      "dominantItemShare" : 0,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Line 1 - Closed",
+      "menuType" : "Breakfast",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Closed"
+      ],
+      "totalItems" : 1,
+      "venue" : "Varsity"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-13",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Varsity"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-14",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Ketchup"
+      ],
+      "totalItems" : 5,
+      "venue" : "Varsity"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-15",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Varsity"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-16",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Varsity"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-17",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Varsity"
+    },
+    {
+      "classifiedItems" : 4,
+      "date" : "2026-04-19",
+      "dominantItemLabel" : "FoodIconSalad",
+      "dominantItemShare" : 0.5,
+      "lineConfidence" : 0.16108047097771683,
+      "lineLabel" : null,
+      "lineName" : "Line 2 - Baked Ziti",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Baked Ziti",
+        "Rosemary Garlic Roasted Potatoes",
+        "Italian Vegetable Blend"
+      ],
+      "totalItems" : 7,
+      "venue" : "Varsity"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-19",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Varsity"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-20",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Varsity"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-21",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Varsity"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-22",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Varsity"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-23",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Varsity"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-24",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Varsity"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-13",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Varsity"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-14",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Varsity"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-15",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Varsity"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-16",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Varsity"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-17",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Varsity"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-19",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Varsity"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-20",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Varsity"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-21",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Varsity"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-22",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Varsity"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-23",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Varsity"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-24",
+      "dominantItemLabel" : "FoodIconBarbecue",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Condiment Options",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Mayonnaise",
+        "BBQ Sauce",
+        "Hot Sauce"
+      ],
+      "totalItems" : 5,
+      "venue" : "Varsity"
+    },
+    {
+      "classifiedItems" : 5,
+      "date" : "2026-04-13",
+      "dominantItemLabel" : "FoodIconBread",
+      "dominantItemShare" : 0.20000000000000001,
+      "lineConfidence" : 0.1469616957719804,
+      "lineLabel" : null,
+      "lineName" : "Continental Breakfast",
+      "menuType" : "Breakfast",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Eggo Waffle",
+        "Sliced Bagel",
+        "Lucky Charms Cereal"
+      ],
+      "totalItems" : 6,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 5,
+      "date" : "2026-04-14",
+      "dominantItemLabel" : "FoodIconBread",
+      "dominantItemShare" : 0.20000000000000001,
+      "lineConfidence" : 0.1469616957719804,
+      "lineLabel" : null,
+      "lineName" : "Continental Breakfast",
+      "menuType" : "Breakfast",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Eggo Waffle",
+        "Sliced Bagel",
+        "Lucky Charms Cereal"
+      ],
+      "totalItems" : 6,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 5,
+      "date" : "2026-04-15",
+      "dominantItemLabel" : "FoodIconBread",
+      "dominantItemShare" : 0.20000000000000001,
+      "lineConfidence" : 0.1469616957719804,
+      "lineLabel" : null,
+      "lineName" : "Continental Breakfast",
+      "menuType" : "Breakfast",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Eggo Waffle",
+        "Sliced Bagel",
+        "Lucky Charms Cereal"
+      ],
+      "totalItems" : 6,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 5,
+      "date" : "2026-04-16",
+      "dominantItemLabel" : "FoodIconBread",
+      "dominantItemShare" : 0.20000000000000001,
+      "lineConfidence" : 0.1469616957719804,
+      "lineLabel" : null,
+      "lineName" : "Continental Breakfast",
+      "menuType" : "Breakfast",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Eggo Waffle",
+        "Sliced Bagel",
+        "Lucky Charms Cereal"
+      ],
+      "totalItems" : 6,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 5,
+      "date" : "2026-04-17",
+      "dominantItemLabel" : "FoodIconBread",
+      "dominantItemShare" : 0.20000000000000001,
+      "lineConfidence" : 0.1469616957719804,
+      "lineLabel" : null,
+      "lineName" : "Continental Breakfast",
+      "menuType" : "Breakfast",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Eggo Waffle",
+        "Sliced Bagel",
+        "Lucky Charms Cereal"
+      ],
+      "totalItems" : 6,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 5,
+      "date" : "2026-04-20",
+      "dominantItemLabel" : "FoodIconBread",
+      "dominantItemShare" : 0.20000000000000001,
+      "lineConfidence" : 0.1469616957719804,
+      "lineLabel" : null,
+      "lineName" : "Continental Breakfast",
+      "menuType" : "Breakfast",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Eggo Waffle",
+        "Sliced Bagel",
+        "Lucky Charms Cereal"
+      ],
+      "totalItems" : 6,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 5,
+      "date" : "2026-04-21",
+      "dominantItemLabel" : "FoodIconBread",
+      "dominantItemShare" : 0.20000000000000001,
+      "lineConfidence" : 0.1469616957719804,
+      "lineLabel" : null,
+      "lineName" : "Continental Breakfast",
+      "menuType" : "Breakfast",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Eggo Waffle",
+        "Sliced Bagel",
+        "Lucky Charms Cereal"
+      ],
+      "totalItems" : 6,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 5,
+      "date" : "2026-04-22",
+      "dominantItemLabel" : "FoodIconBread",
+      "dominantItemShare" : 0.20000000000000001,
+      "lineConfidence" : 0.1469616957719804,
+      "lineLabel" : null,
+      "lineName" : "Continental Breakfast",
+      "menuType" : "Breakfast",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Eggo Waffle",
+        "Sliced Bagel",
+        "Lucky Charms Cereal"
+      ],
+      "totalItems" : 6,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 5,
+      "date" : "2026-04-23",
+      "dominantItemLabel" : "FoodIconBread",
+      "dominantItemShare" : 0.20000000000000001,
+      "lineConfidence" : 0.1469616957719804,
+      "lineLabel" : null,
+      "lineName" : "Continental Breakfast",
+      "menuType" : "Breakfast",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Eggo Waffle",
+        "Sliced Bagel",
+        "Lucky Charms Cereal"
+      ],
+      "totalItems" : 6,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 5,
+      "date" : "2026-04-24",
+      "dominantItemLabel" : "FoodIconBread",
+      "dominantItemShare" : 0.20000000000000001,
+      "lineConfidence" : 0.1469616957719804,
+      "lineLabel" : null,
+      "lineName" : "Continental Breakfast",
+      "menuType" : "Breakfast",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Eggo Waffle",
+        "Sliced Bagel",
+        "Lucky Charms Cereal"
+      ],
+      "totalItems" : 6,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-13",
+      "dominantItemLabel" : "FoodIconApple",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.15379453339386873,
+      "lineLabel" : null,
+      "lineName" : "Pepperoni Hot Pocket Sticks",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Pepperoni Hot Pockets Sticks",
+        "Assorted Chips",
+        "Cinnamon Applesauce Cup"
+      ],
+      "totalItems" : 4,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 6,
+      "date" : "2026-04-13",
+      "dominantItemLabel" : "FoodIconGlassWater",
+      "dominantItemShare" : 0.33333333333333331,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Get Well Kit",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Chicken Noodle Soup",
+        "Applesauce Cup",
+        "Strawberry Orange Jello Cup"
+      ],
+      "totalItems" : 10,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 6,
+      "date" : "2026-04-14",
+      "dominantItemLabel" : "FoodIconGlassWater",
+      "dominantItemShare" : 0.33333333333333331,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Get Well Kit",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Chicken Noodle Soup",
+        "Applesauce Cup",
+        "Strawberry Orange Jello Cup"
+      ],
+      "totalItems" : 10,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 6,
+      "date" : "2026-04-15",
+      "dominantItemLabel" : "FoodIconGlassWater",
+      "dominantItemShare" : 0.33333333333333331,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Get Well Kit",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Chicken Noodle Soup",
+        "Applesauce Cup",
+        "Strawberry Orange Jello Cup"
+      ],
+      "totalItems" : 10,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-16",
+      "dominantItemLabel" : "FoodIconApple",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.42242624872587786,
+      "lineLabel" : null,
+      "lineName" : "Italian Sub",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Italian Sub",
+        "Assorted Chips",
+        "Applesauce Cup"
+      ],
+      "totalItems" : 6,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 6,
+      "date" : "2026-04-16",
+      "dominantItemLabel" : "FoodIconGlassWater",
+      "dominantItemShare" : 0.33333333333333331,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Get Well Kit",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Chicken Noodle Soup",
+        "Applesauce Cup",
+        "Strawberry Orange Jello Cup"
+      ],
+      "totalItems" : 10,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 6,
+      "date" : "2026-04-17",
+      "dominantItemLabel" : "FoodIconGlassWater",
+      "dominantItemShare" : 0.33333333333333331,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Get Well Kit",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Chicken Noodle Soup",
+        "Applesauce Cup",
+        "Strawberry Orange Jello Cup"
+      ],
+      "totalItems" : 10,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 6,
+      "date" : "2026-04-20",
+      "dominantItemLabel" : "FoodIconGlassWater",
+      "dominantItemShare" : 0.33333333333333331,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Get Well Kit",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Chicken Noodle Soup",
+        "Applesauce Cup",
+        "Strawberry Orange Jello Cup"
+      ],
+      "totalItems" : 10,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 6,
+      "date" : "2026-04-21",
+      "dominantItemLabel" : "FoodIconGlassWater",
+      "dominantItemShare" : 0.33333333333333331,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Get Well Kit",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Chicken Noodle Soup",
+        "Applesauce Cup",
+        "Strawberry Orange Jello Cup"
+      ],
+      "totalItems" : 10,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 6,
+      "date" : "2026-04-22",
+      "dominantItemLabel" : "FoodIconGlassWater",
+      "dominantItemShare" : 0.33333333333333331,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Get Well Kit",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Chicken Noodle Soup",
+        "Applesauce Cup",
+        "Strawberry Orange Jello Cup"
+      ],
+      "totalItems" : 10,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 6,
+      "date" : "2026-04-23",
+      "dominantItemLabel" : "FoodIconGlassWater",
+      "dominantItemShare" : 0.33333333333333331,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Get Well Kit",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Chicken Noodle Soup",
+        "Applesauce Cup",
+        "Strawberry Orange Jello Cup"
+      ],
+      "totalItems" : 10,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 6,
+      "date" : "2026-04-24",
+      "dominantItemLabel" : "FoodIconGlassWater",
+      "dominantItemShare" : 0.33333333333333331,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Get Well Kit",
+      "menuType" : "Lunch",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Chicken Noodle Soup",
+        "Applesauce Cup",
+        "Strawberry Orange Jello Cup"
+      ],
+      "totalItems" : 10,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-13",
+      "dominantItemLabel" : "FoodIconApple",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.15379453339386873,
+      "lineLabel" : null,
+      "lineName" : "Pepperoni Hot Pocket Sticks",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Pepperoni Hot Pockets Sticks",
+        "Assorted Chips",
+        "Cinnamon Applesauce Cup"
+      ],
+      "totalItems" : 4,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 6,
+      "date" : "2026-04-13",
+      "dominantItemLabel" : "FoodIconGlassWater",
+      "dominantItemShare" : 0.33333333333333331,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Get Well Kit",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Chicken Noodle Soup",
+        "Applesauce Cup",
+        "Strawberry Orange Jello Cup"
+      ],
+      "totalItems" : 10,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 6,
+      "date" : "2026-04-14",
+      "dominantItemLabel" : "FoodIconGlassWater",
+      "dominantItemShare" : 0.33333333333333331,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Get Well Kit",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Chicken Noodle Soup",
+        "Applesauce Cup",
+        "Strawberry Orange Jello Cup"
+      ],
+      "totalItems" : 10,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-15",
+      "dominantItemLabel" : "FoodIconCookie",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.3882056498795175,
+      "lineLabel" : null,
+      "lineName" : "Chipotle Chicken Quesadilla",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Chipotle Chicken Quesadilla",
+        "Tortilla Chips",
+        "Salsa"
+      ],
+      "totalItems" : 5,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 6,
+      "date" : "2026-04-15",
+      "dominantItemLabel" : "FoodIconGlassWater",
+      "dominantItemShare" : 0.33333333333333331,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Get Well Kit",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Chicken Noodle Soup",
+        "Applesauce Cup",
+        "Strawberry Orange Jello Cup"
+      ],
+      "totalItems" : 10,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-16",
+      "dominantItemLabel" : "FoodIconApple",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.42242624872587786,
+      "lineLabel" : null,
+      "lineName" : "Italian Sub",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Italian Sub",
+        "Assorted Chips",
+        "Applesauce Cup"
+      ],
+      "totalItems" : 6,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 6,
+      "date" : "2026-04-16",
+      "dominantItemLabel" : "FoodIconGlassWater",
+      "dominantItemShare" : 0.33333333333333331,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Get Well Kit",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Chicken Noodle Soup",
+        "Applesauce Cup",
+        "Strawberry Orange Jello Cup"
+      ],
+      "totalItems" : 10,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 6,
+      "date" : "2026-04-17",
+      "dominantItemLabel" : "FoodIconGlassWater",
+      "dominantItemShare" : 0.33333333333333331,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Get Well Kit",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Chicken Noodle Soup",
+        "Applesauce Cup",
+        "Strawberry Orange Jello Cup"
+      ],
+      "totalItems" : 10,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 6,
+      "date" : "2026-04-20",
+      "dominantItemLabel" : "FoodIconGlassWater",
+      "dominantItemShare" : 0.33333333333333331,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Get Well Kit",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Chicken Noodle Soup",
+        "Applesauce Cup",
+        "Strawberry Orange Jello Cup"
+      ],
+      "totalItems" : 10,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 6,
+      "date" : "2026-04-21",
+      "dominantItemLabel" : "FoodIconGlassWater",
+      "dominantItemShare" : 0.33333333333333331,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Get Well Kit",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Chicken Noodle Soup",
+        "Applesauce Cup",
+        "Strawberry Orange Jello Cup"
+      ],
+      "totalItems" : 10,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 1,
+      "date" : "2026-04-22",
+      "dominantItemLabel" : "FoodIconCookie",
+      "dominantItemShare" : 1,
+      "lineConfidence" : 0.3882056498795175,
+      "lineLabel" : null,
+      "lineName" : "Chipotle Chicken Quesadilla",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Chipotle Chicken Quesadilla",
+        "Tortilla Chips",
+        "Salsa"
+      ],
+      "totalItems" : 5,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 6,
+      "date" : "2026-04-22",
+      "dominantItemLabel" : "FoodIconGlassWater",
+      "dominantItemShare" : 0.33333333333333331,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Get Well Kit",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Chicken Noodle Soup",
+        "Applesauce Cup",
+        "Strawberry Orange Jello Cup"
+      ],
+      "totalItems" : 10,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 6,
+      "date" : "2026-04-23",
+      "dominantItemLabel" : "FoodIconGlassWater",
+      "dominantItemShare" : 0.33333333333333331,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Get Well Kit",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Chicken Noodle Soup",
+        "Applesauce Cup",
+        "Strawberry Orange Jello Cup"
+      ],
+      "totalItems" : 10,
+      "venue" : "Grab N Go"
+    },
+    {
+      "classifiedItems" : 6,
+      "date" : "2026-04-24",
+      "dominantItemLabel" : "FoodIconGlassWater",
+      "dominantItemShare" : 0.33333333333333331,
+      "lineConfidence" : 0.012658227848101266,
+      "lineLabel" : null,
+      "lineName" : "Get Well Kit",
+      "menuType" : "Dinner",
+      "reason" : "fallback",
+      "sampleItems" : [
+        "Chicken Noodle Soup",
+        "Applesauce Cup",
+        "Strawberry Orange Jello Cup"
+      ],
+      "totalItems" : 10,
+      "venue" : "Grab N Go"
+    }
+  ],
+  "generatedAt" : "2026-04-13T18:25:12Z",
+  "model" : "\/Users\/micah\/Documents\/Calorie Tracker\/Calorie Tracker\/FoodIconClassifier.mlmodel",
+  "summaryByVenue" : {
+    "Four Winds" : {
+      "fallbackLines" : 32,
+      "flaggedLines" : 46,
+      "mealFetchesWithLines" : 26,
+      "menuDaysWithLines" : 13,
+      "mismatchLines" : 14,
+      "totalLines" : 286
+    },
+    "Grab N Go" : {
+      "fallbackLines" : 36,
+      "flaggedLines" : 36,
+      "mealFetchesWithLines" : 30,
+      "menuDaysWithLines" : 10,
+      "mismatchLines" : 0,
+      "totalLines" : 146
+    },
+    "Varsity" : {
+      "fallbackLines" : 26,
+      "flaggedLines" : 26,
+      "mealFetchesWithLines" : 35,
+      "menuDaysWithLines" : 13,
+      "mismatchLines" : 0,
+      "totalLines" : 254
+    }
+  }
+}

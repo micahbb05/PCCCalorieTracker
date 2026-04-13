@@ -502,41 +502,59 @@ struct MenuSheetView: View {
     }
 
     private var searchResultsContent: some View {
-        LazyVStack(alignment: .leading, spacing: 14) {
+        LazyVStack(alignment: .leading, spacing: 18) {
             if let status = searchStatusState {
                 statusView(status)
             } else {
                 ForEach(filteredLines) { line in
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(line.name)
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(textPrimary)
-                                Text("\(line.items.count) result\(line.items.count == 1 ? "" : "s")")
-                                    .font(.caption)
-                                    .foregroundStyle(textSecondary)
-                            }
-
-                            Spacer()
-                        }
-
-                        VStack(spacing: 10) {
-                            if venue == .grabNGo {
-                                grabNGoSelectAllRow(for: line)
-                            }
-                            ForEach(line.items) { item in
-                                menuItemRow(item)
-                            }
-                        }
-                    }
-                    .padding(16)
-                    .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
+                    searchLineCard(for: line)
                 }
             }
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("pccMenu.searchResults")
+    }
+
+    private func searchLineCard(for line: MenuLine) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                FoodLogIconView(
+                    token: FoodIconMLMapper.icon(for: line.name),
+                    accent: accent,
+                    size: 30
+                )
+                .frame(width: 36, height: 36)
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(line.name)
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(textPrimary)
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal, 4)
+            .padding(.top, 2)
+            .padding(.bottom, 8)
+            .accessibilityIdentifier("pccMenu.searchLine.\(line.id)")
+
+            Divider()
+                .overlay(textSecondary.opacity(0.10))
+
+            VStack(spacing: 8) {
+                if venue == .grabNGo {
+                    grabNGoSelectAllRow(for: line)
+                }
+                ForEach(line.items) { item in
+                    searchMenuItemRow(item)
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.top, 8)
+            .padding(.bottom, 4)
+            .accessibilityIdentifier("pccMenu.searchLineContent.\(line.id)")
+        }
+        .padding(.vertical, 0)
     }
 
     private func statusView(_ status: MenuStatusState) -> some View {
@@ -605,16 +623,6 @@ struct MenuSheetView: View {
                     }
 
                     Spacer()
-
-                    Text("\(line.items.count)")
-                        .font(.caption.monospacedDigit().weight(.bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(
-                            Capsule(style: .continuous)
-                                .fill(accent.opacity(0.95))
-                        )
 
                     Image(systemName: expanded.wrappedValue ? "chevron.up" : "chevron.down")
                         .font(.system(size: 14, weight: .semibold))
@@ -1177,6 +1185,93 @@ struct MenuSheetView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(textSecondary.opacity(0.12), lineWidth: 1)
+        )
+        .accessibilityIdentifier("pccMenu.item.\(item.id)")
+    }
+
+    private func searchMenuItemRow(_ item: MenuItem) -> some View {
+        let currentMultiplier = multiplier(for: item.id)
+        let displayedCalories = displayedCalories(for: item, multiplier: currentMultiplier)
+        let displayedProtein = displayedProtein(for: item, multiplier: currentMultiplier)
+
+        return HStack {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(item.name)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(textPrimary)
+                HStack(spacing: 6) {
+                    Text("\(displayedCalories) cal • \(displayedProtein)g protein")
+                    if abs(currentMultiplier - 1.0) > 0.001 {
+                        Text(formattedDisplayServingWithUnit(item.servingAmount * currentMultiplier, unit: item.servingUnit))
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.cyan)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                Capsule(style: .continuous).fill(.cyan.opacity(0.12))
+                            )
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(textSecondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                openMultiplierSheet(for: item)
+            }
+
+            Spacer()
+            HStack(spacing: 8) {
+                Button {
+                    decrement(item.id)
+                } label: {
+                    Image(systemName: "minus")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(.white.opacity(quantity(for: item.id) > 0 ? 0.92 : 0.35))
+                        .frame(width: 26, height: 26)
+                        .background(
+                            Circle()
+                                .fill(Color.white.opacity(quantity(for: item.id) > 0 ? 0.08 : 0.04))
+                        )
+                }
+                .buttonStyle(.plain)
+                .disabled(quantity(for: item.id) == 0)
+
+                Text("\(quantity(for: item.id))")
+                    .font(.subheadline.monospacedDigit().weight(.semibold))
+                    .frame(minWidth: 24)
+                    .foregroundStyle(textPrimary)
+
+                Button {
+                    increment(item.id)
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.96))
+                        .frame(width: 26, height: 26)
+                        .background(
+                            Circle()
+                                .fill(accent)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 7)
+            .background(
+                Capsule(style: .continuous).fill(Color.white.opacity(0.04))
+            )
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(surfacePrimary.opacity(0.90))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(textSecondary.opacity(0.12), lineWidth: 1)
         )
         .accessibilityIdentifier("pccMenu.item.\(item.id)")

@@ -1,0 +1,148 @@
+{
+  "confidenceThreshold" : 0.45000000000000001,
+  "dateWindow" : {
+    "end" : "2026-04-26",
+    "start" : "2026-04-13"
+  },
+  "fetchFailures" : [
+
+  ],
+  "flaggedLines" : [
+    {
+      "classifiedItems" : 3,
+      "date" : "2026-04-19",
+      "dominantItemLabel" : "FoodIconCookingPot",
+      "dominantItemShare" : 0.66666666666666663,
+      "lineConfidence" : 0.94249902618006076,
+      "lineLabel" : "FoodIconChicken",
+      "lineName" : "Line 2 - Fried Chicken",
+      "menuType" : "Lunch",
+      "reason" : "line-vs-items-mismatch",
+      "sampleItems" : [
+        "Buttered Biscuits",
+        "Mashed Potatoes",
+        "Boneless Fried Chicken"
+      ],
+      "totalItems" : 6,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 3,
+      "date" : "2026-04-19",
+      "dominantItemLabel" : "FoodIconCookingPot",
+      "dominantItemShare" : 0.66666666666666663,
+      "lineConfidence" : 0.94249902618006076,
+      "lineLabel" : "FoodIconChicken",
+      "lineName" : "Line 7 - Fried Chicken",
+      "menuType" : "Lunch",
+      "reason" : "line-vs-items-mismatch",
+      "sampleItems" : [
+        "Buttered Biscuits",
+        "Mashed Potatoes",
+        "Boneless Fried Chicken"
+      ],
+      "totalItems" : 6,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 3,
+      "date" : "2026-04-15",
+      "dominantItemLabel" : "FoodIconCake",
+      "dominantItemShare" : 0.66666666666666663,
+      "lineConfidence" : 0.87230204583327564,
+      "lineLabel" : "FoodIconCookie",
+      "lineName" : "Line 3 - Dessert Bar",
+      "menuType" : "Dinner",
+      "reason" : "line-vs-items-mismatch",
+      "sampleItems" : [
+        "Chocolate Chip Cookie",
+        "Birthday Cake Cookie",
+        "Iced Yellow Cake"
+      ],
+      "totalItems" : 3,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 3,
+      "date" : "2026-04-17",
+      "dominantItemLabel" : "FoodIconSalad",
+      "dominantItemShare" : 0.66666666666666663,
+      "lineConfidence" : 0.92016319460540152,
+      "lineLabel" : "FoodIconPasta",
+      "lineName" : "Line 5 - Italian Sausage Rigatoni",
+      "menuType" : "Dinner",
+      "reason" : "line-vs-items-mismatch",
+      "sampleItems" : [
+        "Italian Sausage Rigatoni",
+        "Roasted Potatoes",
+        "Green Beans"
+      ],
+      "totalItems" : 6,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 3,
+      "date" : "2026-04-22",
+      "dominantItemLabel" : "FoodIconCake",
+      "dominantItemShare" : 0.66666666666666663,
+      "lineConfidence" : 0.87230204583327564,
+      "lineLabel" : "FoodIconCookie",
+      "lineName" : "Line 3 - Dessert Bar",
+      "menuType" : "Dinner",
+      "reason" : "line-vs-items-mismatch",
+      "sampleItems" : [
+        "Chocolate Chip Cookie",
+        "Birthday Cake Cookie",
+        "Iced Yellow Cake"
+      ],
+      "totalItems" : 3,
+      "venue" : "Four Winds"
+    },
+    {
+      "classifiedItems" : 3,
+      "date" : "2026-04-24",
+      "dominantItemLabel" : "FoodIconSalad",
+      "dominantItemShare" : 0.66666666666666663,
+      "lineConfidence" : 0.96800378347414273,
+      "lineLabel" : "FoodIconPasta",
+      "lineName" : "Line 5 - Spaghetti with Meat Sauce",
+      "menuType" : "Dinner",
+      "reason" : "line-vs-items-mismatch",
+      "sampleItems" : [
+        "Spaghetti and Meat Sauce",
+        "Rosemary Garlic Roasted Potatoes",
+        "Chuckwagon Blend Vegetables"
+      ],
+      "totalItems" : 6,
+      "venue" : "Four Winds"
+    }
+  ],
+  "generatedAt" : "2026-04-13T18:35:53Z",
+  "model" : "\/Users\/micah\/Documents\/Calorie Tracker\/Calorie Tracker\/FoodIconClassifier.mlmodel",
+  "summaryByVenue" : {
+    "Four Winds" : {
+      "fallbackLines" : 0,
+      "flaggedLines" : 6,
+      "mealFetchesWithLines" : 26,
+      "menuDaysWithLines" : 13,
+      "mismatchLines" : 6,
+      "totalLines" : 286
+    },
+    "Grab N Go" : {
+      "fallbackLines" : 0,
+      "flaggedLines" : 0,
+      "mealFetchesWithLines" : 30,
+      "menuDaysWithLines" : 10,
+      "mismatchLines" : 0,
+      "totalLines" : 146
+    },
+    "Varsity" : {
+      "fallbackLines" : 0,
+      "flaggedLines" : 0,
+      "mealFetchesWithLines" : 35,
+      "menuDaysWithLines" : 13,
+      "mismatchLines" : 0,
+      "totalLines" : 254
+    }
+  }
+}

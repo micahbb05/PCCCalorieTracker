@@ -726,7 +726,7 @@ extension ContentView {
                         .fill(LinearGradient(colors: [start, end], startPoint: .leading, endPoint: .trailing))
                         .frame(width: max(fillWidth, progress > 0 ? 7 : 0))
                 }
-                .animation(.easeInOut(duration: 0.5), value: progress)
+                .animation(.spring(response: 0.6, dampingFraction: 0.82), value: progress)
             }
             .frame(height: 14)
         }
@@ -747,10 +747,10 @@ extension ContentView {
             )
         case "g_carbs":
             return (
-                interpolateColor(from: UIColor(red: 0.769, green: 0.588, blue: 0.353, alpha: 1.0),
-                                 to: UIColor(red: 0.651, green: 0.478, blue: 0.259, alpha: 1.0), progress: progress),
-                interpolateColor(from: UIColor(red: 0.651, green: 0.478, blue: 0.259, alpha: 1.0),
-                                 to: UIColor(red: 0.549, green: 0.384, blue: 0.188, alpha: 1.0), progress: progress)
+                interpolateColor(from: UIColor(red: 0.722, green: 0.573, blue: 0.290, alpha: 1.0),
+                                 to: UIColor(red: 0.608, green: 0.467, blue: 0.216, alpha: 1.0), progress: progress),
+                interpolateColor(from: UIColor(red: 0.608, green: 0.467, blue: 0.216, alpha: 1.0),
+                                 to: UIColor(red: 0.510, green: 0.376, blue: 0.157, alpha: 1.0), progress: progress)
             )
         case "g_fat", "g_saturated_fat", "g_trans_fat":
             return (

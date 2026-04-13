@@ -141,10 +141,32 @@ extension ContentView {
         return manual + health
     }
     var currentDailyCalorieModel: DailyCalorieModel {
-        if shouldUseCachedBurnModelOnLaunch, let cachedModel
-                  = cachedTodayDailyCalorieModel {
-                          return cachedModel
-                    }
+        if shouldUseCachedBurnModelOnLaunch, let cachedModel = cachedTodayDailyCalorieModel {
+            // Background refresh may have already advanced today's archive (steps/workouts)
+            // beyond the last foreground cache. Floor launch cache against archive so the
+            // app never dips on open before live HealthKit queries complete.
+            if let archivedGoal = dailyCalorieGoalArchive[todayDayIdentifier],
+               let archivedBurned = dailyBurnedCalorieArchive[todayDayIdentifier] {
+                let effectiveOffset = (calibrationState.isEnabled && goalType != .fixed) ? calibrationState.calibrationOffsetCalories : 0
+                let dayGoalType = goalTypeForDay(todayDayIdentifier)
+                let safeBurned = max(cachedModel.burned, archivedBurned)
+                let safeGoal: Int
+                if dayGoalType == .fixed {
+                    safeGoal = fixedGoalCalories
+                } else {
+                    safeGoal = max(cachedModel.goal, archivedGoal)
+                }
+                return DailyCalorieModel(
+                    bmr: resolvedBMRCalories,
+                    burned: safeBurned,
+                    burnedBaseline: max(safeBurned - effectiveOffset, 1),
+                    goal: safeGoal,
+                    deficit: deficitForDay(todayDayIdentifier),
+                    usesBMR: isUsingHealthDerivedBMR
+                )
+            }
+            return cachedModel
+        }
               
         // Use archived goal/burned for today while HealthKit hasn't loaded, to avoid flash of fallback value
         let shouldPreferIPhoneTodayArchive = shouldUseIPhoneExerciseSource

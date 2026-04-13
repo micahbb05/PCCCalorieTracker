@@ -10,7 +10,6 @@ extension View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke(stroke, lineWidth: 1)
         )
-        .shadow(color: .black.opacity(0.22), radius: 16, x: 0, y: 10)
     }
 
     func inputStyle(surface: Color, text: Color, secondary: Color) -> some View {
@@ -39,9 +38,9 @@ extension View {
 private struct PressableCardButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.985 : 1)
-            .opacity(configuration.isPressed ? 0.92 : 1)
-            .animation(.easeOut(duration: 0.14), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed ? 0.975 : 1)
+            .opacity(configuration.isPressed ? 0.88 : 1)
+            .animation(.spring(response: 0.22, dampingFraction: 0.72), value: configuration.isPressed)
     }
 }
 

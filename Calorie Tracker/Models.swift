@@ -173,6 +173,8 @@ struct QuickAddFood: Identifiable, Codable, Equatable {
     let servingAmount: Double
     let servingUnit: String
     let createdAt: Date
+    /// Updated whenever this quick add is logged; drives “most recently used” ordering.
+    let lastUsedAt: Date
 
     private enum CodingKeys: String, CodingKey {
         case id
@@ -182,6 +184,7 @@ struct QuickAddFood: Identifiable, Codable, Equatable {
         case servingAmount
         case servingUnit
         case createdAt
+        case lastUsedAt
     }
 
     init(
@@ -191,7 +194,8 @@ struct QuickAddFood: Identifiable, Codable, Equatable {
         nutrientValues: [String: Int],
         servingAmount: Double,
         servingUnit: String,
-        createdAt: Date
+        createdAt: Date,
+        lastUsedAt: Date? = nil
     ) {
         self.id = id
         self.name = MealEntry.normalizedName(name)
@@ -201,6 +205,20 @@ struct QuickAddFood: Identifiable, Codable, Equatable {
         let normalizedUnit = servingUnit.trimmingCharacters(in: .whitespacesAndNewlines)
         self.servingUnit = normalizedUnit.isEmpty ? "serving" : normalizedUnit.lowercased()
         self.createdAt = createdAt
+        self.lastUsedAt = lastUsedAt ?? createdAt
+    }
+
+    func withLastUsedAt(_ date: Date) -> QuickAddFood {
+        QuickAddFood(
+            id: id,
+            name: name,
+            calories: calories,
+            nutrientValues: nutrientValues,
+            servingAmount: servingAmount,
+            servingUnit: servingUnit,
+            createdAt: createdAt,
+            lastUsedAt: date
+        )
     }
 
     init(from decoder: Decoder) throws {
@@ -216,6 +234,19 @@ struct QuickAddFood: Identifiable, Codable, Equatable {
             .lowercased()
         servingUnit = decodedUnit.isEmpty ? "serving" : decodedUnit
         createdAt = try container.decode(Date.self, forKey: .createdAt)
+        lastUsedAt = try container.decodeIfPresent(Date.self, forKey: .lastUsedAt) ?? createdAt
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encode(calories, forKey: .calories)
+        try container.encode(nutrientValues, forKey: .nutrientValues)
+        try container.encode(servingAmount, forKey: .servingAmount)
+        try container.encode(servingUnit, forKey: .servingUnit)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(lastUsedAt, forKey: .lastUsedAt)
     }
 }
 

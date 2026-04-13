@@ -489,6 +489,12 @@
       justify-content: center;
     }
 
+    .feature-phone.dual {
+      gap: 1rem;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+
     .feature-phone .phone-shell {
       width: 100%;
       max-width: 288px;
@@ -518,6 +524,19 @@
       display: block;
       border-radius: 33px;
       pointer-events: none;
+    }
+
+    .feature-phone.dual .phone-shell {
+      max-width: 248px;
+    }
+
+    @media (max-width: 880px) {
+      .feature-phone.dual {
+        justify-content: center;
+      }
+      .feature-phone.dual .phone-shell {
+        max-width: 236px;
+      }
     }
 
     /* ─── ALSO INCLUDED ─── */
@@ -836,7 +855,7 @@
       </div>
       <div class="what-item">
         <strong>AI photo logging</strong>
-        <span>Snap a tray, get estimates</span>
+        <span>Snap a plate, get estimates</span>
       </div>
       <div class="what-item">
         <strong>Apple Health sync</strong>
@@ -851,17 +870,17 @@
       <div class="feature-text">
         <span class="feature-label">Campus Dining</span>
         <h2 class="feature-title">No more guessing what's on the menu.</h2>
-        <p class="feature-body">Every meal served at Four Winds, Varsity, and Grab N Go is pulled in daily and ready to log. You can see calorie counts and protein before you even pick up a tray.</p>
+        <p class="feature-body">Every meal served at Four Winds, Varsity, and Grab N Go is pulled in daily and ready to log. You can see calorie counts and protein before you even pick up a plate.</p>
         <p class="feature-body">If you'd rather just take a photo, AI can estimate your portions based on what's actually being served that day.</p>
         <div class="feature-list">
           <span class="feature-list-item">Four Winds, Varsity, and Grab N Go</span>
           <span class="feature-list-item">Browse by meal &mdash; Breakfast, Lunch, Dinner</span>
-          <span class="feature-list-item">AI tray photo estimation</span>
+          <span class="feature-list-item">AI plate photo estimation</span>
         </div>
       </div>
       <div class="feature-phone">
         <div class="phone-shell">
-          <img src="assets/screenshots/menu.jpg" alt="Campus dining menus screen" loading="lazy">
+          <img src="assets/screenshots/IMG_5924.PNG" alt="Campus dining menus screen" loading="lazy">
         </div>
       </div>
     </div>
@@ -883,15 +902,37 @@
       </div>
       <div class="feature-phone">
         <div class="phone-shell">
-          <img src="assets/screenshots/today.jpg" alt="Today calorie dashboard" loading="lazy">
+          <img src="assets/screenshots/IMG_5922.PNG" alt="Today calorie dashboard" loading="lazy">
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ─── FEATURE 3: HISTORY ─── -->
+  <!-- ─── FEATURE 3: WAYS TO ADD FOOD ─── -->
   <section class="feature-section">
     <div class="feature-inner reveal">
+      <div class="feature-text">
+        <span class="feature-label">Ways to Add Food</span>
+        <h2 class="feature-title">Log food the way that fits your moment.</h2>
+        <p class="feature-body">Use the add flow to quickly switch between PCC Menu, manual entry, food search, barcode scanning, and one-tap quick add.</p>
+        <p class="feature-body">When you need speed, you can jump into whichever input method is fastest instead of forcing everything through one screen.</p>
+        <div class="feature-list">
+          <span class="feature-list-item">PCC Menu, Manual Entry, Search, Barcode, and Quick Add</span>
+          <span class="feature-list-item">Built for both quick logging and detailed tracking</span>
+          <span class="feature-list-item">All options in one place from the Add flow</span>
+        </div>
+      </div>
+      <div class="feature-phone">
+        <div class="phone-shell">
+          <img src="assets/screenshots/IMG_5923.PNG" alt="Add Food options screen" loading="lazy">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── FEATURE 4: HISTORY ─── -->
+  <section class="feature-section on-linen">
+    <div class="feature-inner flip reveal">
       <div class="feature-text">
         <span class="feature-label">History &amp; Trends</span>
         <h2 class="feature-title">Patterns are easier to spot than you'd think.</h2>
@@ -905,7 +946,7 @@
       </div>
       <div class="feature-phone">
         <div class="phone-shell">
-          <img src="assets/screenshots/history.jpg" alt="History and trends screen" loading="lazy">
+          <img src="assets/screenshots/IMG_5925.PNG" alt="History summary screen" loading="lazy">
         </div>
       </div>
     </div>

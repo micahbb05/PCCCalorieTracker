@@ -2,6 +2,25 @@ import Foundation
 import HealthKit
 import Combine
 
+/// Persisted by `StepActivityService` after every successful foreground query.
+/// Read by `BackgroundWidgetRefreshService` as a fallback when its own
+/// background HealthKit query fails, so the widget never shows 0-step calories.
+struct CachedStepMetrics: Codable {
+    let dayIdentifier: String
+    let steps: Int
+    let distanceMeters: Double
+}
+
+/// Persisted by `ContentView.syncCurrentDayGoalArchive()` after every foreground
+/// calorie computation. Read by `BackgroundWidgetRefreshService` as a hard floor
+/// so background runs can never write a goal/burned lower than what the foreground
+/// last computed — even if profile, workout, or step queries all fail in background.
+struct CachedCalorieModel: Codable {
+    let dayIdentifier: String
+    let goal: Int
+    let burned: Int
+}
+
 enum HealthKitStepMetricsLogic {
     struct StepMetrics {
         let steps: Int
@@ -239,6 +258,18 @@ final class StepActivityService: ObservableObject {
         todayDistanceMeters = max(distanceMeters, 0)
         authorizationState = .authorized
         hasLoadedFreshStepDataThisLaunch = true
+        if stepCount > 0 {
+            cacheStepMetrics(steps: max(stepCount, 0), distanceMeters: max(distanceMeters, 0))
+        }
+    }
+
+    private func cacheStepMetrics(steps: Int, distanceMeters: Double) {
+        let components = calendar.dateComponents([.year, .month, .day], from: calendar.startOfDay(for: Date()))
+        let dayID = String(format: "%04d-%02d-%02d", components.year ?? 0, components.month ?? 1, components.day ?? 1)
+        let cached = CachedStepMetrics(dayIdentifier: dayID, steps: steps, distanceMeters: distanceMeters)
+        if let data = try? JSONEncoder().encode(cached) {
+            UserDefaults.standard.set(String(decoding: data, as: UTF8.self), forKey: "cachedTodayStepMetrics")
+        }
     }
 
     private func startLiveUpdatesIfNeeded() {

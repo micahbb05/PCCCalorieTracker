@@ -10,6 +10,10 @@ struct CalibrationAdjustmentParameters {
 struct CalibrationEngine {
     static let calibrationErrorWeights: [Double] = [0.1, 0.2, 0.3, 0.4]
 
+    static func floorAgainstArchive(_ freshValue: Int, archivedValue: Int?) -> Int {
+        max(freshValue, archivedValue ?? 0)
+    }
+
     static func weightedErrorMean(_ values: [Double]) -> Double {
         guard !values.isEmpty else { return 0 }
         let trimmed = Array(values.suffix(calibrationErrorWeights.count))

@@ -543,6 +543,7 @@ extension ContentView {
 
             topSafeAreaShield
 
+     
             feedbackToast
 
             bottomTabBar
@@ -579,23 +580,30 @@ extension ContentView {
                 HStack(spacing: 10) {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(accent)
+                        .symbolEffect(.bounce, value: isAddConfirmationPresented)
                     Text("Added")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(textPrimary)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 13)
                 .background(
                     Capsule(style: .continuous)
-                        .fill(surfacePrimary.opacity(0.98))
+                        .fill(.ultraThinMaterial)
                 )
                 .overlay(
                     Capsule(style: .continuous)
-                        .stroke(textSecondary.opacity(0.16), lineWidth: 1)
+                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
                 )
-                .shadow(color: Color.black.opacity(0.2), radius: 18, y: 8)
+                .shadow(color: accent.opacity(0.22), radius: 20, y: 8)
+                .shadow(color: Color.black.opacity(0.18), radius: 8, y: 4)
                 .padding(.bottom, 124)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .transition(
+                    .asymmetric(
+                        insertion: .move(edge: .bottom).combined(with: .opacity).combined(with: .scale(scale: 0.88)),
+                        removal: .move(edge: .bottom).combined(with: .opacity)
+                    )
+                )
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -614,19 +622,24 @@ extension ContentView {
                 .foregroundStyle(textPrimary)
                 .lineLimit(2)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 13)
         .background(
             Capsule(style: .continuous)
-                .fill(surfacePrimary.opacity(0.98))
+                .fill(.ultraThinMaterial)
         )
         .overlay(
             Capsule(style: .continuous)
-                .stroke(textSecondary.opacity(0.16), lineWidth: 1)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.2), radius: 18, y: 8)
         .padding(.bottom, 124)
-        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .transition(
+            .asymmetric(
+                insertion: .move(edge: .bottom).combined(with: .opacity).combined(with: .scale(scale: 0.88)),
+                removal: .move(edge: .bottom).combined(with: .opacity)
+            )
+        )
     }
 
     var embeddedMenuAIPopupOverlay: some View {
@@ -910,6 +923,9 @@ extension ContentView {
                             }
                         } label: {
                             HStack(alignment: .center, spacing: 12) {
+                                foodLogIconView(foodLogIcon(for: entry.name), size: 21)
+                                    .frame(width: 24, alignment: .center)
+
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(entry.name)
                                         .font(.subheadline.weight(.semibold))
@@ -941,6 +957,7 @@ extension ContentView {
                             } label: {
                                 Label("Delete", systemImage: "trash")
                             }
+                            .tint(.red)
                         }
                     }
                 } header: {
@@ -1000,9 +1017,7 @@ extension ContentView {
                     clearMenuSelection()
                 }
                 clearAITextMealState()
-                withAnimation(.none) {
-                    selectedTab = tab
-                }
+                selectedTab = tab
             }
             Haptics.selection()
         } label: {
@@ -1015,17 +1030,26 @@ extension ContentView {
                         .background(
                             RoundedRectangle(cornerRadius: 24, style: .continuous)
                                 .fill(accent)
-                                .shadow(color: isSelected ? accent.opacity(0.38) : .clear, radius: 18, x: 0, y: 10)
+                                .shadow(color: isSelected ? accent.opacity(0.42) : accent.opacity(0.18), radius: 16, x: 0, y: 8)
                         )
                         .offset(y: 4)
                 } else {
-                    Image(systemName: tab.iconName)
-                        .font(.system(size: 22, weight: .regular))
+                    Image(systemName: isSelected ? tab.activeIconName : tab.iconName)
+                        .font(.system(size: 22, weight: isSelected ? .medium : .regular))
                         .foregroundStyle(isSelected ? accent : textSecondary)
 
                     Text(tab.label)
-                        .font(.caption.weight(.semibold))
+                        .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
+                        .tracking(0.2)
                         .foregroundStyle(isSelected ? accent : textSecondary)
+
+                    // Selection pip
+                    Circle()
+                        .fill(accent)
+                        .frame(width: 4, height: 4)
+                        .opacity(isSelected ? 1 : 0)
+                        .scaleEffect(isSelected ? 1 : 0.3)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.65), value: isSelected)
                 }
             }
             .frame(maxWidth: .infinity)

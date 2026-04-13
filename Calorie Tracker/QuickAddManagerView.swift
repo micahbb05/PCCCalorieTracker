@@ -35,100 +35,109 @@ struct QuickAddManagerView: View {
                 )
                 .ignoresSafeArea()
 
-                VStack(alignment: .leading, spacing: 18) {
-                    HStack {
-                        Button {
-                            dismiss()
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "chevron.left")
-                                    .font(.caption.weight(.bold))
-                                Text("Close")
-                                    .font(.subheadline.weight(.semibold))
+                // One scroll surface: header + rows + empty state all move together (List swipe still works).
+                List {
+                    Group {
+                        VStack(alignment: .leading, spacing: 18) {
+                            HStack {
+                                Button {
+                                    dismiss()
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "chevron.left")
+                                            .font(.caption.weight(.bold))
+                                        Text("Close")
+                                            .font(.subheadline.weight(.semibold))
+                                    }
+                                    .foregroundStyle(textPrimary)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 10)
+                                    .background(
+                                        Capsule(style: .continuous)
+                                            .fill(surfacePrimary.opacity(0.94))
+                                    )
+                                    .overlay(
+                                        Capsule(style: .continuous)
+                                            .stroke(textSecondary.opacity(0.14), lineWidth: 1)
+                                    )
+                                }
+                                .buttonStyle(.plain)
+
+                                Spacer()
                             }
-                            .foregroundStyle(textPrimary)
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Manage Quick Add Foods")
+                                    .font(.system(size: 32, weight: .bold, design: .default))
+                                    .foregroundStyle(textPrimary)
+                                Text("Create and edit reusable foods.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(textSecondary)
+                            }
+
+                            HStack(spacing: 10) {
+                                Image(systemName: "magnifyingglass")
+                                    .foregroundStyle(textSecondary)
+
+                                TextField("Search quick add foods", text: $searchText)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled()
+                                    .foregroundStyle(textPrimary)
+
+                                Button {
+                                    guard !searchText.isEmpty else { return }
+                                    searchText = ""
+                                    Haptics.selection()
+                                } label: {
+                                    Label("Clear search", systemImage: "xmark.circle.fill")
+                                        .labelStyle(.iconOnly)
+                                        .foregroundStyle(textSecondary)
+                                        .opacity(searchText.isEmpty ? 0.35 : 1)
+                                        .frame(width: 24, height: 24)
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(searchText.isEmpty)
+                            }
                             .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
-                            .background(
-                                Capsule(style: .continuous)
-                                    .fill(surfacePrimary.opacity(0.94))
-                            )
-                            .overlay(
-                                Capsule(style: .continuous)
-                                    .stroke(textSecondary.opacity(0.14), lineWidth: 1)
-                            )
+                            .padding(.vertical, 12)
+                            .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.18))
                         }
-                        .buttonStyle(.plain)
-
-                        Spacer()
                     }
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Manage Quick Add Foods")
-                            .font(.system(size: 32, weight: .bold, design: .default))
-                            .foregroundStyle(textPrimary)
-                        Text("Create and edit reusable foods.")
-                            .font(.subheadline)
-                            .foregroundStyle(textSecondary)
-                    }
-
-                    HStack(spacing: 10) {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundStyle(textSecondary)
-
-                        TextField("Search quick add foods", text: $searchText)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .foregroundStyle(textPrimary)
-
-                        Button {
-                            guard !searchText.isEmpty else { return }
-                            searchText = ""
-                            Haptics.selection()
-                        } label: {
-                            Label("Clear search", systemImage: "xmark.circle.fill")
-                                .labelStyle(.iconOnly)
-                                .foregroundStyle(textSecondary)
-                                .opacity(searchText.isEmpty ? 0.35 : 1)
-                                .frame(width: 24, height: 24)
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(searchText.isEmpty)
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
-                    .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.18))
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
 
                     if filteredFoods.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(quickAddFoods.isEmpty ? "No quick add foods yet." : "No quick add foods match your search.")
-                                .font(.headline.weight(.semibold))
-                                .foregroundStyle(textPrimary)
-                            Text(quickAddFoods.isEmpty ? "Create foods you use often and add them in one tap." : "Try a broader search term.")
-                                .font(.subheadline)
-                                .foregroundStyle(textSecondary)
-                        }
-                        .padding(18)
-                        .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.18))
-                    } else {
-                        List {
-                            ForEach(filteredFoods) { item in
-                                quickAddRow(item)
-                                    .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
-                                    .listRowSeparator(.hidden)
-                                    .listRowBackground(Color.clear)
+                        Group {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(quickAddFoods.isEmpty ? "No quick add foods yet." : "No quick add foods match your search.")
+                                    .font(.headline.weight(.semibold))
+                                    .foregroundStyle(textPrimary)
+                                Text(quickAddFoods.isEmpty ? "Create foods you use often and add them in one tap." : "Try a broader search term.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(textSecondary)
                             }
+                            .padding(18)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.18))
                         }
-                        .listStyle(.plain)
-                        .scrollIndicators(.hidden)
-                        .scrollContentBackground(.hidden)
-                        .contentMargins(.bottom, 12, for: .scrollContent)
-                        .background(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 12, trailing: 16))
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                    } else {
+                        ForEach(filteredFoods) { item in
+                            quickAddRow(item)
+                                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
+                        }
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 4)
-                .padding(.bottom, 12)
+                .listStyle(.plain)
+                .scrollIndicators(.hidden)
+                .scrollContentBackground(.hidden)
+                .contentMargins(.bottom, 12, for: .scrollContent)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .safeAreaInset(edge: .bottom) {
                 Button {
@@ -173,7 +182,7 @@ struct QuickAddManagerView: View {
                     } else {
                         quickAddFoods.insert(savedItem, at: 0)
                     }
-                    quickAddFoods.sort { $0.createdAt > $1.createdAt }
+                    quickAddFoods.sort { $0.lastUsedAt > $1.lastUsedAt }
                 }
             }
         }
@@ -184,7 +193,10 @@ struct QuickAddManagerView: View {
             editorContext = EditorContext(item: item)
             Haptics.selection()
         } label: {
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
+                FoodLogIconView(token: FoodIconMLMapper.icon(for: item.name), accent: accent, size: 30)
+                    .frame(width: 36, height: 36, alignment: .center)
+
                 VStack(alignment: .leading, spacing: 6) {
                     Text(item.name)
                         .font(.headline.weight(.semibold))
@@ -216,6 +228,7 @@ struct QuickAddManagerView: View {
             } label: {
                 Label("Delete", systemImage: "trash")
             }
+            .tint(.red)
         }
         .contextMenu {
             Button {

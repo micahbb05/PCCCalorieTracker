@@ -4,6 +4,26 @@ import SwiftUI
 
 extension ContentView {
 
+    private var isHeroBlueprint: Bool {
+        appThemeStyleRaw == AppThemeStyle.blueprint.rawValue
+    }
+
+    /// Slightly higher contrast than `textPrimary` on the dark hero card.
+    private var heroPrimaryText: Color {
+        guard colorScheme == .dark else { return textPrimary }
+        return isHeroBlueprint
+            ? Color(red: 0.98, green: 0.985, blue: 0.995)
+            : Color(red: 0.988, green: 0.982, blue: 0.972)
+    }
+
+    private var heroSecondaryText: Color {
+        textPrimary.opacity(colorScheme == .dark ? 0.68 : 0.54)
+    }
+
+    private var heroFooterText: Color {
+        textPrimary.opacity(colorScheme == .dark ? 0.58 : 0.46)
+    }
+
     var aiPhotoCaptureCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Scan Food or Nutrition Label")
@@ -48,14 +68,15 @@ extension ContentView {
                 .focused($aiMealTextFocused)
                 .background(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(surfaceSecondary.opacity(0.95))
+                        .fill(surfaceSecondary.opacity(0.75))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(textSecondary.opacity(0.16), lineWidth: 1)
+                        .stroke(aiMealTextFocused ? accent.opacity(0.4) : textSecondary.opacity(0.12), lineWidth: 1)
                 )
                 .foregroundStyle(textPrimary)
                 .scrollContentBackground(.hidden)
+                .animation(.easeInOut(duration: 0.18), value: aiMealTextFocused)
 
             Button {
                 analyzeAITextMeal()
@@ -98,15 +119,19 @@ extension ContentView {
 
     func aiPhotoActionButton(title: String, subtitle: String, systemImage: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 14) {
-                Image(systemName: systemImage)
-                    .font(.title3.weight(.semibold))
-                    .frame(width: 22)
-                    .foregroundStyle(accent)
+            HStack(spacing: 16) {
+                ZStack {
+                    Circle()
+                        .fill(accent.opacity(0.12))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: systemImage)
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(accent)
+                }
 
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.headline.weight(.semibold))
                         .foregroundStyle(textPrimary)
                     Text(subtitle)
                         .font(.caption)
@@ -116,14 +141,18 @@ extension ContentView {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(textSecondary.opacity(0.85))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(textSecondary.opacity(0.5))
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 14)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
             .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(surfaceSecondary.opacity(0.95))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(textSecondary.opacity(0.12), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -149,11 +178,13 @@ extension ContentView {
     }
 
     func summaryMetric(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 1) {
             Text(value)
                 .font(.system(size: 30, weight: .bold, design: .default))
                 .monospacedDigit()
                 .foregroundStyle(textPrimary)
+                .contentTransition(.numericText())
+                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: value)
             Text(title)
                 .font(.caption)
                 .foregroundStyle(textSecondary)
@@ -168,18 +199,21 @@ extension ContentView {
                 RoundedRectangle(cornerRadius: 28, style: .continuous)
                     .fill(
                         LinearGradient(
-                            colors: appThemeStyleRaw == AppThemeStyle.blueprint.rawValue
+                            colors: isHeroBlueprint
                                 ? [Color(red: 0.03, green: 0.07, blue: 0.19), Color(red: 0.05, green: 0.10, blue: 0.24)]
-                                : [Color(red: 0.140, green: 0.118, blue: 0.094), Color(red: 0.170, green: 0.143, blue: 0.114)],
+                                : [
+                                    Color(red: 0.085, green: 0.10, blue: 0.145),
+                                    Color(red: 0.125, green: 0.135, blue: 0.195),
+                                ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
 
                 Circle()
-                    .fill(appThemeStyleRaw == AppThemeStyle.blueprint.rawValue
+                    .fill(isHeroBlueprint
                         ? Color(red: 0.20, green: 0.23, blue: 0.48).opacity(0.38)
-                        : Color(red: 0.769, green: 0.588, blue: 0.353).opacity(0.07))
+                        : Color(red: 0.30, green: 0.48, blue: 0.68).opacity(0.14))
                     .frame(width: 230, height: 230)
                     .offset(x: 74, y: -26)
 
@@ -190,17 +224,19 @@ extension ContentView {
                             Text(calorieHeroDisplay.value.map(String.init) ?? "--")
                                 .font(.system(size: 56, weight: .bold, design: .default))
                                 .monospacedDigit()
-                                .foregroundStyle(textPrimary)
+                                .foregroundStyle(heroPrimaryText)
+                                .contentTransition(.numericText(value: Double(calorieHeroDisplay.value ?? 0)))
+                                .animation(.spring(response: 0.5, dampingFraction: 0.8), value: calorieHeroDisplay.value)
                             Text(calorieHeroDisplay.title)
                                 .font(.system(size: 20, weight: .medium, design: .default))
-                                .foregroundStyle(textPrimary.opacity(0.60))
+                                .foregroundStyle(heroSecondaryText)
                         }
 
                         Spacer()
 
                         Image(systemName: "flame")
-                            .font(.system(size: 34, weight: .regular))
-                            .foregroundStyle(Color(red: 0.769, green: 0.588, blue: 0.353))
+                            .font(.system(size: 34, weight: .light))
+                            .foregroundStyle(Color(red: 0.722, green: 0.573, blue: 0.290))
                             .padding(.top, 10)
                     }
 
@@ -219,7 +255,7 @@ extension ContentView {
                                 )
                                 .frame(width: max(fillWidth, displayedCalorieProgress > 0 ? 8 : 0))
                         }
-                        .animation(.easeInOut(duration: 0.5), value: displayedCalorieProgress)
+                        .animation(.spring(response: 0.7, dampingFraction: 0.85), value: displayedCalorieProgress)
                     }
                     .frame(height: 20)
 
@@ -227,12 +263,14 @@ extension ContentView {
                         Text("Consumed: \(totalCalories)")
                             .font(.system(size: 18, weight: .medium, design: .default))
                             .monospacedDigit()
-                            .foregroundStyle(textPrimary.opacity(0.55))
+                            .foregroundStyle(heroFooterText)
+                            .contentTransition(.numericText())
+                            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: totalCalories)
                         Spacer()
                         Text("Goal: \(displayedCalorieGoal.map(String.init) ?? "--")")
                             .font(.system(size: 18, weight: .medium, design: .default))
                             .monospacedDigit()
-                            .foregroundStyle(textPrimary.opacity(0.55))
+                            .foregroundStyle(heroFooterText)
                     }
                 }
                 .padding(24)
@@ -247,9 +285,21 @@ extension ContentView {
     var progressSection: some View {
         Section {
             VStack(alignment: .leading, spacing: 22) {
-                Text(activeNutrients.count <= 3 ? "Daily Macros" : "Daily Goals")
-                    .font(.title3.weight(.bold))
-                    .foregroundStyle(textPrimary)
+                HStack(spacing: 10) {
+                    Text(activeNutrients.count <= 3 ? "Daily Macros" : "Daily Goals")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(textPrimary)
+                    Spacer()
+                    Text("\(activeNutrients.count) tracked")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(accent.opacity(0.85))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(accent.opacity(0.10))
+                        )
+                }
 
                 ForEach(activeNutrients) { nutrient in
                     let total = totalNutrient(for: nutrient.key)

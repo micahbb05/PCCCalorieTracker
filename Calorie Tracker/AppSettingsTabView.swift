@@ -55,21 +55,6 @@ struct AppSettingsTabView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            settingsCard(title: "Appearance") {
-                Picker("Theme", selection: $appThemeStyleRaw) {
-                    ForEach(AppThemeStyle.allCases) { style in
-                        Text(style.title).tag(style.rawValue)
-                    }
-                }
-                .accessibilityLabel("App Theme")
-                .pickerStyle(.segmented)
-
-                Text("Ember is a warm amber theme. Blueprint is the original cool blue theme.")
-                    .font(.caption)
-                    .foregroundStyle(secondaryTextColor)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
             settingsCard(
                 title: "Nutrition Tracking",
                 subtitle: "Choose which nutrients appear throughout the app."
@@ -80,6 +65,38 @@ struct AppSettingsTabView: View {
                     accentColor: nutritionAccentColor,
                     neutralColor: nutritionNeutralColor
                 )
+            }
+
+            settingsCard(title: "App Appearance") {
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Theme")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(titleColor)
+
+                        Picker("Theme", selection: $appThemeStyleRaw) {
+                            ForEach(AppThemeStyle.allCases) { style in
+                                Text(style.title).tag(style.rawValue)
+                            }
+                        }
+                        .accessibilityLabel("App Theme")
+                        .pickerStyle(.segmented)
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Icon")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(titleColor)
+
+                        Picker("Icon", selection: selectedAppIconBinding) {
+                            ForEach(AppIconChoice.allCases) { option in
+                                Text(option.title).tag(option.rawValue)
+                            }
+                        }
+                        .accessibilityLabel("App Icon")
+                        .pickerStyle(.segmented)
+                    }
+                }
             }
 
             settingsCard(title: "AI Features") {
@@ -124,16 +141,6 @@ struct AppSettingsTabView: View {
                         .foregroundStyle(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-            }
-
-            settingsCard(title: "App Icon") {
-                Picker("App Icon", selection: selectedAppIconBinding) {
-                    ForEach(AppIconChoice.allCases) { option in
-                        Text(option.title).tag(option.rawValue)
-                    }
-                }
-                .accessibilityLabel("App Icon")
-                .pickerStyle(.segmented)
             }
 
             settingsCard(title: "BMR Source") {

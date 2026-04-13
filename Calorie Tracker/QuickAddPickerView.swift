@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 struct QuickAddPickerView: View {
     private struct ServingSheetContext: Identifiable {
@@ -26,18 +25,8 @@ struct QuickAddPickerView: View {
     @State private var selectedServingMultiplierByID: [UUID: Double] = [:]
 
     @State private var servingSheetContext: ServingSheetContext?
-    @State private var selectedMultiplierValue = 1.0
-    @State private var selectedServingBaselineAmount = 1.0
     @State private var servingSliderBaselineByItemId: [UUID: Double] = [:]
     @State private var servingSliderValueByItemId: [UUID: Double] = [:]
-    @State private var selectedServingAmountText = ""
-    @State private var isUpdatingServingTextFromSlider = false
-    @State private var isServingKeyboardVisible = false
-    @FocusState private var isServingAmountFieldFocused: Bool
-
-    private let minMultiplier = 0.25
-    private let maxMultiplier = 1.75
-    private let multiplierStep = 0.25
 
     private var filteredFoods: [QuickAddFood] {
         let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -59,14 +48,6 @@ struct QuickAddPickerView: View {
             guard quantity > 0 else { return nil }
             return (item, quantity, multiplier(for: item.id))
         }
-    }
-
-    private var selectedServingEffectiveMultiplier: Double {
-        guard let item = servingSheetContext?.item else { return 1.0 }
-        let baseAmount = convertedServingAmount(item.servingAmount, unit: item.servingUnit)
-        guard baseAmount > 0 else { return 1.0 }
-        let selectedAmount = roundToServingSelectorIncrement(selectedServingBaselineAmount * selectedMultiplierValue)
-        return max(selectedAmount / baseAmount, 0)
     }
 
     private var backgroundTop: Color {
@@ -99,12 +80,33 @@ struct QuickAddPickerView: View {
         .sheet(item: $servingSheetContext, onDismiss: {
             servingSheetContext = nil
         }) { context in
-            servingSheet(item: context.item)
+            QuickAddServingSheetView(
+                item: context.item,
+                initialBaseline: servingSliderBaselineByItemId[context.item.id],
+                initialSlider: servingSliderValueByItemId[context.item.id],
+                initialMultiplier: selectedServingMultiplierByID[context.item.id] ?? 1.0,
+                trackedNutrientKeys: trackedNutrientKeys,
+                surfacePrimary: surfacePrimary,
+                surfaceSecondary: surfaceSecondary,
+                textPrimary: textPrimary,
+                textSecondary: textSecondary,
+                accent: accent
+            ) { effectiveMultiplier, baseline, sliderValue in
+                applyServingSelection(
+                    for: context.item.id,
+                    effectiveMultiplier: effectiveMultiplier,
+                    baseline: baseline,
+                    sliderValue: sliderValue
+                )
+            } onDismiss: {
+                servingSheetContext = nil
+            }
         }
     }
 
+    /// Title, caption, actions, and search stay fixed; only the food list scrolls.
     private var scrollContent: some View {
-        ScrollView {
+        VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 18) {
                 if showsStandaloneChrome {
                     HStack {
@@ -164,33 +166,45 @@ struct QuickAddPickerView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
                 .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.18))
-
-                if filteredFoods.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(quickAddFoods.isEmpty ? "No quick add foods yet." : "No quick add foods match your search.")
-                            .font(.headline.weight(.semibold))
-                            .foregroundStyle(textPrimary)
-                        Text(quickAddFoods.isEmpty ? "Tap settings to create your first quick add food." : "Try a broader search term.")
-                            .font(.subheadline)
-                            .foregroundStyle(textSecondary)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(18)
-                    .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.18))
-                } else {
-                    LazyVStack(spacing: 12) {
-                        ForEach(filteredFoods) { item in
-                            quickAddItemRow(item)
-                        }
-                    }
-                }
             }
             .padding(.horizontal, 16)
             .padding(.top, showsStandaloneChrome ? 18 : 12)
-            .padding(.bottom, 32)
+            .padding(.bottom, 14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(backgroundTop)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    if filteredFoods.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(quickAddFoods.isEmpty ? "No quick add foods yet." : "No quick add foods match your search.")
+                                .font(.headline.weight(.semibold))
+                                .foregroundStyle(textPrimary)
+                            Text(quickAddFoods.isEmpty ? "Tap settings to create your first quick add food." : "Try a broader search term.")
+                                .font(.subheadline)
+                                .foregroundStyle(textSecondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(18)
+                        .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.18))
+                    } else {
+                        LazyVStack(spacing: 12) {
+                            ForEach(filteredFoods) { item in
+                                quickAddItemRow(item)
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+                .padding(.bottom, 32)
+                .frame(maxWidth: .infinity)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .scrollIndicators(.hidden)
+            .scrollDismissesKeyboard(.interactively)
         }
-        .scrollIndicators(.hidden)
-        .scrollDismissesKeyboard(.interactively)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onChange(of: quickAddFoods) { _, _ in
             pruneUnavailableSelections()
         }
@@ -295,7 +309,10 @@ struct QuickAddPickerView: View {
         let displayedCalories = Int((Double(item.calories) * currentMultiplier).rounded())
         let displayedProtein = Int((Double(item.nutrientValues["g_protein"] ?? 0) * currentMultiplier).rounded())
 
-        return HStack(alignment: .top, spacing: 12) {
+        return HStack(alignment: .center, spacing: 12) {
+            FoodLogIconView(token: FoodIconMLMapper.icon(for: item.name), accent: accent, size: 30)
+                .frame(width: 36, height: 36, alignment: .center)
+
             VStack(alignment: .leading, spacing: 6) {
                 Text(item.name)
                     .font(.headline.weight(.semibold))
@@ -378,7 +395,131 @@ struct QuickAddPickerView: View {
         )
     }
 
-    private func servingSheet(item: QuickAddFood) -> some View {
+    private func quantity(for id: UUID) -> Int {
+        max(selectedQuantitiesByID[id] ?? 0, 0)
+    }
+
+    private func multiplier(for id: UUID) -> Double {
+        selectedServingMultiplierByID[id] ?? 1.0
+    }
+
+    private func increment(_ id: UUID) {
+        selectedQuantitiesByID[id] = min(quantity(for: id) + 1, 99)
+        if selectedServingMultiplierByID[id] == nil {
+            selectedServingMultiplierByID[id] = 1.0
+        }
+        Haptics.selection()
+    }
+
+    private func decrement(_ id: UUID) {
+        let next = quantity(for: id) - 1
+        if next <= 0 {
+            selectedQuantitiesByID.removeValue(forKey: id)
+            selectedServingMultiplierByID.removeValue(forKey: id)
+            servingSliderBaselineByItemId.removeValue(forKey: id)
+            servingSliderValueByItemId.removeValue(forKey: id)
+        } else {
+            selectedQuantitiesByID[id] = next
+        }
+        Haptics.selection()
+    }
+
+    private func openServingSheet(for item: QuickAddFood) {
+        dismissKeyboard()
+        servingSheetContext = nil
+        Haptics.impact(.light)
+        DispatchQueue.main.async {
+            servingSheetContext = ServingSheetContext(item: item)
+        }
+    }
+
+    private func applyServingSelection(
+        for id: UUID,
+        effectiveMultiplier: Double,
+        baseline: Double,
+        sliderValue: Double
+    ) {
+        // Close first so the dismissal animation is not competing with heavy list re-render work.
+        servingSheetContext = nil
+        DispatchQueue.main.async {
+            selectedServingMultiplierByID[id] = effectiveMultiplier
+            servingSliderBaselineByItemId[id] = baseline
+            servingSliderValueByItemId[id] = sliderValue
+            if selectedQuantitiesByID[id] == nil || selectedQuantitiesByID[id] == 0 {
+                selectedQuantitiesByID[id] = 1
+            }
+        }
+    }
+
+    private func dismissKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+
+    private func formattedDisplayServingWithUnit(_ amount: Double, unit: String) -> String {
+        let formattedAmount = formatServingSelectorAmount(amount)
+        let displayUnit = quickAddIsGramUnit(unit) ? "g" : unit
+        let unitText = inflectServingUnitToken(displayUnit, quantity: amount)
+        return "\(formattedAmount) \(unitText)"
+    }
+
+    private func quickAddIsGramUnit(_ unit: String) -> Bool {
+        let n = unit.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return n == "g" || n == "gram" || n == "grams" || n == "grms"
+    }
+
+    private func pruneUnavailableSelections() {
+        let availableIDs = Set(quickAddFoods.map(\.id))
+        selectedQuantitiesByID = selectedQuantitiesByID.filter { availableIDs.contains($0.key) && $0.value > 0 }
+        selectedServingMultiplierByID = selectedServingMultiplierByID.filter { availableIDs.contains($0.key) && $0.value > 0 }
+        servingSliderBaselineByItemId = servingSliderBaselineByItemId.filter { availableIDs.contains($0.key) }
+        servingSliderValueByItemId = servingSliderValueByItemId.filter { availableIDs.contains($0.key) }
+    }
+}
+
+// MARK: - Serving sheet (isolated so its state doesn't re-render the picker list)
+
+struct QuickAddServingSheetView: View {
+    let item: QuickAddFood
+    let initialBaseline: Double?
+    let initialSlider: Double?
+    let initialMultiplier: Double
+    let trackedNutrientKeys: [String]
+    let surfacePrimary: Color
+    let surfaceSecondary: Color
+    let textPrimary: Color
+    let textSecondary: Color
+    let accent: Color
+    let onConfirm: (_ effectiveMultiplier: Double, _ baseline: Double, _ sliderValue: Double) -> Void
+    let onDismiss: () -> Void
+
+    private let minMultiplier = 0.25
+    private let maxMultiplier = 1.75
+    private let multiplierStep = 0.25
+
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var selectedMultiplierValue = 1.0
+    @State private var selectedServingBaselineAmount = 1.0
+    @State private var selectedServingAmountText = ""
+    @State private var isUpdatingServingTextFromSlider = false
+    @State private var isServingKeyboardVisible = false
+    @FocusState private var isServingAmountFieldFocused: Bool
+
+    private var backgroundTop: Color {
+        colorScheme == .dark ? Color(red: 0.059, green: 0.051, blue: 0.039) : Color(red: 0.97, green: 0.95, blue: 0.92)
+    }
+
+    private var backgroundBottom: Color {
+        colorScheme == .dark ? Color(red: 0.078, green: 0.063, blue: 0.039) : Color(red: 0.93, green: 0.90, blue: 0.86)
+    }
+
+    private var effectiveMultiplier: Double {
+        let baseAmount = item.servingAmount
+        guard baseAmount > 0 else { return 1.0 }
+        let selectedAmount = roundToServingSelectorIncrement(selectedServingBaselineAmount * selectedMultiplierValue)
+        return max(selectedAmount / baseAmount, 0)
+    }
+
+    var body: some View {
         NavigationStack {
             ZStack {
                 LinearGradient(
@@ -407,68 +548,16 @@ struct QuickAddPickerView: View {
                         }
 
                         if isCountBased(item: item) {
-                            countServingControl(for: item)
+                            countServingControl
                         } else {
-                            VStack(alignment: .leading, spacing: 14) {
-                                let minServingAmount = formattedServingAmount(selectedServingBaselineAmount * minMultiplier)
-                                let maxServingAmount = formattedServingAmount(selectedServingBaselineAmount * maxMultiplier)
-                                let minServingUnit = inflectedUnit(displayServingUnit(for: item.servingUnit), quantity: selectedServingBaselineAmount * minMultiplier)
-                                let maxServingUnit = inflectedUnit(displayServingUnit(for: item.servingUnit), quantity: selectedServingBaselineAmount * maxMultiplier)
-                                HStack {
-                                    Text("\(minServingAmount) \(minServingUnit)")
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(textSecondary)
-                                    Spacer()
-                                    Text("\(maxServingAmount) \(maxServingUnit)")
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(textSecondary)
-                                }
-
-                                HorizontalServeSlider(
-                                    value: $selectedMultiplierValue,
-                                    range: minMultiplier...maxMultiplier,
-                                    step: multiplierStep
-                                ) {
-                                    Haptics.selection()
-                                }
-                                .frame(height: 52)
-
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Serve")
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(textSecondary)
-
-                                    TextField("", text: $selectedServingAmountText)
-                                        .keyboardType(.decimalPad)
-                                        .focused($isServingAmountFieldFocused)
-                                        .padding(.trailing, 52)
-                                        .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
-                                        .overlay(alignment: .trailing) {
-                                            Text(inflectedTextFieldUnit(for: item.servingUnit, amountText: selectedServingAmountText))
-                                                .font(.headline.weight(.semibold))
-                                                .foregroundStyle(textSecondary)
-                                                .padding(.trailing, 14)
-                                                .allowsHitTesting(false)
-                                        }
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(14)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                        .fill(surfacePrimary.opacity(0.94))
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                        .stroke(textSecondary.opacity(0.12), lineWidth: 1)
-                                )
-                            }
+                            sliderServingControl
                         }
 
                         ServingNutrientGridCard(
                             title: "Nutrition Info",
                             calories: item.calories,
                             nutrientValues: item.nutrientValues,
-                            multiplier: selectedServingEffectiveMultiplier,
+                            multiplier: effectiveMultiplier,
                             trackedNutrientKeys: trackedNutrientKeys,
                             displayedNutrientKeys: nil,
                             surface: surfacePrimary.opacity(0.95),
@@ -488,7 +577,7 @@ struct QuickAddPickerView: View {
             }
             .safeAreaInset(edge: .bottom) {
                 Button {
-                    applySelectedServingMultiplier()
+                    confirmServing()
                 } label: {
                     Text("Set Serving Size")
                         .font(.headline)
@@ -514,9 +603,7 @@ struct QuickAddPickerView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        servingSheetContext = nil
-                    } label: {
+                    Button { onDismiss() } label: {
                         Image(systemName: "chevron.left")
                     }
                     .foregroundStyle(textPrimary)
@@ -533,35 +620,88 @@ struct QuickAddPickerView: View {
             .onAppear {
                 isServingKeyboardVisible = false
                 isServingAmountFieldFocused = false
-                syncSelectedServingAmountText()
+                initializeState()
             }
             .onDisappear {
                 isServingKeyboardVisible = false
             }
             .onChange(of: selectedMultiplierValue) { _, _ in
-                if !isServingAmountFieldFocused {
-                    syncSelectedServingAmountText()
-                }
+                if !isServingAmountFieldFocused { syncAmountText() }
             }
             .onChange(of: selectedServingBaselineAmount) { _, _ in
-                if !isServingAmountFieldFocused {
-                    syncSelectedServingAmountText()
-                }
+                if !isServingAmountFieldFocused { syncAmountText() }
             }
             .onChange(of: selectedServingAmountText) { _, newValue in
                 if isCountBased(item: item) {
-                    applyTypedCountServingIfPossible(newValue)
+                    applyTypedCountServing(newValue)
                 } else {
-                    applyTypedServingAmountIfPossible(text: newValue)
+                    applyTypedServing(text: newValue)
                 }
             }
             .interactiveDismissDisabled(isServingKeyboardVisible)
         }
     }
 
-    private func countServingControl(for item: QuickAddFood) -> some View {
+    private var sliderServingControl: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            let minAmt = formattedServingAmount(selectedServingBaselineAmount * minMultiplier)
+            let maxAmt = formattedServingAmount(selectedServingBaselineAmount * maxMultiplier)
+            let displayUnit = isGramUnit(item.servingUnit) ? "g" : item.servingUnit
+            let minUnit = inflectServingUnitToken(displayUnit, quantity: selectedServingBaselineAmount * minMultiplier)
+            let maxUnit = inflectServingUnitToken(displayUnit, quantity: selectedServingBaselineAmount * maxMultiplier)
+            HStack {
+                Text("\(minAmt) \(minUnit)")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(textSecondary)
+                Spacer()
+                Text("\(maxAmt) \(maxUnit)")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(textSecondary)
+            }
+
+            HorizontalServeSlider(
+                value: $selectedMultiplierValue,
+                range: minMultiplier...maxMultiplier,
+                step: multiplierStep
+            ) {
+                Haptics.selection()
+            }
+            .frame(height: 52)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Serve")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(textSecondary)
+
+                TextField("", text: $selectedServingAmountText)
+                    .keyboardType(.decimalPad)
+                    .focused($isServingAmountFieldFocused)
+                    .padding(.trailing, 52)
+                    .inputStyle(surface: surfaceSecondary, text: textPrimary, secondary: textSecondary)
+                    .overlay(alignment: .trailing) {
+                        Text(inflectedTextFieldUnit(for: item.servingUnit, amountText: selectedServingAmountText))
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(textSecondary)
+                            .padding(.trailing, 14)
+                            .allowsHitTesting(false)
+                    }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(surfacePrimary.opacity(0.94))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(textSecondary.opacity(0.12), lineWidth: 1)
+            )
+        }
+    }
+
+    private var countServingControl: some View {
         let quantity = max(roundToServingSelectorIncrement(selectedServingBaselineAmount * selectedMultiplierValue), 0.25)
-        let unit = displayCountUnit(for: item, quantity: quantity)
+        let unit = inflectCountUnitToken(item.servingUnit, quantity: quantity)
         return VStack(alignment: .leading, spacing: 10) {
             Text("Quantity")
                 .font(.caption.weight(.semibold))
@@ -571,7 +711,7 @@ struct QuickAddPickerView: View {
 
             HStack(spacing: 18) {
                 Button {
-                    setSelectedCountQuantity(nextDecrementCountQuantity(from: quantity))
+                    setCountQuantity(nextDecrementCount(from: quantity))
                     Haptics.selection()
                 } label: {
                     Image(systemName: "minus.circle.fill")
@@ -607,7 +747,7 @@ struct QuickAddPickerView: View {
                     }
 
                 Button {
-                    setSelectedCountQuantity(nextIncrementCountQuantity(from: quantity))
+                    setCountQuantity(nextIncrementCount(from: quantity))
                     Haptics.selection()
                 } label: {
                     Image(systemName: "plus.circle.fill")
@@ -629,80 +769,29 @@ struct QuickAddPickerView: View {
         )
     }
 
-    private func quantity(for id: UUID) -> Int {
-        max(selectedQuantitiesByID[id] ?? 0, 0)
-    }
-
-    private func multiplier(for id: UUID) -> Double {
-        selectedServingMultiplierByID[id] ?? 1.0
-    }
-
-    private func increment(_ id: UUID) {
-        selectedQuantitiesByID[id] = min(quantity(for: id) + 1, 99)
-        if selectedServingMultiplierByID[id] == nil {
-            selectedServingMultiplierByID[id] = 1.0
-        }
-        Haptics.selection()
-    }
-
-    private func decrement(_ id: UUID) {
-        let next = quantity(for: id) - 1
-        if next <= 0 {
-            selectedQuantitiesByID.removeValue(forKey: id)
-            selectedServingMultiplierByID.removeValue(forKey: id)
-            servingSliderBaselineByItemId.removeValue(forKey: id)
-            servingSliderValueByItemId.removeValue(forKey: id)
-        } else {
-            selectedQuantitiesByID[id] = next
-        }
-        Haptics.selection()
-    }
-
-    private func openServingSheet(for item: QuickAddFood) {
-        let baseAmount = convertedServingAmount(item.servingAmount, unit: item.servingUnit)
-        if let savedBaseline = servingSliderBaselineByItemId[item.id],
-           let savedSlider = servingSliderValueByItemId[item.id] {
+    private func initializeState() {
+        let baseAmount = item.servingAmount
+        if let savedBaseline = initialBaseline, let savedSlider = initialSlider {
             selectedServingBaselineAmount = max(roundToServingSelectorIncrement(savedBaseline), 0)
             selectedMultiplierValue = min(max(savedSlider, minMultiplier), maxMultiplier)
         } else {
-            let absoluteMultiplier = multiplier(for: item.id)
-            selectedServingBaselineAmount = max(roundToServingSelectorIncrement(baseAmount * absoluteMultiplier), 0)
+            selectedServingBaselineAmount = max(roundToServingSelectorIncrement(baseAmount * initialMultiplier), 0)
             selectedMultiplierValue = 1.0
         }
-        syncSelectedServingAmountText()
-        dismissKeyboard()
-        servingSheetContext = nil
-        Haptics.impact(.light)
-        DispatchQueue.main.async {
-            servingSheetContext = ServingSheetContext(item: item)
-        }
+        syncAmountText()
     }
 
-    private func applySelectedServingMultiplier() {
-        guard let item = servingSheetContext?.item else { return }
-        let baseAmount = convertedServingAmount(item.servingAmount, unit: item.servingUnit)
+    private func confirmServing() {
+        let baseAmount = item.servingAmount
         let selectedAmount = roundToServingSelectorIncrement(selectedServingBaselineAmount * selectedMultiplierValue)
-        let effectiveMultiplier: Double
-        if baseAmount > 0 {
-            effectiveMultiplier = max(selectedAmount / baseAmount, 0)
-        } else {
-            effectiveMultiplier = 1.0
-        }
-        selectedServingMultiplierByID[item.id] = effectiveMultiplier
-        servingSliderBaselineByItemId[item.id] = max(roundToServingSelectorIncrement(selectedServingBaselineAmount), 0)
-        servingSliderValueByItemId[item.id] = min(max(selectedMultiplierValue, minMultiplier), maxMultiplier)
-        if quantity(for: item.id) == 0 {
-            selectedQuantitiesByID[item.id] = 1
-        }
+        let mult = baseAmount > 0 ? max(selectedAmount / baseAmount, 0) : 1.0
+        let baseline = max(roundToServingSelectorIncrement(selectedServingBaselineAmount), 0)
+        let slider = min(max(selectedMultiplierValue, minMultiplier), maxMultiplier)
         Haptics.notification(.success)
-        servingSheetContext = nil
+        onConfirm(mult, baseline, slider)
     }
 
-    private func dismissKeyboard() {
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-    }
-
-    private func syncSelectedServingAmountText() {
+    private func syncAmountText() {
         let amount = formattedServingAmount(selectedServingBaselineAmount * selectedMultiplierValue)
         if selectedServingAmountText != amount {
             isUpdatingServingTextFromSlider = true
@@ -710,21 +799,29 @@ struct QuickAddPickerView: View {
         }
     }
 
-    private func applyTypedServingAmountIfPossible(text: String) {
-        if isUpdatingServingTextFromSlider {
-            isUpdatingServingTextFromSlider = false
-            return
-        }
-        guard let typedAmount = parsedDecimalAmount(text), typedAmount >= 0 else { return }
-        let roundedTypedAmount = roundToServingSelectorIncrement(typedAmount)
-        let currentAmount = roundToServingSelectorIncrement(selectedServingBaselineAmount * selectedMultiplierValue)
-        if abs(roundedTypedAmount - currentAmount) > 0.0005 {
-            selectedServingBaselineAmount = roundedTypedAmount
+    private func applyTypedServing(text: String) {
+        if isUpdatingServingTextFromSlider { isUpdatingServingTextFromSlider = false; return }
+        guard let typedAmount = parsedAmount(text), typedAmount >= 0 else { return }
+        let rounded = roundToServingSelectorIncrement(typedAmount)
+        let current = roundToServingSelectorIncrement(selectedServingBaselineAmount * selectedMultiplierValue)
+        if abs(rounded - current) > 0.0005 {
+            selectedServingBaselineAmount = rounded
             selectedMultiplierValue = 1.0
         }
     }
 
-    private func setSelectedCountQuantity(_ quantity: Double) {
+    private func applyTypedCountServing(_ text: String) {
+        if isUpdatingServingTextFromSlider { isUpdatingServingTextFromSlider = false; return }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let normalized = trimmed.replacingOccurrences(of: ",", with: ".")
+        guard let parsed = Double(normalized), parsed >= 0.25 else { return }
+        let rounded = roundToServingSelectorIncrement(parsed)
+        let current = roundToServingSelectorIncrement(selectedServingBaselineAmount * selectedMultiplierValue)
+        if abs(rounded - current) > 0.0005 { setCountQuantity(rounded) }
+    }
+
+    private func setCountQuantity(_ quantity: Double) {
         let clamped = min(max(roundToServingSelectorIncrement(quantity), 0.25), 99)
         selectedServingBaselineAmount = clamped
         selectedMultiplierValue = 1.0
@@ -735,43 +832,20 @@ struct QuickAddPickerView: View {
         }
     }
 
-    private func nextDecrementCountQuantity(from quantity: Double) -> Double {
-        let normalized = min(max(roundToServingSelectorIncrement(quantity), 0.25), 99)
-        if normalized > 1 {
-            return max(1, normalized - 1)
-        }
-        return max(0.25, normalized - 0.25)
+    private func nextDecrementCount(from quantity: Double) -> Double {
+        let n = min(max(roundToServingSelectorIncrement(quantity), 0.25), 99)
+        return n > 1 ? max(1, n - 1) : max(0.25, n - 0.25)
     }
 
-    private func nextIncrementCountQuantity(from quantity: Double) -> Double {
-        let normalized = min(max(roundToServingSelectorIncrement(quantity), 0.25), 99)
-        if normalized < 1 {
-            return min(1, normalized + 0.25)
-        }
-        return min(99, normalized + 1)
+    private func nextIncrementCount(from quantity: Double) -> Double {
+        let n = min(max(roundToServingSelectorIncrement(quantity), 0.25), 99)
+        return n < 1 ? min(1, n + 0.25) : min(99, n + 1)
     }
 
-    private func applyTypedCountServingIfPossible(_ text: String) {
-        if isUpdatingServingTextFromSlider {
-            isUpdatingServingTextFromSlider = false
-            return
-        }
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        let normalized = trimmed.replacingOccurrences(of: ",", with: ".")
-        guard let parsed = Double(normalized), parsed >= 0.25 else { return }
-        let rounded = roundToServingSelectorIncrement(parsed)
-        let currentAmount = roundToServingSelectorIncrement(selectedServingBaselineAmount * selectedMultiplierValue)
-        if abs(rounded - currentAmount) > 0.0005 {
-            setSelectedCountQuantity(rounded)
-        }
-    }
-
-    private func parsedDecimalAmount(_ text: String) -> Double? {
+    private func parsedAmount(_ text: String) -> Double? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
-        let normalized = trimmed.replacingOccurrences(of: ",", with: ".")
-        return Double(normalized)
+        return Double(trimmed.replacingOccurrences(of: ",", with: "."))
     }
 
     private func formattedServingAmount(_ amount: Double) -> String {
@@ -779,44 +853,27 @@ struct QuickAddPickerView: View {
     }
 
     private func formattedDisplayServingWithUnit(_ amount: Double, unit: String) -> String {
-        let convertedAmount = convertedServingAmount(amount, unit: unit)
-        let formattedAmount = formattedServingAmount(convertedAmount)
-        let unitText = inflectedUnit(displayServingUnit(for: unit), quantity: convertedAmount)
-        return "\(formattedAmount) \(unitText)"
-    }
-
-    private func displayServingUnit(for unit: String) -> String {
-        if isGramUnit(unit) {
-            return "g"
-        }
-        return unit
+        let displayUnit = isGramUnit(unit) ? "g" : unit
+        let unitText = inflectServingUnitToken(displayUnit, quantity: amount)
+        return "\(formatServingSelectorAmount(amount)) \(unitText)"
     }
 
     private func inflectedTextFieldUnit(for unit: String, amountText: String) -> String {
-        let displayUnit = displayServingUnit(for: unit)
-        guard let amount = parsedDecimalAmount(amountText) else { return displayUnit }
-        return inflectedUnit(displayUnit, quantity: amount)
-    }
-
-    private func inflectedUnit(_ unit: String, quantity: Double) -> String {
-        inflectServingUnitToken(unit, quantity: quantity)
+        let displayUnit = isGramUnit(unit) ? "g" : unit
+        guard let amount = parsedAmount(amountText) else { return displayUnit }
+        return inflectServingUnitToken(displayUnit, quantity: amount)
     }
 
     private func isGramUnit(_ unit: String) -> Bool {
-        let normalized = unit.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return normalized == "g" || normalized == "gram" || normalized == "grams" || normalized == "grms"
-    }
-
-    private func convertedServingAmount(_ amount: Double, unit: String) -> Double {
-        amount
+        let n = unit.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return n == "g" || n == "gram" || n == "grams" || n == "grms"
     }
 
     private func isCountBased(item: QuickAddFood) -> Bool {
         let unit = item.servingUnit.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let name = item.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
-        if unit.contains("cup")
-            || unit.contains("oz")
+        if unit.contains("cup") || unit.contains("oz")
             || unit == "g" || unit == "gram" || unit == "grams" || unit == "grms"
             || unit.contains("tbsp") || unit.contains("tablespoon")
             || unit.contains("tsp") || unit.contains("teaspoon")
@@ -824,46 +881,22 @@ struct QuickAddPickerView: View {
             return false
         }
 
-        if [
-            "piece", "pieces",
-            "slice", "slices",
-            "nugget", "nuggets",
-            "sandwich", "sandwiches",
-            "burger", "burgers",
-            "taco", "tacos",
-            "burrito", "burritos",
-            "wrap", "wraps",
-            "quesadilla", "quesadillas"
-        ].contains(unit) { return true }
+        if ["piece", "pieces", "slice", "slices", "nugget", "nuggets",
+            "sandwich", "sandwiches", "burger", "burgers", "taco", "tacos",
+            "burrito", "burritos", "wrap", "wraps",
+            "quesadilla", "quesadillas"].contains(unit) { return true }
 
-        if name.contains("nugget") { return true }
-        if name.contains("quesadilla") { return true }
+        if name.contains("nugget") || name.contains("quesadilla") { return true }
         if name.contains("cookie") || name.contains("chips") || name.hasSuffix(" chip") { return true }
-        if name.contains("sandwich") || name.contains("burger") || name.contains("burrito") || name.contains("taco") || name.contains("wrap") {
-            return true
-        }
+        if name.contains("sandwich") || name.contains("burger") || name.contains("burrito")
+            || name.contains("taco") || name.contains("wrap") { return true }
 
-        let ambiguousUnits: Set<String> = ["", "serving", "servings", "each", "ea", "item", "items", "portion", "portions"]
-        if !ambiguousUnits.contains(unit) {
+        let ambiguous: Set<String> = ["", "serving", "servings", "each", "ea", "item", "items", "portion", "portions"]
+        if !ambiguous.contains(unit) {
             let letters = CharacterSet.letters
             let unitChars = CharacterSet(charactersIn: unit)
-            let looksLikeSingleWordUnit = !unit.contains(" ") && !unit.isEmpty && letters.isSuperset(of: unitChars)
-            if looksLikeSingleWordUnit {
-                return true
-            }
+            if !unit.contains(" ") && !unit.isEmpty && letters.isSuperset(of: unitChars) { return true }
         }
         return false
-    }
-
-    private func displayCountUnit(for item: QuickAddFood, quantity: Double) -> String {
-        inflectCountUnitToken(item.servingUnit, quantity: quantity)
-    }
-
-    private func pruneUnavailableSelections() {
-        let availableIDs = Set(quickAddFoods.map(\.id))
-        selectedQuantitiesByID = selectedQuantitiesByID.filter { availableIDs.contains($0.key) && $0.value > 0 }
-        selectedServingMultiplierByID = selectedServingMultiplierByID.filter { availableIDs.contains($0.key) && $0.value > 0 }
-        servingSliderBaselineByItemId = servingSliderBaselineByItemId.filter { availableIDs.contains($0.key) }
-        servingSliderValueByItemId = servingSliderValueByItemId.filter { availableIDs.contains($0.key) }
     }
 }

@@ -41,4 +41,14 @@ enum AppTab: String, CaseIterable, Identifiable {
         case .settings: return "gearshape"
         }
     }
+
+    var activeIconName: String {
+        switch self {
+        case .today: return "fork.knife"
+        case .history: return "clock.arrow.circlepath"
+        case .add: return "plus"
+        case .profile: return "person.fill"
+        case .settings: return "gearshape.fill"
+        }
+    }
 }

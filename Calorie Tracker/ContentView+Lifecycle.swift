@@ -362,18 +362,18 @@ extension ContentView {
 
     @ViewBuilder
     var activeTabContent: some View {
-        switch selectedTab {
-        case .today:
-            todayTabView
-        case .history:
-            historyTabView
-        case .add:
-            addTabView
-        case .profile:
-            profileTabView
-        case .settings:
-            settingsTabView
+        Group {
+            switch selectedTab {
+            case .today:    todayTabView
+            case .history:  historyTabView
+            case .add:      addTabView
+            case .profile:  profileTabView
+            case .settings: settingsTabView
+            }
         }
+        .id(selectedTab)
+        .transition(.opacity)
+        .animation(.easeInOut(duration: 0.18), value: selectedTab)
     }
 
     func updateKeyboardState(from notification: Notification) {

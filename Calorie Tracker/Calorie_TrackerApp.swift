@@ -49,8 +49,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
             async let didUpdateWidget = BackgroundWidgetRefreshService.shared.refreshSnapshot()
             let menusUpdated = await didUpdateMenus
             let widgetUpdated = await didUpdateWidget
-            let didUpdate = menusUpdated || widgetUpdated
-            completionHandler(didUpdate ? .newData : .noData)
+            completionHandler(menusUpdated || widgetUpdated ? .newData : .noData)
         }
     }
 
@@ -68,11 +67,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         scheduleMenuRefreshForNextMidnight()
 
         let work = Task(priority: .utility) { () -> Bool in
-            async let didUpdateMenus = AppMenuPreloadService.shared.preloadTodayMenus()
-            async let didUpdateWidget = BackgroundWidgetRefreshService.shared.refreshSnapshot()
-            let menusUpdated = await didUpdateMenus
-            let widgetUpdated = await didUpdateWidget
-            return menusUpdated || widgetUpdated
+            return await AppMenuPreloadService.shared.preloadTodayMenus()
         }
 
         task.expirationHandler = {
@@ -114,7 +109,7 @@ struct Calorie_TrackerApp: App {
     private var accentColor: Color {
         appThemeStyleRaw == AppThemeStyle.blueprint.rawValue
             ? Color(red: 0.20, green: 0.50, blue: 0.98)
-            : Color(red: 0.769, green: 0.588, blue: 0.353)
+            : Color(red: 0.722, green: 0.573, blue: 0.290)
     }
 
     var body: some Scene {

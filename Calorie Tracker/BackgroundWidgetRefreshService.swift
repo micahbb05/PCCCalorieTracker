@@ -1,6 +1,6 @@
 import Foundation
 import HealthKit
-import UIKit
+import SwiftUI
 
 @MainActor
 final class BackgroundWidgetRefreshService {
@@ -13,6 +13,7 @@ final class BackgroundWidgetRefreshService {
         }
 
         let entries: [MealEntry]
+        let dailyEntryArchive: [String: [MealEntry]]
         let exercisesByDay: [String: [ExerciseEntry]]
         let dailyCalorieGoalArchive: [String: Int]
         let dailyBurnedCalorieArchive: [String: Int]
@@ -91,9 +92,10 @@ final class BackgroundWidgetRefreshService {
         healthWorkouts: [ExerciseEntry],
         stepMetrics: StepMetrics
     ) -> WidgetCalorieSnapshot {
+        let todayEntries = todayEntries(from: state, todayID: todayID)
         let manualExercises = state.exercisesByDay[todayID] ?? []
         let allExercises = manualExercises + healthWorkouts
-        let totalCalories = max(state.entries.reduce(0) { $0 + $1.calories }, 0)
+        let totalCalories = max(todayEntries.reduce(0) { $0 + $1.calories }, 0)
 
         let activityCalories = estimatedActivityCalories(stepMetrics: stepMetrics, profile: profile)
         let reclassifiedWalkingCalories = min(
@@ -111,9 +113,23 @@ final class BackgroundWidgetRefreshService {
             effectiveActivityCalories: effectiveActivityCalories
         )
 
-        let safeGoal = max(calorieModel.goal, 1)
-        let burned = max(calorieModel.burned, 0)
-        let nutrientTotals = nutrientTotals(from: state.entries)
+        // Background HealthKit queries can occasionally return transient low values.
+        // Keep today's burned/goal monotonic versus stored archives to avoid downward drift.
+        // Re-read the archive fresh from UserDefaults here (not from `state`) because the main
+        // app may have written higher values during the async HealthKit queries above.
+        let freshBurnedArchive: [String: Int] = decodeStringBackedJSON(forKey: "dailyBurnedCalorieArchiveData", fallback: [:])
+        let freshGoalArchive: [String: Int] = decodeStringBackedJSON(forKey: "dailyCalorieGoalArchiveData", fallback: [:])
+        let archivedGoal = max(state.dailyCalorieGoalArchive[todayID] ?? 0, freshGoalArchive[todayID] ?? 0)
+        let archivedBurned = max(state.dailyBurnedCalorieArchive[todayID] ?? 0, freshBurnedArchive[todayID] ?? 0)
+        // Use the foreground-cached calorie model as a final floor. This handles the case
+        // where the archive itself was seeded from an earlier background run that had no
+        // steps, no profile, and no workouts — all three can fail independently in background.
+        // The foreground cache is written by syncCurrentDayGoalArchive() and always reflects
+        // the fully-resolved live inputs, so it is the authoritative floor.
+        let foregroundCache = loadCachedCalorieModelForToday()
+        let safeGoal = max(max(max(calorieModel.goal, archivedGoal), foregroundCache?.goal ?? 0), 1)
+        let burned = max(max(max(calorieModel.burned, archivedBurned), foregroundCache?.burned ?? 0), 0)
+        let nutrientTotals = nutrientTotals(from: todayEntries)
         let trackedNutrients = state.trackedNutrientKeys
             .filter { !NutrientCatalog.nonTrackableKeys.contains($0.lowercased()) }
             .prefix(3)
@@ -143,6 +159,16 @@ final class BackgroundWidgetRefreshService {
             selectedAppIconChoiceRaw: defaults.string(forKey: "selectedAppIconChoice") ?? AppIconChoice.standard.rawValue,
             trackedNutrients: Array(trackedNutrients)
         )
+    }
+
+    private func todayEntries(from state: StoredState, todayID: String) -> [MealEntry] {
+        if let archived = state.dailyEntryArchive[todayID] {
+            return archived
+        }
+
+        return state.entries.filter { entry in
+            centralDayIdentifier(for: entry.createdAt) == todayID
+        }
     }
 
     private func currentCloudOriginDeviceType() -> CloudSyncOriginDeviceType {
@@ -278,13 +304,26 @@ final class BackgroundWidgetRefreshService {
     private func persistDailyTotals(goal: Int, burned: Int) {
         let todayID = centralDayIdentifier(for: Date())
 
+        var burnedArchive: [String: Int] = decodeStringBackedJSON(forKey: "dailyBurnedCalorieArchiveData", fallback: [:])
+        let existingBurned = burnedArchive[todayID] ?? 0
+        // The archive is a daily high-water mark: values only move up within a given day.
+        // This serves two purposes:
+        //   1. Transient errors (background step queries returning 0) can't corrupt the archive.
+        //   2. Display code in makeSnapshot takes max(fresh, archived), so the archive floor
+        //      is already load-bearing — a mid-day step correction from HealthKit won't show
+        //      until the next day's archive entry either way.
+        // Both burned and goal must pass their guards, otherwise goal could be written lower
+        // while burned is correctly rejected, causing calories-left to drift down.
+        guard burned >= existingBurned else { return }
+
         var goalArchive: [String: Int] = decodeStringBackedJSON(forKey: "dailyCalorieGoalArchiveData", fallback: [:])
+        let existingGoal = goalArchive[todayID] ?? 0
+        guard goal >= existingGoal else { return }
         goalArchive[todayID] = max(goal, 1)
         if let encodedGoals = try? JSONEncoder().encode(goalArchive) {
             defaults.set(String(decoding: encodedGoals, as: UTF8.self), forKey: "dailyCalorieGoalArchiveData")
         }
 
-        var burnedArchive: [String: Int] = decodeStringBackedJSON(forKey: "dailyBurnedCalorieArchiveData", fallback: [:])
         burnedArchive[todayID] = max(burned, 1)
         if let encodedBurned = try? JSONEncoder().encode(burnedArchive) {
             defaults.set(String(decoding: encodedBurned, as: UTF8.self), forKey: "dailyBurnedCalorieArchiveData")
@@ -424,6 +463,7 @@ final class BackgroundWidgetRefreshService {
 
     private func loadState() -> StoredState {
         let entries: [MealEntry] = decodeStringBackedJSON(forKey: "mealEntriesData", fallback: [])
+        let dailyEntryArchive: [String: [MealEntry]] = decodeStringBackedJSON(forKey: "dailyEntryArchiveData", fallback: [:])
         let exercisesByDay: [String: [ExerciseEntry]] = decodeStringBackedJSON(forKey: "dailyExerciseArchiveData", fallback: [:])
         let dailyCalorieGoalArchive: [String: Int] = decodeStringBackedJSON(forKey: "dailyCalorieGoalArchiveData", fallback: [:])
         let dailyBurnedCalorieArchive: [String: Int] = decodeStringBackedJSON(forKey: "dailyBurnedCalorieArchiveData", fallback: [:])
@@ -442,6 +482,7 @@ final class BackgroundWidgetRefreshService {
 
         return StoredState(
             entries: entries,
+            dailyEntryArchive: dailyEntryArchive,
             exercisesByDay: exercisesByDay,
             dailyCalorieGoalArchive: dailyCalorieGoalArchive,
             dailyBurnedCalorieArchive: dailyBurnedCalorieArchive,
@@ -595,13 +636,40 @@ final class BackgroundWidgetRefreshService {
             calendar: calendar
         )
 
-        guard metrics.stepError == nil else {
-            return StepMetrics(steps: 0, distanceMeters: 0)
+        if metrics.stepError == nil {
+            return StepMetrics(steps: metrics.steps, distanceMeters: metrics.distanceMeters)
         }
-        return StepMetrics(
-            steps: metrics.steps,
-            distanceMeters: metrics.distanceMeters
-        )
+
+        // Background HealthKit query failed — fall back to the last step count the
+        // foreground app successfully cached so the widget doesn't show 0-step calories.
+        if let cached = loadCachedStepMetricsForToday() {
+            return cached
+        }
+        return StepMetrics(steps: 0, distanceMeters: 0)
+    }
+
+    private func loadCachedStepMetricsForToday() -> StepMetrics? {
+        guard
+            let raw = defaults.string(forKey: "cachedTodayStepMetrics"),
+            let data = raw.data(using: .utf8),
+            let cached = try? decoder.decode(CachedStepMetrics.self, from: data),
+            cached.dayIdentifier == centralDayIdentifier(for: Date())
+        else {
+            return nil
+        }
+        return StepMetrics(steps: cached.steps, distanceMeters: cached.distanceMeters)
+    }
+
+    private func loadCachedCalorieModelForToday() -> CachedCalorieModel? {
+        guard
+            let raw = defaults.string(forKey: "cachedTodayCalorieModel"),
+            let data = raw.data(using: .utf8),
+            let cached = try? decoder.decode(CachedCalorieModel.self, from: data),
+            cached.dayIdentifier == centralDayIdentifier(for: Date())
+        else {
+            return nil
+        }
+        return cached
     }
 }
 
@@ -643,7 +711,5 @@ final class HealthKitBackgroundObserver {
         }
         healthStore.execute(query)
         observerQueries.append(query)
-
-        healthStore.enableBackgroundDelivery(for: sampleType, frequency: .immediate) { _, _ in }
     }
 }

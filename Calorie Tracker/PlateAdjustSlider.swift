@@ -53,7 +53,7 @@ struct PlateAdjustSlider: View {
                 Circle()
                     .fill(Color.white)
                     .frame(width: knobSize, height: knobSize)
-                    .shadow(color: Color(red: 0.769, green: 0.588, blue: 0.353).opacity(0.45), radius: 12, x: 0, y: 4)
+                    .shadow(color: Color(red: 0.722, green: 0.573, blue: 0.290).opacity(0.45), radius: 12, x: 0, y: 4)
                     .position(x: knobX, y: trackY)
             }
             .contentShape(Rectangle())

@@ -160,8 +160,14 @@ extension ContentView {
                 dailyEntryArchive[currentCentralDay] = normalizedEntries(entries)
             }
             dailyExerciseArchive[currentCentralDay] = exercises
-            dailyCalorieGoalArchive[currentCentralDay] = calorieGoal
-            dailyBurnedCalorieArchive[currentCentralDay] = burnedCaloriesToday
+            dailyCalorieGoalArchive[currentCentralDay] = CalibrationEngine.floorAgainstArchive(
+                calorieGoal,
+                archivedValue: dailyCalorieGoalArchive[currentCentralDay]
+            )
+            dailyBurnedCalorieArchive[currentCentralDay] = CalibrationEngine.floorAgainstArchive(
+                burnedCaloriesToday,
+                archivedValue: dailyBurnedCalorieArchive[currentCentralDay]
+            )
             dailyGoalTypeArchive[currentCentralDay] = goalType.rawValue
             saveDailyEntryArchive()
             saveDailyExerciseArchive()
@@ -198,8 +204,14 @@ extension ContentView {
             if dailyExerciseArchive[currentCentralDay] == nil {
                 dailyExerciseArchive[currentCentralDay] = []
             }
-            dailyCalorieGoalArchive[currentCentralDay] = calorieGoal
-            dailyBurnedCalorieArchive[currentCentralDay] = burnedCaloriesToday
+            dailyCalorieGoalArchive[currentCentralDay] = CalibrationEngine.floorAgainstArchive(
+                calorieGoal,
+                archivedValue: dailyCalorieGoalArchive[currentCentralDay]
+            )
+            dailyBurnedCalorieArchive[currentCentralDay] = CalibrationEngine.floorAgainstArchive(
+                burnedCaloriesToday,
+                archivedValue: dailyBurnedCalorieArchive[currentCentralDay]
+            )
             dailyGoalTypeArchive[currentCentralDay] = goalType.rawValue
             saveEntries()
             saveDailyEntryArchive()

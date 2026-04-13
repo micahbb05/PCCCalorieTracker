@@ -189,7 +189,7 @@ final class PersistentAppStateStore {
 
     private init() {
         let storeURL = Self.makeStoreURL()
-        let configuration = ModelConfiguration(url: storeURL)
+        let configuration = ModelConfiguration(url: storeURL, cloudKitDatabase: .none)
 
         if let loaded = try? ModelContainer(for: PersistentAppStateRecord.self, configurations: configuration) {
             container = loaded

@@ -21,6 +21,10 @@ extension ContentView {
                     ForEach(groupData.entries) { entry in
                         logRow(entry)
                             .listRowBackground(surfacePrimary)
+                            .transition(.asymmetric(
+                                insertion: .move(edge: .trailing).combined(with: .opacity),
+                                removal: .move(edge: .leading).combined(with: .opacity)
+                            ))
                             .contextMenu {
                                 if let primaryEntry = entry.primaryEntry, entry.servingCount == 1 {
                                     Button {
@@ -60,34 +64,42 @@ extension ContentView {
                                     } label: {
                                         Label("Delete", systemImage: "trash")
                                     }
+                                    .tint(.red)
                                 } else if entry.servingCount > 1 {
                                     Button(role: .destructive) {
                                         deleteEntries(entry.entries)
                                     } label: {
                                         Label("Delete All", systemImage: "trash")
                                     }
+                                    .tint(.red)
                                 }
                             }
                     }
                 } header: {
                     VStack(alignment: .leading, spacing: index == 0 ? 18 : 12) {
                         if index == 0 {
-                            Text("Today's Food Log")
-                            .padding(.bottom, 2)
+                            Text("Food Log")
+                                .foregroundStyle(textPrimary)
+                                .padding(.bottom, 2)
                         }
-                        HStack(spacing: 12) {
+                        HStack(spacing: 10) {
                             Text(groupData.group.title)
-                                .font(.caption.weight(.bold))
-                                .foregroundStyle(textSecondary.opacity(0.92))
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(textSecondary)
                             Spacer()
-                            Text("\(groupData.entries.reduce(0) { $0 + $1.calories }) cal")
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(textSecondary.opacity(0.82))
-                                .monospacedDigit()
+                            let groupCal = groupData.entries.reduce(0) { $0 + $1.calories }
+                            Text("\(groupCal) cal")
+                                .font(.caption.monospacedDigit().weight(.semibold))
+                                .foregroundStyle(accent.opacity(0.85))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(
+                                    Capsule(style: .continuous)
+                                        .fill(accent.opacity(0.10))
+                                )
                         }
                     }
                     .padding(.top, index == 0 ? 8 : 0)
-                    .foregroundStyle(textSecondary)
                 }
             }
         }
@@ -129,9 +141,10 @@ extension ContentView {
                 if hasStepData {
                     HStack(spacing: 12) {
                         Image(systemName: "figure.walk")
-                            .font(.body)
+                            .font(.system(size: 22, weight: .semibold))
+                            .symbolRenderingMode(.monochrome)
                             .foregroundStyle(accent)
-                            .frame(width: 28, alignment: .center)
+                            .frame(width: 32, alignment: .center)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Walking")
                                 .font(.subheadline.weight(.semibold))
@@ -172,20 +185,25 @@ extension ContentView {
             }
             .listRowBackground(surfacePrimary)
         } header: {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 12) {
-                    Text("Exercise")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(textSecondary.opacity(0.92))
-                    Spacer()
-                    Text("\(exerciseCalTotal + effectiveActivityCaloriesToday) cal")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(textSecondary.opacity(0.82))
-                        .monospacedDigit()
+            HStack(spacing: 10) {
+                Text("Exercise")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(textSecondary)
+                Spacer()
+                let totalExerciseCal = exerciseCalTotal + effectiveActivityCaloriesToday
+                if totalExerciseCal > 0 {
+                    Text("\(totalExerciseCal) cal")
+                        .font(.caption.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(accent.opacity(0.85))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(accent.opacity(0.10))
+                        )
                 }
             }
             .padding(.top, 8)
-            .foregroundStyle(textSecondary)
         }
     }
 
@@ -214,9 +232,10 @@ extension ContentView {
     func exerciseLogRow(_ entry: ExerciseEntry, isDeletable: Bool) -> some View {
         HStack(spacing: 12) {
             Image(systemName: entry.displayIconName)
-                .font(.body)
+                .font(.system(size: 22, weight: .semibold))
+                .symbolRenderingMode(.monochrome)
                 .foregroundStyle(accent)
-                .frame(width: 28, alignment: .center)
+                .frame(width: 32, alignment: .center)
             VStack(alignment: .leading, spacing: 2) {
                 Text(entry.displayTitle)
                     .font(.subheadline.weight(.semibold))
@@ -248,6 +267,7 @@ extension ContentView {
                 } label: {
                     Label("Delete", systemImage: "trash")
                 }
+                .tint(.red)
             }
         }
     }
@@ -324,27 +344,31 @@ extension ContentView {
         let nutrientSummary = activeNutrients.prefix(2).map {
             "\(entryValue(for: $0.key, in: entry))\($0.unit) \($0.name)"
         }.joined(separator: " • ")
+        let iconName = foodLogIcon(for: entry.name)
 
-        return HStack(alignment: .firstTextBaseline, spacing: 12) {
+        return HStack(alignment: .center, spacing: 12) {
+            foodLogIconView(iconName, size: 27)
+                .frame(width: 38, alignment: .center)
+
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 8) {
                     Text(entry.name)
-                        .font(.body.weight(.semibold))
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(textPrimary)
 
                     if entry.displayCount > 1 {
-                        Text("x\(entry.displayCount)")
-                            .font(.caption2.monospacedDigit().weight(.semibold))
+                        Text("×\(entry.displayCount)")
+                            .font(.caption2.monospacedDigit().weight(.bold))
                             .foregroundStyle(textSecondary)
-                            .frame(minWidth: 22, minHeight: 22)
-                            .padding(.horizontal, 2)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
                             .background(
-                                Circle()
+                                Capsule(style: .continuous)
                                     .fill(surfaceSecondary.opacity(0.95))
                             )
                     }
                 }
-                Text("\(entry.calories) cal" + (nutrientSummary.isEmpty ? "" : " • \(nutrientSummary)"))
+                Text("\(entry.calories) cal" + (nutrientSummary.isEmpty ? "" : " · \(nutrientSummary)"))
                     .font(.caption)
                     .foregroundStyle(textSecondary)
                     .lineLimit(2)
@@ -354,9 +378,18 @@ extension ContentView {
 
             Text(entry.createdAt.formatted(date: .omitted, time: .shortened))
                 .font(.caption)
-                .foregroundStyle(textSecondary)
+                .foregroundStyle(textSecondary.opacity(0.7))
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 3)
+    }
+
+    @ViewBuilder
+    func foodLogIconView(_ token: FoodLogIconToken, size: CGFloat = 20) -> some View {
+        FoodLogIconView(token: token, accent: accent, size: size)
+    }
+
+    func foodLogIcon(for foodName: String) -> FoodLogIconToken {
+        FoodIconMLMapper.icon(for: foodName)
     }
 
     func nutrientFieldBinding(for key: String) -> Binding<String> {

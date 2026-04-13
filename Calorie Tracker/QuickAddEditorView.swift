@@ -989,7 +989,8 @@ struct QuickAddEditorView: View {
             nutrientValues: mergedNutrients,
             servingAmount: servingAmount,
             servingUnit: servingUnit,
-            createdAt: item?.createdAt ?? Date()
+            createdAt: item?.createdAt ?? Date(),
+            lastUsedAt: item?.lastUsedAt
         )
         onSave(saved)
         dismiss()

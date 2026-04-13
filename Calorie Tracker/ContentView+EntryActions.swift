@@ -53,6 +53,10 @@ extension ContentView {
             entries.append(contentsOf: newEntries)
         }
 
+        if let quickAddID = item.quickAddID {
+            markQuickAddFoodsRecentlyUsed(ids: [quickAddID])
+        }
+
         foodReviewItem = nil
         foodReviewNameText = ""
         if case .quickAdd = item.entrySource {
@@ -577,7 +581,7 @@ extension ContentView {
             return
         }
 
-        quickAddFoods = decoded.sorted { $0.createdAt > $1.createdAt }
+        quickAddFoods = decoded.sorted { $0.lastUsedAt > $1.lastUsedAt }
     }
 
     func saveQuickAddFoods() {
@@ -652,10 +656,27 @@ extension ContentView {
             isQuickAddPickerPresented = false
         }
 
+        let usedIDs = Set(
+            selections
+                .filter { $0.quantity > 0 }
+                .map(\.item.id)
+        )
+        markQuickAddFoodsRecentlyUsed(ids: usedIDs)
+
         withAnimation(.easeInOut(duration: 0.25)) {
             entries.append(contentsOf: newEntries)
         }
         showAddConfirmation()
+    }
+
+    /// Moves matching quick adds to the top of the list by updating `lastUsedAt`.
+    func markQuickAddFoodsRecentlyUsed(ids: Set<UUID>) {
+        guard !ids.isEmpty else { return }
+        let now = Date()
+        let touched = quickAddFoods.map { food in
+            ids.contains(food.id) ? food.withLastUsedAt(now) : food
+        }
+        quickAddFoods = touched.sorted { $0.lastUsedAt > $1.lastUsedAt }
     }
 
     @MainActor

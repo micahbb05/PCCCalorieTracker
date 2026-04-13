@@ -347,16 +347,36 @@ extension ContentView {
             return
         }
         dailyExerciseArchive[todayDayIdentifier] = exercises
-        dailyCalorieGoalArchive[todayDayIdentifier] = calorieGoal
-        dailyBurnedCalorieArchive[todayDayIdentifier] = burnedCaloriesToday
+        // Protect against transient HealthKit re-query results returning lower values than
+        // what was already archived. Takes the max so real increases (new steps, workouts)
+        // always flow through, but a bad re-query can't drag the archive—and widget—downward.
+        let freshBurned = burnedCaloriesToday
+        let freshGoal = calorieGoal
+        let existingBurned = dailyBurnedCalorieArchive[todayDayIdentifier] ?? 0
+        let existingGoal = dailyCalorieGoalArchive[todayDayIdentifier] ?? 0
+        let archivedBurned = max(freshBurned, existingBurned)
+        let archivedGoal = max(freshGoal, existingGoal)
+        dailyCalorieGoalArchive[todayDayIdentifier] = archivedGoal
+        dailyBurnedCalorieArchive[todayDayIdentifier] = archivedBurned
         dailyGoalTypeArchive[todayDayIdentifier] = goalType.rawValue
         cachedCaloriesDayIdentifier = todayDayIdentifier
-        cachedBurnedCaloriesToday = burnedCaloriesToday
-        cachedCalorieGoalToday = calorieGoal
+        cachedBurnedCaloriesToday = archivedBurned
+        cachedCalorieGoalToday = archivedGoal
         saveDailyExerciseArchive()
         saveDailyCalorieGoalArchive()
         saveDailyBurnedCalorieArchive()
         saveDailyGoalTypeArchive()
+        // Cache the foreground-computed goal/burned so the background widget service
+        // can use them as a floor. Background HealthKit queries (profile, workouts, steps)
+        // can all fail simultaneously, producing a BMR-only value that is lower than the
+        // real goal. Without this cache the archive gets seeded from the first background
+        // run, and all later background runs floor at that incorrectly low value.
+        let calorieCacheComponents = centralCalendar.dateComponents([.year, .month, .day], from: centralCalendar.startOfDay(for: Date()))
+        let calorieCacheDayID = String(format: "%04d-%02d-%02d", calorieCacheComponents.year ?? 0, calorieCacheComponents.month ?? 1, calorieCacheComponents.day ?? 1)
+        let calorieModelCache = CachedCalorieModel(dayIdentifier: calorieCacheDayID, goal: archivedGoal, burned: archivedBurned)
+        if let cacheData = try? JSONEncoder().encode(calorieModelCache) {
+            UserDefaults.standard.set(String(decoding: cacheData, as: UTF8.self), forKey: "cachedTodayCalorieModel")
+        }
         syncWidgetSnapshot()
     }
 

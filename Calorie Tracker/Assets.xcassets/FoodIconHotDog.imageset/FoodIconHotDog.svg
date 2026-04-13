@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Bun (outer) -->
+  <rect x="2" y="6" width="20" height="12" rx="6"/>
+  <!-- Sausage/frank (inner) -->
+  <rect x="5" y="9" width="14" height="6" rx="3"/>
+  <!-- Condiment squiggle -->
+  <path d="M8 12 Q10 10.5 12 12 Q14 13.5 16 12"/>
+</svg>

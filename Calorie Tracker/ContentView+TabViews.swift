@@ -40,8 +40,14 @@ extension ContentView {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    ForEach(Array(historyCards.enumerated()), id: \.offset) { _, card in
+                    ForEach(Array(historyCards.enumerated()), id: \.offset) { index, card in
                         card
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                            .animation(
+                                .spring(response: 0.5, dampingFraction: 0.82)
+                                    .delay(Double(index) * 0.06),
+                                value: selectedTab
+                            )
                     }
                 }
                 .padding(.horizontal, 16)
@@ -115,7 +121,7 @@ extension ContentView {
             .overlay {
                 if isAIFoodPhotoLoading || isAITextLoading {
                     ZStack {
-                        Color.black.opacity(0.28)
+                        Color.black.opacity(0.22)
                             .ignoresSafeArea()
 
                         VStack(spacing: 14) {
@@ -130,9 +136,11 @@ extension ContentView {
                         .padding(.vertical, 24)
                         .background(
                             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                .fill(Color.black.opacity(0.72))
+                                .fill(.ultraThinMaterial)
                         )
+                        .shadow(color: .black.opacity(0.25), radius: 24, x: 0, y: 12)
                     }
+                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
                 }
             }
             .alert("AI analysis failed", isPresented: Binding(

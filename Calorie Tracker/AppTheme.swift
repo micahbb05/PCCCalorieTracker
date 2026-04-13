@@ -10,20 +10,35 @@ enum AppThemeStyle: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .ember:     return "Ember"
-        case .blueprint: return "Blueprint"
+        case .blueprint: return "Slate"
         }
     }
 
+    // Cached to avoid hitting UserDefaults on every render call.
+    // Invalidated whenever UserDefaults posts a change notification.
+    private static var _cached: AppThemeStyle?
+    private static let _observerToken: Any = {
+        NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification,
+            object: nil,
+            queue: .main
+        ) { _ in _cached = nil }
+    }()
+
     static var active: AppThemeStyle {
+        _ = _observerToken
+        if let cached = _cached { return cached }
         let raw = UserDefaults.standard.string(forKey: "appThemeStyle") ?? "ember"
-        return AppThemeStyle(rawValue: raw) ?? .ember
+        let style = AppThemeStyle(rawValue: raw) ?? .ember
+        _cached = style
+        return style
     }
 }
 
 enum AppTheme {
     static func accent(for style: AppThemeStyle) -> Color {
         style == .ember
-            ? Color(red: 0.769, green: 0.588, blue: 0.353)
+            ? Color(red: 0.722, green: 0.573, blue: 0.290)   // #B8924A — matches website amber
             : Color(red: 0.20, green: 0.50, blue: 0.98)
     }
 

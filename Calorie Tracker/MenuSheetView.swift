@@ -1,13 +1,5 @@
 import SwiftUI
 
-private struct BottomCTAHeightPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
 struct MenuSheetView: View {
     private struct MultiplierSheetContext: Identifiable {
         let id = UUID()
@@ -335,7 +327,7 @@ struct MenuSheetView: View {
         } else if let status = browsingStatusState {
             statusView(status)
         } else {
-            VStack(alignment: .leading, spacing: 14) {
+            LazyVStack(alignment: .leading, spacing: 14) {
                 ForEach(filteredLines) { line in
                     lineCard(for: line)
                 }
@@ -510,7 +502,7 @@ struct MenuSheetView: View {
     }
 
     private var searchResultsContent: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        LazyVStack(alignment: .leading, spacing: 14) {
             if let status = searchStatusState {
                 statusView(status)
             } else {
@@ -539,7 +531,7 @@ struct MenuSheetView: View {
                         }
                     }
                     .padding(16)
-                    .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.18))
+                    .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
                 }
             }
         }
@@ -596,6 +588,13 @@ struct MenuSheetView: View {
                 Haptics.selection()
             } label: {
                 HStack(spacing: 12) {
+                    FoodLogIconView(
+                        token: FoodIconMLMapper.icon(for: line.name),
+                        accent: accent,
+                        size: 30
+                    )
+                    .frame(width: 36, height: 36)
+
                     VStack(alignment: .leading, spacing: 5) {
                         Text(line.name)
                             .font(.headline.weight(.semibold))
@@ -647,7 +646,7 @@ struct MenuSheetView: View {
                 .accessibilityIdentifier("pccMenu.lineContent.\(line.id)")
             }
         }
-        .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.18))
+        .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
     }
 
     private func grabNGoSelectAllRow(for line: MenuLine) -> some View {
@@ -731,10 +730,9 @@ struct MenuSheetView: View {
         }
 
         return AnyView(VStack(spacing: 0) {
-            GeometryReader { geo in
-                let spacing: CGFloat = 12
-                let aiButtonWidth: CGFloat = 56
-                HStack(spacing: spacing) {
+            let spacing: CGFloat = 12
+            let aiButtonWidth: CGFloat = 56
+            HStack(spacing: spacing) {
                     Button {
                     dismissKeyboard()
                     guard selectedCount > 0 else {
@@ -828,18 +826,10 @@ struct MenuSheetView: View {
                         }
                     }
                 }
-            }
-            .frame(height: 60)
         }
         .padding(.horizontal, 16)
         .padding(.top, 10)
         .padding(.bottom, 12)
-        .background(
-            GeometryReader { geo in
-                Color.clear
-                    .preference(key: BottomCTAHeightPreferenceKey.self, value: geo.size.height)
-            }
-        )
         .background(
             ZStack {
                 Rectangle()
@@ -853,9 +843,7 @@ struct MenuSheetView: View {
             .ignoresSafeArea(edges: .bottom)
         )
         .ignoresSafeArea(.keyboard, edges: .bottom)
-        .onPreferenceChange(BottomCTAHeightPreferenceKey.self) { height in
-            bottomCTAHeight = height
-        }
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { bottomCTAHeight = $1 }
         .accessibilityIdentifier("pccMenu.bottomCTA"))
     }
 
@@ -1185,11 +1173,11 @@ struct MenuSheetView: View {
         .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(surfaceSecondary.opacity(0.92))
+                .fill(surfaceSecondary)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(textSecondary.opacity(0.10), lineWidth: 1)
+                .stroke(textSecondary.opacity(0.12), lineWidth: 1)
         )
         .accessibilityIdentifier("pccMenu.item.\(item.id)")
     }

@@ -11,6 +11,8 @@
   --text-muted: #6b7280;
   --radius: 16px;
   --transition: 0.2s ease-in-out;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 * {
@@ -22,7 +24,9 @@ body {
   font-family: 'DM Sans', 'Inter', system-ui, -apple-system, sans-serif;
   background-color: var(--bg-color);
   color: var(--text-main);
-  min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
+  padding-bottom: var(--safe-bottom);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -32,7 +36,8 @@ body {
   top: 0;
   left: 0;
   width: 100vw;
-  height: 100vh;
+  height: 100svh;
+  height: 100dvh;
   z-index: -1;
   background:
     radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.08) 0%, transparent 40%),
@@ -44,7 +49,7 @@ header {
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  padding: 1rem 1.5rem;
+  padding: calc(1rem + var(--safe-top)) 1.5rem 1rem;
   position: sticky;
   top: 0;
   z-index: 50;

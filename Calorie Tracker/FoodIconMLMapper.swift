@@ -21,6 +21,7 @@ enum FoodIconMLMapper {
         "FoodIconBread":            "bag.fill",
         "FoodIconBurger":           "takeoutbag.and.cup.and.straw",
         "FoodIconBurrito":          "takeoutbag.and.cup.and.straw",
+        "FoodIconBowlChopsticks":   "bowl.fill",
         "FoodIconCake":             "birthday.cake.fill",
         "FoodIconCakeSlice":        "birthday.cake.fill",
         "FoodIconCandy":            "birthday.cake.fill",
@@ -139,6 +140,10 @@ enum FoodIconMLMapper {
         }
 
         let fallback = sfFallback[label] ?? "fork.knife"
+        if label == "FoodIconVegan" {
+            return storeCached(.sf("leaf.fill"), for: cacheKey)
+        }
+
         return storeCached(.asset(name: label, fallback: fallback), for: cacheKey)
     }
 

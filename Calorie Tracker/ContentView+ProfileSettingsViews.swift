@@ -12,60 +12,56 @@ extension ContentView {
                 .padding(.top, 18)
                 .padding(.bottom, 6)
 
-            List {
-                Section {
-                    VStack(alignment: .leading, spacing: 14) {
-                        ProfileGoalsView(
-                            deficitCalories: $storedDeficitCalories,
-                            goalTypeRaw: $goalTypeRaw,
-                            surplusCalories: $storedSurplusCalories,
-                            fixedGoalCalories: $storedFixedGoalCalories,
-                            useWeekendDeficit: $useWeekendDeficit,
-                            weekendDeficitCalories: $storedWeekendDeficitCalories,
-                            trackedNutrientKeys: trackedNutrientKeys,
-                            nutrientGoals: $nutrientGoals,
-                            healthAuthorizationState: healthKitService.authorizationState,
-                            healthProfile: effectiveHealthProfile,
-                            isUsingSyncedHealthFallback: isUsingSyncedHealthFallback,
-                            syncedHealthSourceLabel: syncedHealthSourceDeviceType == .iphone ? "iPhone" : nil,
-                            bmrSourceRaw: bmrSourceRaw,
-                            bmrCalories: currentDailyCalorieModel.bmr,
-                            burnedCaloriesToday: burnedCaloriesToday,
-                            activeBurnedCaloriesToday: effectiveActivityCaloriesToday + exerciseCaloriesToday,
-                            isUsingHealthDerivedBMR: currentDailyCalorieModel.usesBMR,
-                            isCalibrationEnabled: Binding(
-                                get: { calibrationState.isEnabled },
-                                set: { newValue in
-                                    calibrationState.isEnabled = newValue
-                                    saveCalibrationState()
-                                    syncCurrentDayGoalArchive()
-                                    if newValue {
-                                        scheduleCalibrationEvaluation(force: true)
-                                    } else {
-                                        calibrationEvaluationTask?.cancel()
-                                    }
-                                }
-                            ),
-                            calibrationOffsetCalories: calibrationOffsetCalories,
-                            calibrationStatusText: calibrationStatusText,
-                            calibrationSkipReason: calibrationState.isEnabled && calibrationState.lastRunStatus == .skipped ? calibrationState.lastSkipReason : nil,
-                            calibrationLastRunText: calibrationLastRunText,
-                            calibrationNextRunText: calibrationNextRunText,
-                            calibrationConfidenceText: calibrationConfidence.rawValue,
-                            onRequestHealthAccess: {
-                                Task {
-                                    await requestUnifiedHealthAccessAndRefresh()
+            ScrollView {
+                VStack(spacing: 14) {
+                    ProfileGoalsView(
+                        deficitCalories: $storedDeficitCalories,
+                        goalTypeRaw: $goalTypeRaw,
+                        surplusCalories: $storedSurplusCalories,
+                        fixedGoalCalories: $storedFixedGoalCalories,
+                        useWeekendDeficit: $useWeekendDeficit,
+                        weekendDeficitCalories: $storedWeekendDeficitCalories,
+                        trackedNutrientKeys: trackedNutrientKeys,
+                        nutrientGoals: $nutrientGoals,
+                        healthAuthorizationState: healthKitService.authorizationState,
+                        healthProfile: effectiveHealthProfile,
+                        isUsingSyncedHealthFallback: isUsingSyncedHealthFallback,
+                        syncedHealthSourceLabel: syncedHealthSourceDeviceType == .iphone ? "iPhone" : nil,
+                        bmrSourceRaw: bmrSourceRaw,
+                        bmrCalories: currentDailyCalorieModel.bmr,
+                        burnedCaloriesToday: burnedCaloriesToday,
+                        activeBurnedCaloriesToday: effectiveActivityCaloriesToday + exerciseCaloriesToday,
+                        isUsingHealthDerivedBMR: currentDailyCalorieModel.usesBMR,
+                        isCalibrationEnabled: Binding(
+                            get: { calibrationState.isEnabled },
+                            set: { newValue in
+                                calibrationState.isEnabled = newValue
+                                saveCalibrationState()
+                                syncCurrentDayGoalArchive()
+                                if newValue {
+                                    scheduleCalibrationEvaluation(force: true)
+                                } else {
+                                    calibrationEvaluationTask?.cancel()
                                 }
                             }
-                        )
-                    }
+                        ),
+                        calibrationOffsetCalories: calibrationOffsetCalories,
+                        calibrationStatusText: calibrationStatusText,
+                        calibrationSkipReason: calibrationState.isEnabled && calibrationState.lastRunStatus == .skipped ? calibrationState.lastSkipReason : nil,
+                        calibrationLastRunText: calibrationLastRunText,
+                        calibrationNextRunText: calibrationNextRunText,
+                        calibrationConfidenceText: calibrationConfidence.rawValue,
+                        onRequestHealthAccess: {
+                            Task {
+                                await requestUnifiedHealthAccessAndRefresh()
+                            }
+                        }
+                    )
                 }
-                .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 4, trailing: 0))
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 4)
             }
-            .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
             .scrollDismissesKeyboard(.interactively)
             .scrollIndicators(.hidden)
         }
@@ -75,7 +71,8 @@ extension ContentView {
     }
 
     var settingsTabView: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        let activeThemeStyle = AppThemeStyle(rawValue: appThemeStyleRaw) ?? .ember
+        return VStack(alignment: .leading, spacing: 0) {
             tabHeader(title: "Settings", subtitle: "App preferences that apply everywhere")
                 .padding(.horizontal, 16)
                 .padding(.top, 18)
@@ -193,12 +190,11 @@ extension ContentView {
                     .padding(18)
                     .background(
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(surfacePrimary)
+                            .fill(AppTheme.cardSurface(for: activeThemeStyle))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                                    .stroke(textSecondary.opacity(0.18), lineWidth: 1)
                             )
-                            .shadow(color: .black.opacity(0.20), radius: 14, x: 0, y: 8)
                     )
                 }
                 .padding(.horizontal, 16)

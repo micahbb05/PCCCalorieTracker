@@ -20,7 +20,7 @@ struct AppSettingsTabView: View {
     private var isBlueprint: Bool { appThemeStyleRaw == AppThemeStyle.blueprint.rawValue }
 
     private var cardSurface: Color {
-        AppTheme.surfaceElevated(for: activeThemeStyle)
+        AppTheme.cardSurface(for: activeThemeStyle)
     }
 
     private var cardBackground: some View {
@@ -28,9 +28,8 @@ struct AppSettingsTabView: View {
             .fill(cardSurface)
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(AppTheme.divider(for: activeThemeStyle).opacity(0.45), lineWidth: 1)
+                    .stroke(secondaryTextColor.opacity(0.18), lineWidth: 1)
             )
-            .shadow(color: .black.opacity(0.20), radius: 14, x: 0, y: 8)
     }
 
     private var titleColor: Color {

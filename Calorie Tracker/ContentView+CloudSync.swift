@@ -374,18 +374,24 @@ extension ContentView {
 
     func mergedExerciseEntriesForCloud(primary: [ExerciseEntry], secondary: [ExerciseEntry]) -> [ExerciseEntry] {
         var seenIDs = Set<UUID>()
-        var seenMergeKeys = Set<String>()
-        var merged: [ExerciseEntry] = []
+        var mergedByKey: [String: ExerciseEntry] = [:]
 
-        for entry in (secondary + primary).sorted(by: { $0.createdAt > $1.createdAt }) {
+        for entry in (secondary + primary) {
             let mergeKey = workoutMergeKey(for: entry)
-            guard !seenIDs.contains(entry.id), !seenMergeKeys.contains(mergeKey) else { continue }
+            guard !seenIDs.contains(entry.id) else { continue }
             seenIDs.insert(entry.id)
-            seenMergeKeys.insert(mergeKey)
-            merged.append(entry)
+
+            guard let existing = mergedByKey[mergeKey] else {
+                mergedByKey[mergeKey] = entry
+                continue
+            }
+
+            if entry.reclassifiedWalkingCalories > existing.reclassifiedWalkingCalories {
+                mergedByKey[mergeKey] = entry
+            }
         }
 
-        return merged
+        return mergedByKey.values.sorted(by: { $0.createdAt > $1.createdAt })
     }
 
     func bootstrapCloudSync(trigger: CloudSyncTrigger = .foreground) async {

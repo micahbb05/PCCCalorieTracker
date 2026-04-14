@@ -88,6 +88,12 @@ enum AppTheme {
             : Color(red: 0.17, green: 0.19, blue: 0.25)
     }
 
+    // Neutralized elevated card surface used by Profile/Settings cards.
+    // Keeps ember warm identity but removes excess brown/orange cast.
+    static func cardSurface(for style: AppThemeStyle) -> Color {
+        surfaceBase(for: style)
+    }
+
     static func inputSurface(for style: AppThemeStyle) -> Color {
         style == .ember
             ? Color(red: 0.157, green: 0.146, blue: 0.135) // cooler brown-gray

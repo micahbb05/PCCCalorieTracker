@@ -30,10 +30,10 @@ struct ProfileGoalsView: View {
     @AppStorage("appThemeStyle") private var appThemeStyleRaw: String = AppThemeStyle.ember.rawValue
 
     private var isBlueprint: Bool { appThemeStyleRaw == AppThemeStyle.blueprint.rawValue }
-    private var themeStyle: AppThemeStyle { isBlueprint ? .blueprint : .ember }
+    private var themeStyle: AppThemeStyle { AppThemeStyle(rawValue: appThemeStyleRaw) ?? .ember }
 
     private var cardSurface: Color {
-        AppTheme.surfaceElevated(for: themeStyle)
+        AppTheme.cardSurface(for: themeStyle)
     }
 
     private var titleColor: Color {
@@ -49,9 +49,8 @@ struct ProfileGoalsView: View {
             .fill(cardSurface)
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(AppTheme.divider(for: themeStyle).opacity(0.45), lineWidth: 1)
+                    .stroke(secondaryTextColor.opacity(0.18), lineWidth: 1)
             )
-            .shadow(color: .black.opacity(0.20), radius: 14, x: 0, y: 8)
     }
 
     var body: some View {
@@ -332,11 +331,11 @@ struct ProfileGoalsView: View {
         .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.white.opacity(0.04))
+                .fill(Color.white.opacity(0.07))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.white.opacity(0.07), lineWidth: 1)
+                .stroke(Color.white.opacity(0.10), lineWidth: 1)
         )
     }
 
@@ -377,11 +376,11 @@ struct ProfileGoalsView: View {
         .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.white.opacity(0.05))
+                .fill(Color.white.opacity(0.08))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                .stroke(Color.white.opacity(0.11), lineWidth: 1)
         )
     }
 
@@ -465,11 +464,11 @@ struct ProfileGoalsView: View {
         .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.white.opacity(0.06))
+                .fill(Color.white.opacity(0.09))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.white.opacity(0.07), lineWidth: 1)
+                .stroke(Color.white.opacity(0.11), lineWidth: 1)
         )
     }
 }

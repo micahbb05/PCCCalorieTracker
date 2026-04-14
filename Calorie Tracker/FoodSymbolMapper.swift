@@ -239,6 +239,8 @@ enum FoodSymbolMapper {
         Rule(token: .asset(name: "FoodIconCookingPot", fallback: "fork.knife"), keywords: [
             "mashed potato", "mashed potatoes", "instant mashed", "instant mashed potatoes",
             "original mashed", "potato flakes", "dehydrated potato",
+            "potato bar", "baked potato bar", "ultimate potato bar", "loaded potato bar", "spud bar",
+            "baked potato", "loaded baked potato", "potato station", "potato toppings bar",
         ]),
         Rule(token: .asset(name: BundledFoodIconAsset.burrito, fallback: BundledFoodIconAsset.burritoSFFallback), keywords: [
             "burrito", "burritos", "bean burrito", "bean burritos", "beef burrito", "beef burritos",
@@ -279,13 +281,8 @@ enum FoodSymbolMapper {
             "pork",
         ]),
         Rule(token: .asset(name: "FoodIconRiceBowl", fallback: "bowl.fill"), keywords: [
-            "seasoned rice pilaf", "rice pilaf", "seasoned rice", "fried rice", "yangzhou", "kimchi fried",
-            "chahan", "chaufan", "rice bowl", "dirty rice", "yellow rice", "spanish rice", "cilantro lime rice",
-            "bibimbap", "donburi", "gyudon", "oyakodon", "katsudon", "jasmine rice", "basmati rice",
-            "rice cake", "rice cakes", "rice crisp", "rice crisps", "puffed rice", "rice thin", "rice thins",
-            "lundberg rice", "quaker rice crisps", "caramel rice crisps",
             "chipotle bowl", "chipotle burrito bowl", "qdoba bowl", "moes bowl", "cava bowl", "sweetgreen bowl",
-            "teriyaki chicken rice bowl", "beef rice bowl", "poke rice bowl",
+            "grain bowl", "power bowl", "harvest bowl",
         ]),
         Rule(token: .asset(name: "FoodIconPizza", fallback: "takeoutbag.and.cup.and.straw"), keywords: [
             "cheese flatbread", "flatbread pizza", "pizza", "calzone", "stromboli", "flatbread", "margherita",
@@ -332,8 +329,6 @@ enum FoodSymbolMapper {
         ]),
         Rule(token: .asset(name: "FoodIconFries", fallback: "takeoutbag.and.cup.and.straw"), keywords: [
             "french fries", "fries", "tater tot", "poutine",
-            "potato bar", "baked potato bar", "ultimate potato bar", "loaded potato bar", "spud bar",
-            "baked potato", "loaded baked potato", "potato station", "potato toppings bar",
             "hash browns", "home fries", "waffle fries", "curly fries", "steak fries", "sweet potato fries",
             "cheese fries", "chili cheese fries", "potato wedges",
         ]),
@@ -426,9 +421,18 @@ enum FoodSymbolMapper {
         ]),
         Rule(token: .asset(name: "FoodIconChiliPepper", fallback: "flame.fill"), keywords: [
             "chili pepper", "chile pepper", "jalapeño", "jalapeno", "serrano pepper", "habanero", "ghost pepper",
+            "sliced jalapeño", "sliced jalapeños", "sliced jalapeno", "sliced jalapenos",
+            "jalapeño slices", "jalapeno slices", "pickled jalapeños", "pickled jalapenos",
+            "chili con carne", "beef chili", "turkey chili", "vegetarian chili", "veggie chili",
         ]),
         Rule(token: .asset(name: "FoodIconBowlChopsticks", fallback: "bowl.fill"), keywords: [
             "rice bowl with chopsticks", "noodle bowl with chopsticks", "poke bowl", "donburi bowl", "asian bowl",
+            "seasoned rice pilaf", "rice pilaf", "seasoned rice", "fried rice", "yangzhou", "kimchi fried",
+            "chahan", "chaufan", "rice bowl", "dirty rice", "yellow rice", "spanish rice", "cilantro lime rice",
+            "bibimbap", "donburi", "gyudon", "oyakodon", "katsudon", "jasmine rice", "basmati rice",
+            "teriyaki chicken rice bowl", "beef rice bowl", "poke rice bowl",
+            "rice cake", "rice cakes", "rice crisp", "rice crisps", "puffed rice", "rice thin", "rice thins",
+            "lundberg rice", "quaker rice crisps", "caramel rice crisps",
         ]),
         Rule(token: .asset(name: "FoodIconCupToGo", fallback: "cup.and.saucer.fill"), keywords: [
             "coffee to go", "to go coffee", "takeout coffee", "iced coffee cup", "paper cup coffee",
@@ -508,6 +512,14 @@ enum FoodSymbolMapper {
         ]),
         Rule(token: .asset(name: "FoodIconVegan", fallback: "leaf.fill"), keywords: [
             "vegan", "plant based meat", "plant-based meat", "beyond meat", "impossible meat",
+            "lettuce", "romaine lettuce", "iceberg lettuce", "mixed greens", "leafy greens",
+            "spinach", "kale", "arugula", "chard",
+            "broccoli", "steamed broccoli", "roasted broccoli",
+            "cauliflower", "steamed cauliflower", "roasted cauliflower",
+            "tomato", "tomatoes", "grape tomato", "grape tomatoes", "cherry tomato", "cherry tomatoes",
+            "cucumber", "zucchini", "asparagus", "brussels sprouts", "cabbage", "bok choy",
+            "vegetable", "vegetables", "mixed vegetables", "steamed vegetables", "roasted vegetables",
+            "veggie", "veggies", "vegetable medley", "veggie medley",
         ]),
         Rule(token: .asset(name: "FoodIconHam", fallback: "fork.knife"), keywords: [
             "ham", "spiral ham", "glazed ham", "ham steak", "country ham", "black forest ham", "honey ham",
@@ -547,6 +559,9 @@ enum FoodSymbolMapper {
         ]),
         Rule(token: .asset(name: "FoodIconChefHat", fallback: "fork.knife"), keywords: [
             "chef special", "chef salad", "tasting menu", "catered",
+            "sour cream", "light sour cream", "reduced fat sour cream",
+            "mexican crema", "crema", "creme fraiche", "crème fraîche",
+            "condiment", "condiments", "topping", "toppings", "fixings",
         ]),
         Rule(token: .asset(name: "FoodIconUtensilsCrossed", fallback: "fork.knife"), keywords: [
             "silverware", "cutlery", "knife and fork",

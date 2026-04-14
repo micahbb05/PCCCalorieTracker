@@ -1,41 +1,41 @@
 Food Icon ML Model Accuracy Report
-Generated: 2026-04-13T14:49:33Z
+Generated: 2026-04-14T20:00:16Z
 Model: /Users/micah/Documents/Calorie Tracker/Calorie Tracker/FoodIconClassifier.mlmodel
 Source labels: Calorie Tracker/FoodSymbolMapper.swift assetBackedRules keywords
 Confidence threshold: 0.45
 
-Samples: 1059
-Correct: 970
-Top-1 Accuracy: 91.60%
-Threshold fallbacks (predictions below threshold): 78
+Samples: 1172
+Correct: 1082
+Top-1 Accuracy: 92.32%
+Threshold fallbacks (predictions below threshold): 79
 Missing predictions: 0
 Duplicate (label,text) samples dropped: 1
 
 Per-label accuracy (top 20 by volume):
+- FoodIconVegan: 40/43 (93.0%)
 - FoodIconChicken: 41/42 (97.6%)
-- FoodIconRiceBowl: 39/41 (95.1%)
+- FoodIconBowlChopsticks: 40/40 (100.0%)
 - FoodIconBurrito: 40/40 (100.0%)
+- FoodIconCookingPot: 34/36 (94.4%)
+- FoodIconMilk: 33/34 (97.1%)
+- FoodIconPopcorn: 33/34 (97.1%)
 - FoodIconProtein: 34/34 (100.0%)
 - FoodIconSausage: 32/33 (97.0%)
 - FoodIconEgg: 31/32 (96.9%)
-- FoodIconCookingPot: 25/27 (92.6%)
 - FoodIconBurger: 24/25 (96.0%)
 - FoodIconCupSoda: 24/25 (96.0%)
 - FoodIconPork: 24/25 (96.0%)
 - FoodIconCoffee: 22/24 (91.7%)
-- FoodIconFries: 23/24 (95.8%)
 - FoodIconPasta: 23/24 (95.8%)
 - FoodIconSandwich: 23/24 (95.8%)
 - FoodIconFish: 21/23 (91.3%)
 - FoodIconPizza: 22/23 (95.7%)
+- FoodIconChiliPepper: 22/22 (100.0%)
 - FoodIconRamen: 20/21 (95.2%)
-- FoodIconBean: 19/20 (95.0%)
-- FoodIconMilk: 18/19 (94.7%)
-- FoodIconSalad: 16/18 (88.9%)
 
 Top misclassifications (up to 25):
+- FoodIconVegan -> <fallback>: 3
 - FoodIconCake -> <fallback>: 2
-- FoodIconCheese -> <fallback>: 2
 - FoodIconCoconut -> <fallback>: 2
 - FoodIconCoffee -> <fallback>: 2
 - FoodIconCoffeeMaker -> <fallback>: 2
@@ -43,7 +43,6 @@ Top misclassifications (up to 25):
 - FoodIconCookingPot -> <fallback>: 2
 - FoodIconDonut -> <fallback>: 2
 - FoodIconFish -> <fallback>: 2
-- FoodIconRiceBowl -> FoodIconBowlChopsticks: 2
 - FoodIconWine -> <fallback>: 2
 - FoodIconWrap -> FoodIconKebab: 2
 - FoodIconApple -> <fallback>: 1
@@ -59,3 +58,4 @@ Top misclassifications (up to 25):
 - FoodIconBurger -> <fallback>: 1
 - FoodIconCakeSlice -> <fallback>: 1
 - FoodIconCandy -> <fallback>: 1
+- FoodIconCandyCane -> <fallback>: 1

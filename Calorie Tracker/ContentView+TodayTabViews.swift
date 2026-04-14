@@ -209,17 +209,22 @@ extension ContentView {
 
 
     func mergedWorkoutEntries(primary: [ExerciseEntry], secondary: [ExerciseEntry]) -> [ExerciseEntry] {
-        var seen = Set<String>()
-        var merged: [ExerciseEntry] = []
+        var mergedByKey: [String: ExerciseEntry] = [:]
 
-        for entry in (primary + secondary).sorted(by: { $0.createdAt > $1.createdAt }) {
+        for entry in (primary + secondary) {
             let key = workoutMergeKey(for: entry)
-            guard !seen.contains(key) else { continue }
-            seen.insert(key)
-            merged.append(entry)
+            guard let existing = mergedByKey[key] else {
+                mergedByKey[key] = entry
+                continue
+            }
+
+            // Keep the duplicate that preserves the larger step-overlap reclassification.
+            if entry.reclassifiedWalkingCalories > existing.reclassifiedWalkingCalories {
+                mergedByKey[key] = entry
+            }
         }
 
-        return merged
+        return mergedByKey.values.sorted(by: { $0.createdAt > $1.createdAt })
     }
 
     func workoutMergeKey(for entry: ExerciseEntry) -> String {
@@ -348,7 +353,7 @@ extension ContentView {
 
         return HStack(alignment: .center, spacing: 12) {
             foodLogIconView(iconName, size: 29)
-                .frame(width: 40, alignment: .center)
+                .frame(width: 32, alignment: .center)
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 8) {

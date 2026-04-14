@@ -48,45 +48,64 @@ struct QuickAddMenuImportView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
-                        HStack {
+                        HStack(alignment: .top, spacing: 14) {
                             Button {
                                 dismiss()
                             } label: {
+                                Image(systemName: "chevron.left")
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundStyle(textPrimary)
+                                    .frame(width: 42, height: 42)
+                                    .background(
+                                        Circle()
+                                            .fill(surfacePrimary.opacity(0.94))
+                                    )
+                                    .overlay(
+                                        Circle()
+                                            .stroke(textSecondary.opacity(0.16), lineWidth: 1)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Menu")
+                                    .font(.system(size: 36, weight: .bold, design: .default))
+                                    .foregroundStyle(textPrimary)
+                                    .padding(.top, -4)
+
                                 HStack(spacing: 6) {
-                                    Image(systemName: "chevron.left")
-                                        .font(.caption.weight(.bold))
-                                    Text("Close")
-                                        .font(.subheadline.weight(.semibold))
+                                    Text(mealTitle)
+                                        .font(.caption.weight(.semibold))
                                 }
                                 .foregroundStyle(textPrimary)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 10)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
                                 .background(
                                     Capsule(style: .continuous)
-                                        .fill(surfacePrimary.opacity(0.94))
+                                        .fill(.ultraThinMaterial)
                                 )
                                 .overlay(
                                     Capsule(style: .continuous)
-                                        .stroke(textSecondary.opacity(0.14), lineWidth: 1)
+                                        .stroke(textSecondary.opacity(0.16), lineWidth: 1)
                                 )
                             }
-                            .buttonStyle(.plain)
+
                             Spacer()
                         }
 
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("PCC Menu")
-                                .font(.system(size: 32, weight: .bold, design: .default))
-                                .foregroundStyle(textPrimary)
-                            Text("\(sourceTitle) • \(mealTitle)")
-                                .font(.subheadline)
-                                .foregroundStyle(textSecondary)
-                        }
+                        Text(sourceTitle)
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(textSecondary)
 
                         HStack(spacing: 10) {
                             Image(systemName: "magnifyingglass")
                                 .foregroundStyle(textSecondary)
-                            TextField("Search menu", text: $searchText)
+                            TextField(
+                                "",
+                                text: $searchText,
+                                prompt: Text("Search menu")
+                                    .foregroundStyle(textSecondary)
+                            )
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled()
                                 .submitLabel(.done)
@@ -156,7 +175,7 @@ struct QuickAddMenuImportView: View {
                         } else if !trimmedSearchText.isEmpty {
                             searchResultsContent
                         } else {
-                            LazyVStack(alignment: .leading, spacing: 14) {
+                            LazyVStack(alignment: .leading, spacing: 18) {
                                 ForEach(filteredLines) { line in
                                     lineCard(for: line)
                                 }
@@ -164,13 +183,18 @@ struct QuickAddMenuImportView: View {
                         }
                     }
                     .padding(.horizontal, 16)
-                    .padding(.top, 18)
+                    .padding(.top, 28)
                     .padding(.bottom, 32)
                 }
                 .scrollDismissesKeyboard(.immediately)
             }
             .onAppear {
                 expandedLineIDs = []
+            }
+            .onChange(of: searchText) { _, newValue in
+                if newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    expandedLineIDs = []
+                }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { notification in
@@ -188,55 +212,41 @@ struct QuickAddMenuImportView: View {
     }
 
     private var searchResultsContent: some View {
-        LazyVStack(alignment: .leading, spacing: 14) {
+        LazyVStack(alignment: .leading, spacing: 18) {
             ForEach(filteredLines) { line in
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(spacing: 0) {
                     HStack(spacing: 12) {
+                        FoodLogIconView(
+                            token: FoodIconMLMapper.icon(for: line.name),
+                            accent: accent,
+                            size: 30
+                        )
+                        .frame(width: 36, height: 36)
+
                         VStack(alignment: .leading, spacing: 4) {
                             Text(line.name)
-                                .font(.subheadline.weight(.semibold))
+                                .font(.headline.weight(.semibold))
                                 .foregroundStyle(textPrimary)
-                            Text("\(line.items.count) result\(line.items.count == 1 ? "" : "s")")
-                                .font(.caption)
-                                .foregroundStyle(textSecondary)
                         }
 
                         Spacer()
                     }
+                    .padding(.horizontal, 4)
+                    .padding(.top, 2)
+                    .padding(.bottom, 8)
 
-                    VStack(spacing: 10) {
+                    Divider()
+                        .overlay(textSecondary.opacity(0.10))
+
+                    VStack(spacing: 8) {
                         ForEach(line.items) { item in
-                            Button {
-                                onSelect(item)
-                                dismiss()
-                            } label: {
-                                HStack(alignment: .top, spacing: 12) {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(item.name)
-                                            .font(.body.weight(.semibold))
-                                            .foregroundStyle(textPrimary)
-                                        Text("\(item.calories) cal • \(item.protein)g protein")
-                                            .font(.caption)
-                                            .foregroundStyle(textSecondary)
-                                    }
-                                    Spacer()
-                                }
-                                .padding(14)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                        .fill(surfaceSecondary.opacity(0.92))
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                        .stroke(textSecondary.opacity(0.10), lineWidth: 1)
-                                )
-                            }
-                            .buttonStyle(.plain)
+                            selectableMenuItemRow(item)
                         }
                     }
+                    .padding(.horizontal, 8)
+                    .padding(.top, 8)
+                    .padding(.bottom, 4)
                 }
-                .padding(16)
-                .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.18))
             }
         }
     }
@@ -249,6 +259,13 @@ struct QuickAddMenuImportView: View {
                 toggleLine(line.id)
             } label: {
                 HStack(spacing: 12) {
+                    FoodLogIconView(
+                        token: FoodIconMLMapper.icon(for: line.name),
+                        accent: accent,
+                        size: 30
+                    )
+                    .frame(width: 36, height: 36)
+
                     VStack(alignment: .leading, spacing: 5) {
                         Text(line.name)
                             .font(.headline.weight(.semibold))
@@ -261,8 +278,8 @@ struct QuickAddMenuImportView: View {
                     Spacer()
 
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(textSecondary)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(textSecondary.opacity(0.95))
                 }
                 .padding(18)
                 .contentShape(Rectangle())
@@ -270,41 +287,67 @@ struct QuickAddMenuImportView: View {
             .buttonStyle(.plain)
 
             if isExpanded {
-                VStack(spacing: 10) {
+                Divider()
+                    .overlay(textSecondary.opacity(0.10))
+                    .padding(.horizontal, 18)
+
+                VStack(spacing: 8) {
                     ForEach(line.items) { item in
-                        Button {
-                            onSelect(item)
-                            dismiss()
-                        } label: {
-                            HStack(alignment: .top, spacing: 12) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(item.name)
-                                        .font(.body.weight(.semibold))
-                                        .foregroundStyle(textPrimary)
-                                    Text("\(item.calories) cal • \(item.protein)g protein")
-                                        .font(.caption)
-                                        .foregroundStyle(textSecondary)
-                                }
-                                Spacer()
-                            }
-                            .padding(14)
-                            .background(
-                                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .fill(surfaceSecondary.opacity(0.92))
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .stroke(textSecondary.opacity(0.10), lineWidth: 1)
-                            )
-                        }
-                        .buttonStyle(.plain)
+                        selectableMenuItemRow(item)
                     }
                 }
-                .padding(.horizontal, 18)
-                .padding(.bottom, 18)
+                .padding(.horizontal, 14)
+                .padding(.top, 14)
+                .padding(.bottom, 14)
             }
         }
-        .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.18))
+        .cardStyle(surface: surfacePrimary.opacity(0.95), stroke: textSecondary.opacity(0.15))
+    }
+
+    private func selectableMenuItemRow(_ item: MenuItem) -> some View {
+        Button {
+            onSelect(item)
+            dismiss()
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(item.name)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(textPrimary)
+                    Text("\(item.calories) cal • \(item.protein)g protein")
+                        .font(.caption)
+                        .foregroundStyle(textSecondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                HStack(spacing: 8) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.96))
+                        .frame(width: 26, height: 26)
+                        .background(
+                            Circle()
+                                .fill(accent)
+                        )
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 7)
+                .background(
+                    Capsule(style: .continuous).fill(Color.white.opacity(0.04))
+                )
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(surfaceSecondary.opacity(0.92))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(textSecondary.opacity(0.12), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     private func toggleLine(_ lineID: String) {

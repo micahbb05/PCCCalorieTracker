@@ -335,6 +335,11 @@ struct QuickAddPickerView: View {
         .onChange(of: quickAddFoods) { _, _ in
             pruneUnavailableSelections()
         }
+        .onChange(of: searchText) { _, newValue in
+            if newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                expandedSectionIDs = []
+            }
+        }
     }
 
     @ViewBuilder
@@ -355,7 +360,7 @@ struct QuickAddPickerView: View {
         if let state = browsingStatusState {
             statusCard(state)
         } else {
-            LazyVStack(alignment: .leading, spacing: 14) {
+            LazyVStack(alignment: .leading, spacing: 18) {
                 ForEach(browsingLines) { line in
                     browsingLineCard(line)
                 }
@@ -423,7 +428,7 @@ struct QuickAddPickerView: View {
 
                     Image(systemName: expanded.wrappedValue ? "chevron.up" : "chevron.down")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(textSecondary)
+                        .foregroundStyle(textSecondary.opacity(0.95))
                 }
                 .padding(18)
                 .contentShape(Rectangle())
@@ -435,9 +440,9 @@ struct QuickAddPickerView: View {
                     .overlay(textSecondary.opacity(0.10))
                     .padding(.horizontal, 18)
 
-                VStack(spacing: 10) {
+                VStack(spacing: 8) {
                     ForEach(line.foods) { item in
-                        quickAddItemRow(item)
+                        quickAddItemRow(item, compact: true)
                     }
                 }
                 .padding(.horizontal, 14)
@@ -457,9 +462,6 @@ struct QuickAddPickerView: View {
                     Text(line.title)
                         .font(.headline.weight(.semibold))
                         .foregroundStyle(textPrimary)
-                    Text(line.subtitle)
-                        .font(.caption)
-                        .foregroundStyle(textSecondary)
                 }
 
                 Spacer()
@@ -712,7 +714,7 @@ struct QuickAddPickerView: View {
         .padding(rowPadding)
         .background(
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(compact ? surfacePrimary.opacity(0.90) : surfaceSecondary)
+                .fill(compact ? surfaceSecondary.opacity(0.92) : surfaceSecondary)
         )
         .overlay(
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)

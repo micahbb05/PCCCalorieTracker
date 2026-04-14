@@ -91,7 +91,7 @@ extension ContentView {
 
     var reclassifiedWalkingCaloriesToday: Int {
         let totalRequestedReclassification = (exercises + effectiveTodayHealthWorkouts)
-            .reduce(0) { $0 + $1.reclassifiedWalkingCalories }
+            .reduce(0) { $0 + requestedWalkingReclassification(for: $1) }
         return min(totalRequestedReclassification, activityCaloriesToday)
     }
 
@@ -104,35 +104,18 @@ extension ContentView {
             && stepActivityService.hasLoadedFreshStepDataThisLaunch
     }
 
-    var hasTodayArchive: Bool {
-        dailyCalorieGoalArchive[todayDayIdentifier] != nil
-            && dailyBurnedCalorieArchive[todayDayIdentifier] != nil
+    /// True when any activity (steps, HealthKit workout, or manual exercise) has been
+    /// recorded today. The archive is only written — and read on launch — when this is true,
+    /// so zero-step HealthKit results can never seed or corrupt today's burned/goal values.
+    var activityDetectedToday: Bool {
+        activityDetectedDayIdentifier == todayDayIdentifier
     }
 
-    var shouldDeferForHealthRefreshWithoutTodayArchive: Bool {
-        guard !hasResolvedInitialLiveCalorieInputsThisLaunch else {
-            return false
-        }
-        return !hasTodayArchive
-    }
-
-    var cachedTodayDailyCalorieModel: DailyCalorieModel? {
-        guard cachedCaloriesDayIdentifier == todayDayIdentifier else { return nil }
-        guard cachedBurnedCaloriesToday > 0, cachedCalorieGoalToday > 0 else { return nil }
-        let effectiveOffset = (calibrationState.isEnabled && goalType != .fixed) ? calibrationState.calibrationOffsetCalories : 0
-        return DailyCalorieModel(
-            bmr: resolvedBMRCalories,
-            burned: cachedBurnedCaloriesToday,
-            burnedBaseline: max(cachedBurnedCaloriesToday - effectiveOffset, 1),
-            goal: cachedCalorieGoalToday,
-            deficit: deficitForDay(todayDayIdentifier),
-            usesBMR: isUsingHealthDerivedBMR
-        )
-    }
-
-    var shouldUseCachedBurnModelOnLaunch: Bool {
-        guard !hasResolvedInitialLiveCalorieInputsThisLaunch else { return false }
-        return cachedTodayDailyCalorieModel != nil
+    /// True when we should show nil/spinner instead of a calorie value: HealthKit hasn't
+    /// resolved yet and no activity has been detected for today (so there is no valid
+    /// archive to fall back on).
+    var shouldDeferCalorieDisplay: Bool {
+        !hasResolvedInitialLiveCalorieInputsThisLaunch && !activityDetectedToday
     }
 
     var exerciseCaloriesToday: Int {
@@ -141,39 +124,13 @@ extension ContentView {
         return manual + health
     }
     var currentDailyCalorieModel: DailyCalorieModel {
-        if shouldUseCachedBurnModelOnLaunch, let cachedModel = cachedTodayDailyCalorieModel {
-            // Background refresh may have already advanced today's archive (steps/workouts)
-            // beyond the last foreground cache. Floor launch cache against archive so the
-            // app never dips on open before live HealthKit queries complete.
-            if let archivedGoal = dailyCalorieGoalArchive[todayDayIdentifier],
-               let archivedBurned = dailyBurnedCalorieArchive[todayDayIdentifier] {
-                let effectiveOffset = (calibrationState.isEnabled && goalType != .fixed) ? calibrationState.calibrationOffsetCalories : 0
-                let dayGoalType = goalTypeForDay(todayDayIdentifier)
-                let safeBurned = max(cachedModel.burned, archivedBurned)
-                let safeGoal: Int
-                if dayGoalType == .fixed {
-                    safeGoal = fixedGoalCalories
-                } else {
-                    safeGoal = max(cachedModel.goal, archivedGoal)
-                }
-                return DailyCalorieModel(
-                    bmr: resolvedBMRCalories,
-                    burned: safeBurned,
-                    burnedBaseline: max(safeBurned - effectiveOffset, 1),
-                    goal: safeGoal,
-                    deficit: deficitForDay(todayDayIdentifier),
-                    usesBMR: isUsingHealthDerivedBMR
-                )
-            }
-            return cachedModel
-        }
-              
-        // Use archived goal/burned for today while HealthKit hasn't loaded, to avoid flash of fallback value
-        let shouldPreferIPhoneTodayArchive = shouldUseIPhoneExerciseSource
-        let shouldUseTodayArchive =
-                  !hasResolvedInitialLiveCalorieInputsThisLaunch
-            || shouldPreferIPhoneTodayArchive
-        if shouldUseTodayArchive,
+        // Before HealthKit resolves, use the archive as the initial display value —
+        // but only if activity has been detected today, meaning the archive was written
+        // with real data (non-zero steps or a workout). Without that guard a zero-step
+        // HealthKit result could seed a BMR-only value into the archive on launch.
+        let shouldUseArchive = !hasResolvedInitialLiveCalorieInputsThisLaunch || shouldUseIPhoneExerciseSource
+        if shouldUseArchive,
+           activityDetectedToday,
            let archivedGoal = dailyCalorieGoalArchive[todayDayIdentifier],
            let archivedBurned = dailyBurnedCalorieArchive[todayDayIdentifier] {
             let effectiveOffset = (calibrationState.isEnabled && goalType != .fixed) ? calibrationState.calibrationOffsetCalories : 0
@@ -215,13 +172,13 @@ extension ContentView {
     var burnedCaloriesToday: Int { currentDailyCalorieModel.burned }
     var calorieGoal: Int { currentDailyCalorieModel.goal }
     var displayedCalorieGoal: Int? {
-        shouldDeferForHealthRefreshWithoutTodayArchive ? nil : calorieGoal
+        shouldDeferCalorieDisplay ? nil : calorieGoal
     }
     var displayedCaloriesLeft: Int? {
-        shouldDeferForHealthRefreshWithoutTodayArchive ? nil : caloriesLeft
+        shouldDeferCalorieDisplay ? nil : caloriesLeft
     }
     var calorieHeroDisplay: (value: Int?, title: String) {
-        if shouldDeferForHealthRefreshWithoutTodayArchive {
+        if shouldDeferCalorieDisplay {
             return (nil, "Syncing Health activity...")
         }
 
@@ -252,7 +209,7 @@ extension ContentView {
         }
     }
     var displayedCalorieProgress: Double {
-        shouldDeferForHealthRefreshWithoutTodayArchive ? 0 : calorieProgress
+        shouldDeferCalorieDisplay ? 0 : calorieProgress
     }
     var calibrationOffsetCalories: Int { calibrationState.calibrationOffsetCalories }
     var calibrationConfidence: CalibrationConfidence {
@@ -293,6 +250,23 @@ extension ContentView {
     var calibrationNextRunText: String {
         guard let next = nextCalibrationRunDate(from: Date()) else { return "--" }
         return next.formatted(date: .abbreviated, time: .omitted)
+    }
+
+    private func requestedWalkingReclassification(for entry: ExerciseEntry) -> Int {
+        guard entry.exerciseType == .running else {
+            return max(entry.reclassifiedWalkingCalories, 0)
+        }
+
+        let weightPounds = resolvedBMRProfile?.weightPounds ?? 170
+        let inferredWalkingEquivalent = ExerciseCalorieService.walkingEquivalentCalories(
+            type: .running,
+            durationMinutes: entry.durationMinutes,
+            distanceMiles: entry.distanceMiles,
+            weightPounds: weightPounds
+        )
+
+        // Prefer stored value when present, but recover from stale/legacy zero values.
+        return max(entry.reclassifiedWalkingCalories, inferredWalkingEquivalent)
     }
 
 }

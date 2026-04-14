@@ -38,6 +38,7 @@ final class BackgroundWidgetRefreshService {
     private static let defaultHeightInches = 68.0
     private static let netWalkingCaloriesPerKgPerKm = 0.50
     private static let strideMultiplier = 0.415
+    private static let maxDistanceToStepEstimateMultiplier = 1.15
 
     private let healthStore = HKHealthStore()
     private let defaults = UserDefaults.standard
@@ -67,19 +68,29 @@ final class BackgroundWidgetRefreshService {
         )
 
         let stepMetrics = await fetchStepMetrics()
+
+        // Activity is detected when steps or workouts are present. The archive and the
+        // activityDetectedDayIdentifier flag are only written when this is true, so
+        // zero-step results can never corrupt today's burned/goal baseline.
+        let hasActivity = stepMetrics.steps > 0 || !effectiveHealthWorkouts.isEmpty
+
         let snapshot = makeSnapshot(
             from: state,
             todayID: todayID,
             profile: effectiveProfile,
             healthWorkouts: effectiveHealthWorkouts,
-            stepMetrics: stepMetrics
+            stepMetrics: stepMetrics,
+            hasActivity: hasActivity
         )
 
         if WidgetSnapshotStore.load() == snapshot {
             return false
         }
 
-        persistDailyTotals(goal: snapshot.goalCalories, burned: snapshot.burnedCalories)
+        if hasActivity {
+            persistDailyTotals(goal: snapshot.goalCalories, burned: snapshot.burnedCalories, todayID: todayID)
+            defaults.set(todayID, forKey: "activityDetectedDayIdentifier")
+        }
         WidgetSnapshotStore.save(snapshot)
         WatchAppSyncService.shared.push(context: makeWatchSyncContext(from: snapshot, state: state))
         return true
@@ -90,45 +101,43 @@ final class BackgroundWidgetRefreshService {
         todayID: String,
         profile: BMRProfile?,
         healthWorkouts: [ExerciseEntry],
-        stepMetrics: StepMetrics
+        stepMetrics: StepMetrics,
+        hasActivity: Bool
     ) -> WidgetCalorieSnapshot {
         let todayEntries = todayEntries(from: state, todayID: todayID)
-        let manualExercises = state.exercisesByDay[todayID] ?? []
-        let allExercises = manualExercises + healthWorkouts
         let totalCalories = max(todayEntries.reduce(0) { $0 + $1.calories }, 0)
 
-        let activityCalories = estimatedActivityCalories(stepMetrics: stepMetrics, profile: profile)
-        let reclassifiedWalkingCalories = min(
-            allExercises.reduce(0) { $0 + $1.reclassifiedWalkingCalories },
-            activityCalories
-        )
-        let effectiveActivityCalories = max(activityCalories - reclassifiedWalkingCalories, 0)
-        let exerciseCalories = allExercises.reduce(0) { $0 + $1.calories }
+        let (safeGoal, burned): (Int, Int)
+        if hasActivity {
+            let manualExercises = state.exercisesByDay[todayID] ?? []
+            let allExercises = manualExercises + healthWorkouts
+            let activityCalories = estimatedActivityCalories(stepMetrics: stepMetrics, profile: profile)
+            let reclassifiedWalkingCalories = min(
+                allExercises.reduce(0) { $0 + requestedWalkingReclassification(for: $1, profile: profile) },
+                activityCalories
+            )
+            let effectiveActivityCalories = max(activityCalories - reclassifiedWalkingCalories, 0)
+            let exerciseCalories = allExercises.reduce(0) { $0 + $1.calories }
+            let calorieModel = dailyCalorieModel(
+                state: state,
+                dayIdentifier: todayID,
+                profile: profile,
+                exerciseCalories: exerciseCalories,
+                effectiveActivityCalories: effectiveActivityCalories
+            )
+            safeGoal = max(calorieModel.goal, 1)
+            burned = max(calorieModel.burned, 0)
+        } else {
+            // No activity from HealthKit — use the foreground cache written by the main
+            // app when it last had real data, falling back to today's archive, then BMR.
+            let foregroundCache = loadCachedCalorieModelForToday()
+            let bmr = calculatedBMR(for: profile) ?? state.manualBMRCalories
+            let fallbackBurned = foregroundCache?.burned ?? state.dailyBurnedCalorieArchive[todayID] ?? bmr
+            let fallbackGoal = foregroundCache?.goal ?? state.dailyCalorieGoalArchive[todayID] ?? max(bmr - deficitForDay(state: state, dayIdentifier: todayID), 1)
+            burned = max(fallbackBurned, 0)
+            safeGoal = max(fallbackGoal, 1)
+        }
 
-        let calorieModel = dailyCalorieModel(
-            state: state,
-            dayIdentifier: todayID,
-            profile: profile,
-            exerciseCalories: exerciseCalories,
-            effectiveActivityCalories: effectiveActivityCalories
-        )
-
-        // Background HealthKit queries can occasionally return transient low values.
-        // Keep today's burned/goal monotonic versus stored archives to avoid downward drift.
-        // Re-read the archive fresh from UserDefaults here (not from `state`) because the main
-        // app may have written higher values during the async HealthKit queries above.
-        let freshBurnedArchive: [String: Int] = decodeStringBackedJSON(forKey: "dailyBurnedCalorieArchiveData", fallback: [:])
-        let freshGoalArchive: [String: Int] = decodeStringBackedJSON(forKey: "dailyCalorieGoalArchiveData", fallback: [:])
-        let archivedGoal = max(state.dailyCalorieGoalArchive[todayID] ?? 0, freshGoalArchive[todayID] ?? 0)
-        let archivedBurned = max(state.dailyBurnedCalorieArchive[todayID] ?? 0, freshBurnedArchive[todayID] ?? 0)
-        // Use the foreground-cached calorie model as a final floor. This handles the case
-        // where the archive itself was seeded from an earlier background run that had no
-        // steps, no profile, and no workouts — all three can fail independently in background.
-        // The foreground cache is written by syncCurrentDayGoalArchive() and always reflects
-        // the fully-resolved live inputs, so it is the authoritative floor.
-        let foregroundCache = loadCachedCalorieModelForToday()
-        let safeGoal = max(max(max(calorieModel.goal, archivedGoal), foregroundCache?.goal ?? 0), 1)
-        let burned = max(max(max(calorieModel.burned, archivedBurned), foregroundCache?.burned ?? 0), 0)
         let nutrientTotals = nutrientTotals(from: todayEntries)
         let trackedNutrients = state.trackedNutrientKeys
             .filter { !NutrientCatalog.nonTrackableKeys.contains($0.lowercased()) }
@@ -254,17 +263,22 @@ final class BackgroundWidgetRefreshService {
     }
 
     private func mergedWorkoutEntries(primary: [ExerciseEntry], secondary: [ExerciseEntry]) -> [ExerciseEntry] {
-        var seen = Set<String>()
-        var merged: [ExerciseEntry] = []
+        var mergedByKey: [String: ExerciseEntry] = [:]
 
-        for entry in (primary + secondary).sorted(by: { $0.createdAt > $1.createdAt }) {
+        for entry in (primary + secondary) {
             let key = workoutMergeKey(for: entry)
-            guard !seen.contains(key) else { continue }
-            seen.insert(key)
-            merged.append(entry)
+            guard let existing = mergedByKey[key] else {
+                mergedByKey[key] = entry
+                continue
+            }
+
+            // Keep the duplicate that preserves the larger step-overlap reclassification.
+            if entry.reclassifiedWalkingCalories > existing.reclassifiedWalkingCalories {
+                mergedByKey[key] = entry
+            }
         }
 
-        return merged
+        return mergedByKey.values.sorted(by: { $0.createdAt > $1.createdAt })
     }
 
     private func workoutMergeKey(for entry: ExerciseEntry) -> String {
@@ -274,6 +288,21 @@ final class BackgroundWidgetRefreshService {
             .lowercased()
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return "\(entry.exerciseType.rawValue)|\(name)|\(entry.durationMinutes)|\(entry.calories)|\(distanceBucket)|\(roundedTimestamp)"
+    }
+
+    private func requestedWalkingReclassification(for entry: ExerciseEntry, profile: BMRProfile?) -> Int {
+        guard entry.exerciseType == .running else {
+            return max(entry.reclassifiedWalkingCalories, 0)
+        }
+
+        let weightPounds = profile?.weightPounds ?? Int(Self.defaultWeightPounds.rounded())
+        let inferredWalkingEquivalent = ExerciseCalorieService.walkingEquivalentCalories(
+            type: .running,
+            durationMinutes: entry.durationMinutes,
+            distanceMiles: entry.distanceMiles,
+            weightPounds: weightPounds
+        )
+        return max(entry.reclassifiedWalkingCalories, inferredWalkingEquivalent)
     }
 
     private func makeWatchSyncContext(from snapshot: WidgetCalorieSnapshot, state: StoredState) -> [String: Any] {
@@ -301,29 +330,16 @@ final class BackgroundWidgetRefreshService {
         ]
     }
 
-    private func persistDailyTotals(goal: Int, burned: Int) {
-        let todayID = centralDayIdentifier(for: Date())
-
-        var burnedArchive: [String: Int] = decodeStringBackedJSON(forKey: "dailyBurnedCalorieArchiveData", fallback: [:])
-        let existingBurned = burnedArchive[todayID] ?? 0
-        // The archive is a daily high-water mark: values only move up within a given day.
-        // This serves two purposes:
-        //   1. Transient errors (background step queries returning 0) can't corrupt the archive.
-        //   2. Display code in makeSnapshot takes max(fresh, archived), so the archive floor
-        //      is already load-bearing — a mid-day step correction from HealthKit won't show
-        //      until the next day's archive entry either way.
-        // Both burned and goal must pass their guards, otherwise goal could be written lower
-        // while burned is correctly rejected, causing calories-left to drift down.
-        guard burned >= existingBurned else { return }
-
+    private func persistDailyTotals(goal: Int, burned: Int, todayID: String) {
+        // Only called when activity has been detected, so no high-water mark is needed —
+        // zero-step results are rejected upstream and never reach here.
         var goalArchive: [String: Int] = decodeStringBackedJSON(forKey: "dailyCalorieGoalArchiveData", fallback: [:])
-        let existingGoal = goalArchive[todayID] ?? 0
-        guard goal >= existingGoal else { return }
         goalArchive[todayID] = max(goal, 1)
         if let encodedGoals = try? JSONEncoder().encode(goalArchive) {
             defaults.set(String(decoding: encodedGoals, as: UTF8.self), forKey: "dailyCalorieGoalArchiveData")
         }
 
+        var burnedArchive: [String: Int] = decodeStringBackedJSON(forKey: "dailyBurnedCalorieArchiveData", fallback: [:])
         burnedArchive[todayID] = max(burned, 1)
         if let encodedBurned = try? JSONEncoder().encode(burnedArchive) {
             defaults.set(String(decoding: encodedBurned, as: UTF8.self), forKey: "dailyBurnedCalorieArchiveData")
@@ -402,11 +418,16 @@ final class BackgroundWidgetRefreshService {
         }
 
         let distanceKm: Double = {
-            if stepMetrics.distanceMeters > 0 {
-                return stepMetrics.distanceMeters / 1000
-            }
             let strideMeters = estimatedStrideMeters(heightMeters: resolvedHeightMeters(profile: profile))
             let estimatedDistanceMeters = Double(stepMetrics.steps) * strideMeters
+            guard estimatedDistanceMeters > 0 else { return 0 }
+
+            if stepMetrics.distanceMeters > 0 {
+                let maxPlausibleDistanceMeters = estimatedDistanceMeters * Self.maxDistanceToStepEstimateMultiplier
+                let cappedDistanceMeters = min(stepMetrics.distanceMeters, maxPlausibleDistanceMeters)
+                return max(cappedDistanceMeters / 1000, 0)
+            }
+
             return max(estimatedDistanceMeters / 1000, 0)
         }()
         guard distanceKm > 0 else {

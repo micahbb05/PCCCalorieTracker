@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PCC Calorie Tracker Poster</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&amp;family=Lora:ital,wght@0,400;0,500;1,400&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --parchment: #F5F0E6;
+      --linen: #ECE6D8;
+      --sand: #D9D1C0;
+      --bark: #19120B;
+      --earth: #5A4A3A;
+      --clay: #8F7D6D;
+      --moss: #1B3828;
+      --fern: #2F5E42;
+      --sage: #64927A;
+      --amber: #B8924A;
+      --white: #FFFEF9;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 1.6rem;
+      font-family: 'Lora', Georgia, serif;
+      color: var(--bark);
+      background: var(--parchment);
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='320' height='320' filter='url(%23g)' opacity='0.045'/%3E%3C/svg%3E");
+      background-size: 320px 320px;
+      mix-blend-mode: multiply;
+      z-index: 0;
+    }
+
+    .poster {
+      position: relative;
+      z-index: 1;
+      width: min(1120px, 100%);
+      background: var(--linen);
+      border-radius: 26px;
+      overflow: hidden;
+      border: 1px solid rgba(25, 18, 11, 0.16);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.12);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1.12fr 0.88fr;
+      min-height: 700px;
+    }
+
+    .left {
+      background:
+        radial-gradient(700px 380px at 6% 110%, rgba(184,146,74,0.18), transparent 65%),
+        linear-gradient(160deg, #1f4330 0%, #1a3829 55%, #163224 100%);
+      color: var(--white);
+      padding: 2.6rem 2.4rem 2.2rem;
+      display: grid;
+      grid-template-rows: auto auto auto auto;
+      align-content: start;
+      gap: 1.15rem;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.65rem;
+      width: fit-content;
+      padding: 0.42rem 0.78rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      background: rgba(255, 255, 255, 0.09);
+      font-size: 0.9rem;
+    }
+
+    .brand img {
+      width: 24px;
+      height: 24px;
+      border-radius: 7px;
+    }
+
+    h1 {
+      margin: 0;
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-weight: 500;
+      font-size: clamp(3rem, 6vw, 5.3rem);
+      line-height: 0.93;
+      max-width: 10.8ch;
+      letter-spacing: -0.015em;
+    }
+
+    h1 em {
+      color: rgba(255, 253, 245, 0.73);
+      font-style: italic;
+      font-weight: 500;
+    }
+
+    .sub {
+      margin: 0;
+      max-width: 44ch;
+      color: rgba(255, 253, 245, 0.86);
+      font-size: 1.02rem;
+      line-height: 1.55;
+    }
+
+    .points {
+      display: grid;
+      gap: 0.55rem;
+    }
+
+    .point {
+      margin: 0;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.55rem;
+      color: rgba(255, 253, 245, 0.93);
+      font-size: 0.98rem;
+      line-height: 1.4;
+    }
+
+    .point::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-top: 0.42rem;
+      background: var(--amber);
+      box-shadow: 0 0 0 4px rgba(184,146,74,0.22);
+      flex: 0 0 auto;
+    }
+
+    .menu-shot {
+      align-self: end;
+      margin: 0;
+      border-radius: 0;
+      overflow: visible;
+      border: 0;
+      box-shadow: none;
+      background: transparent;
+    }
+
+    .menu-shot img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .menu-shot figcaption {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.84rem;
+      color: rgba(255, 253, 245, 0.7);
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .right {
+      background: linear-gradient(180deg, #f7f3eb 0%, #efeadf 100%);
+      color: var(--earth);
+      padding: 2.6rem 2rem;
+      display: grid;
+      align-content: start;
+      justify-items: center;
+      gap: 0.9rem;
+      text-align: center;
+      border-left: 1px solid rgba(25, 18, 11, 0.10);
+    }
+
+    .kicker {
+      margin: 0;
+      font-size: 0.84rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--clay);
+    }
+
+    .pull {
+      margin: 0;
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 2.65rem;
+      line-height: 0.95;
+      color: var(--bark);
+    }
+
+    .pull em {
+      font-style: italic;
+      color: var(--fern);
+      font-weight: 500;
+    }
+
+    .qr-card {
+      width: min(325px, 100%);
+      background: #fff;
+      border: 1px solid rgba(90,74,58,0.2);
+      border-radius: 20px;
+      padding: 0.9rem;
+      box-shadow: 0 10px 24px rgba(25,18,11,0.12);
+    }
+
+    .qr-card img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 10px;
+      background: #fff;
+    }
+
+    .scan {
+      margin: 0.2rem 0 0;
+      font-size: 1.1rem;
+      color: var(--bark);
+      font-weight: 500;
+    }
+
+    .url {
+      margin: 0;
+      font-size: 0.92rem;
+      color: var(--clay);
+      line-height: 1.4;
+    }
+
+    .note {
+      margin: 0.4rem 0 0;
+      font-size: 0.9rem;
+      color: var(--clay);
+    }
+
+    .right .menu-shot {
+      width: min(260px, 100%);
+      margin-top: 0.2rem;
+      border-radius: 0;
+      overflow: hidden;
+      border: 0;
+      box-shadow: none;
+      background: transparent;
+    }
+
+    .right .menu-shot img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .right .menu-shot figcaption {
+      display: none;
+    }
+
+    .hero-shot {
+      margin: 0.2rem 0 0;
+      width: min(340px, 100%);
+      border-radius: 0;
+      overflow: hidden;
+      border: 0;
+      box-shadow: none;
+      background: transparent;
+    }
+
+    .hero-shot img {
+      display: block;
+      width: 100%;
+      height: 142px;
+      object-fit: cover;
+      object-position: center 24%;
+    }
+
+    @media (max-width: 940px) {
+      .layout { grid-template-columns: 1fr; }
+      .right {
+        border-left: 0;
+        border-top: 1px solid rgba(25,18,11,0.10);
+      }
+      h1 { max-width: 100%; }
+    }
+
+    @media print {
+      @page { size: letter portrait; margin: 0.35in; }
+
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden !important;
+        background: var(--parchment);
+      }
+
+      body::before { display: none !important; }
+
+      body > * {
+        visibility: hidden;
+      }
+
+      .poster, .poster * {
+        visibility: visible;
+      }
+
+      .poster {
+        position: fixed;
+        top: 0.35in;
+        left: 0.35in;
+        width: 7.8in;
+        height: 10.3in;
+        margin: 0;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+        overflow: hidden;
+      }
+
+      .layout {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        display: block;
+      }
+
+      .left,
+      .right {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        margin: 0;
+        padding: 0;
+        display: block;
+      }
+
+      .left {
+        left: 0;
+        width: 52%;
+        background:
+          radial-gradient(620px 330px at 6% 100%, rgba(184,146,74,0.16), transparent 66%),
+          linear-gradient(160deg, #1f4330 0%, #1a3829 55%, #163224 100%);
+      }
+
+      .right {
+        right: 0;
+        width: 48%;
+        background: linear-gradient(180deg, #f7f3eb 0%, #efeadf 100%);
+        border-left: 1px solid rgba(25, 18, 11, 0.10);
+        text-align: center;
+      }
+
+      .brand {
+        position: absolute;
+        top: 0.22in;
+        left: 0.22in;
+        font-size: 0.105in;
+        padding: 0.03in 0.08in;
+      }
+
+      .brand img { width: 0.16in; height: 0.16in; }
+
+      h1 {
+        position: absolute;
+        top: 0.6in;
+        left: 0.22in;
+        margin: 0;
+        max-width: 2.48in;
+        font-size: 0.56in;
+        line-height: 0.92;
+      }
+
+      .sub {
+        position: absolute;
+        top: 2.98in;
+        left: 0.22in;
+        margin: 0;
+        max-width: 2.48in;
+        font-size: 0.103in;
+        line-height: 1.22;
+      }
+
+      .points {
+        position: absolute;
+        top: 3.64in;
+        left: 0.22in;
+        margin: 0;
+        max-width: 2.48in;
+        gap: 0.02in;
+      }
+
+      .point {
+        font-size: 0.09in;
+        line-height: 1.2;
+      }
+
+      .point::before {
+        width: 0.04in;
+        height: 0.04in;
+        margin-top: 0.035in;
+      }
+
+      .hero-shot {
+        position: absolute;
+        left: 0.22in;
+        bottom: 0.2in;
+        width: 2.12in;
+        height: 3.32in;
+        margin: 0;
+        overflow: hidden;
+      }
+
+      .hero-shot img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        object-position: center center;
+      }
+
+      .kicker { display: none; }
+
+      .pull {
+        position: absolute;
+        top: 0.52in;
+        left: 0;
+        width: 100%;
+        margin: 0;
+        font-size: 0.35in;
+        line-height: 0.92;
+      }
+
+      .qr-card {
+        position: absolute;
+        top: 1.16in;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 1.76in;
+        border-radius: 0.1in;
+        padding: 0.04in;
+      }
+
+      .scan {
+        position: absolute;
+        top: 3.24in;
+        left: 0;
+        width: 100%;
+        margin: 0;
+        font-size: 0.1in;
+      }
+
+      .url {
+        position: absolute;
+        top: 3.4in;
+        left: 0;
+        width: 100%;
+        margin: 0;
+        font-size: 0.085in;
+      }
+
+      .right .menu-shot {
+        position: absolute;
+        left: 50%;
+        bottom: 0.2in;
+        transform: translateX(-50%);
+        width: 2.12in;
+        height: 3.32in;
+        margin: 0;
+        overflow: hidden;
+      }
+
+      .right .menu-shot img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        object-position: center center;
+      }
+
+      .note { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="poster" aria-label="PCC Calorie Tracker print poster">
+    <section class="layout">
+      <section class="left">
+        <p class="brand">
+          <img src="assets/pcc-ios-logo-blue.png" alt="App icon">
+          <span>PCC Calorie Tracker</span>
+        </p>
+
+        <h1>Track meals from <em>PCC dining menus</em> in seconds.</h1>
+
+        <p class="sub">
+          Built for PCC students. Pick items straight from your dining menu and your calories and macros are filled in automatically.
+        </p>
+
+        <div class="points" aria-label="Benefits">
+          <p class="point">Connect to live PCC menu items</p>
+          <p class="point">Log meals faster with pre-filled nutrition</p>
+          <p class="point">Keep goals on track with Health and photo logging</p>
+        </div>
+
+        <figure class="hero-shot">
+          <img src="assets/screenshots/IMG_5922.PNG" alt="Calorie hero card view">
+        </figure>
+
+      </section>
+
+      <aside class="right" aria-label="QR code panel">
+        <p class="kicker">PCC Calorie Tracker</p>
+        <p class="pull">PCC menu connection,<br><em>built in.</em></p>
+
+        <div class="qr-card">
+          <img src="assets/qr/website-qr-new.png" alt="QR code to app website">
+        </div>
+
+        <p class="scan">Scan to open the app page</p>
+        <p class="url">calorietrackerpcc.com</p>
+        <figure class="menu-shot">
+          <img src="assets/screenshots/menu-latest.png" alt="Menu integration in the app">
+          <figcaption>Real menu view inside the app</figcaption>
+        </figure>
+        <p class="note">iOS app • PCC Dining menus • Calorie + nutrient tracking</p>
+      </aside>
+    </section>
+  </main>
+</body>
+</html>

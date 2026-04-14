@@ -339,41 +339,35 @@ extension ContentView {
     }
 
     func syncCurrentDayGoalArchive() {
-        // Keep archive values stable until both live health and step inputs are resolved.
-        if !hasResolvedInitialLiveCalorieInputsThisLaunch {
-            return
-        }
-        if shouldDeferForHealthRefreshWithoutTodayArchive {
-            return
-        }
+        guard hasResolvedInitialLiveCalorieInputsThisLaunch else { return }
+
+        // Only write the archive when real activity has been detected: steps, a HealthKit
+        // workout, or a manually-logged exercise. This single gate replaces all the
+        // high-water-mark guards — zero-step HealthKit results never reach the archive,
+        // so there is nothing to protect against afterward.
+        let hasActivity = stepActivityService.todayStepCount > 0
+            || !effectiveTodayHealthWorkouts.isEmpty
+            || !exercises.isEmpty
+        guard hasActivity else { return }
+
         dailyExerciseArchive[todayDayIdentifier] = exercises
-        // Protect against transient HealthKit re-query results returning lower values than
-        // what was already archived. Takes the max so real increases (new steps, workouts)
-        // always flow through, but a bad re-query can't drag the archive—and widget—downward.
         let freshBurned = burnedCaloriesToday
         let freshGoal = calorieGoal
-        let existingBurned = dailyBurnedCalorieArchive[todayDayIdentifier] ?? 0
-        let existingGoal = dailyCalorieGoalArchive[todayDayIdentifier] ?? 0
-        let archivedBurned = max(freshBurned, existingBurned)
-        let archivedGoal = max(freshGoal, existingGoal)
-        dailyCalorieGoalArchive[todayDayIdentifier] = archivedGoal
-        dailyBurnedCalorieArchive[todayDayIdentifier] = archivedBurned
+        dailyCalorieGoalArchive[todayDayIdentifier] = freshGoal
+        dailyBurnedCalorieArchive[todayDayIdentifier] = freshBurned
         dailyGoalTypeArchive[todayDayIdentifier] = goalType.rawValue
-        cachedCaloriesDayIdentifier = todayDayIdentifier
-        cachedBurnedCaloriesToday = archivedBurned
-        cachedCalorieGoalToday = archivedGoal
+        activityDetectedDayIdentifier = todayDayIdentifier
+
         saveDailyExerciseArchive()
         saveDailyCalorieGoalArchive()
         saveDailyBurnedCalorieArchive()
         saveDailyGoalTypeArchive()
-        // Cache the foreground-computed goal/burned so the background widget service
-        // can use them as a floor. Background HealthKit queries (profile, workouts, steps)
-        // can all fail simultaneously, producing a BMR-only value that is lower than the
-        // real goal. Without this cache the archive gets seeded from the first background
-        // run, and all later background runs floor at that incorrectly low value.
+
+        // Cache for the background widget service so it has a reliable burned/goal
+        // fallback when its own HealthKit queries return no activity.
         let calorieCacheComponents = centralCalendar.dateComponents([.year, .month, .day], from: centralCalendar.startOfDay(for: Date()))
         let calorieCacheDayID = String(format: "%04d-%02d-%02d", calorieCacheComponents.year ?? 0, calorieCacheComponents.month ?? 1, calorieCacheComponents.day ?? 1)
-        let calorieModelCache = CachedCalorieModel(dayIdentifier: calorieCacheDayID, goal: archivedGoal, burned: archivedBurned)
+        let calorieModelCache = CachedCalorieModel(dayIdentifier: calorieCacheDayID, goal: freshGoal, burned: freshBurned)
         if let cacheData = try? JSONEncoder().encode(calorieModelCache) {
             UserDefaults.standard.set(String(decoding: cacheData, as: UTF8.self), forKey: "cachedTodayCalorieModel")
         }
@@ -381,8 +375,11 @@ extension ContentView {
     }
 
     func syncWidgetSnapshot() {
-        // Avoid publishing transient fallback values to the widget while live inputs are still resolving.
-        if !hasResolvedInitialLiveCalorieInputsThisLaunch, hasTodayArchive {
+        // Don't push a BMR-only snapshot to the widget before any activity has been
+        // detected for today. If activity has been detected the archive holds real
+        // values and currentDailyCalorieModel already returns them, so the snapshot
+        // will be correct even before HealthKit finishes its fresh load.
+        if !hasResolvedInitialLiveCalorieInputsThisLaunch, !activityDetectedToday {
             return
         }
         let safeGoal = max(calorieGoal, 1)

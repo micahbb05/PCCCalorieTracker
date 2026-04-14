@@ -286,6 +286,11 @@ struct MenuSheetView: View {
             requestedImagePickerSource = newValue
             clearRequestedExternalAIPickerSource()
         }
+        .onChange(of: searchText) { _, newValue in
+            if newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                expandedLineIDs = []
+            }
+        }
         .sheet(item: $multiplierSheetContext, onDismiss: {
             multiplierSheetContext = nil
         }) { context in
@@ -323,11 +328,15 @@ struct MenuSheetView: View {
     @ViewBuilder
     private var content: some View {
         if !trimmedSearchText.isEmpty {
-            searchResultsContent
+            if let status = searchStatusState {
+                statusView(status)
+            } else {
+                searchResultsContent
+            }
         } else if let status = browsingStatusState {
             statusView(status)
         } else {
-            LazyVStack(alignment: .leading, spacing: 14) {
+            LazyVStack(alignment: .leading, spacing: 18) {
                 ForEach(filteredLines) { line in
                     lineCard(for: line)
                 }
@@ -626,7 +635,7 @@ struct MenuSheetView: View {
 
                     Image(systemName: expanded.wrappedValue ? "chevron.up" : "chevron.down")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(textSecondary)
+                        .foregroundStyle(textSecondary.opacity(0.95))
                 }
                 .padding(18)
                 .contentShape(Rectangle())
@@ -639,12 +648,12 @@ struct MenuSheetView: View {
                     .overlay(textSecondary.opacity(0.10))
                     .padding(.horizontal, 18)
 
-                VStack(spacing: 10) {
+                VStack(spacing: 8) {
                     if venue == .grabNGo {
                         grabNGoSelectAllRow(for: line)
                     }
                     ForEach(line.items) { item in
-                        menuItemRow(item)
+                        searchMenuItemRow(item)
                     }
                 }
                 .padding(.horizontal, 14)
@@ -1268,7 +1277,7 @@ struct MenuSheetView: View {
         .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(surfacePrimary.opacity(0.90))
+                .fill(surfaceSecondary.opacity(0.90))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)

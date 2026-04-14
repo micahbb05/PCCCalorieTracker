@@ -115,6 +115,7 @@ final class StepActivityService: ObservableObject {
     // Set to ACSM-style baseline for better average accuracy across users.
     private static let netWalkingCaloriesPerKgPerKm = 0.50
     private static let strideMultiplier = 0.415
+    private static let maxDistanceToStepEstimateMultiplier = 1.15
 
     enum AuthorizationState: Equatable {
         case unavailable
@@ -323,14 +324,18 @@ final class StepActivityService: ObservableObject {
     }
 
     private func resolvedDistanceKm(profile: BMRProfile?) -> Double {
-        if todayDistanceMeters > 0 {
-            return todayDistanceMeters / 1000
-        }
-
         let strideMeters = estimatedStrideMeters(heightMeters: resolvedHeightMeters(profile: profile))
         let estimatedDistanceMeters = Double(todayStepCount) * strideMeters
         guard estimatedDistanceMeters > 0 else {
             return 0
+        }
+
+        if todayDistanceMeters > 0 {
+            // Health distance can include workout edits/imports that are not backed by
+            // additional step samples. Keep step-calorie distance aligned to step count.
+            let maxPlausibleDistanceMeters = estimatedDistanceMeters * Self.maxDistanceToStepEstimateMultiplier
+            let cappedDistanceMeters = min(todayDistanceMeters, maxPlausibleDistanceMeters)
+            return max(cappedDistanceMeters / 1000, 0)
         }
 
         return estimatedDistanceMeters / 1000

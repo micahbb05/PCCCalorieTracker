@@ -557,9 +557,7 @@ struct ContentView: View {
     @AppStorage("syncedHealthProfileData") var storedSyncedHealthProfileData: String = ""
     @AppStorage("syncedTodayWorkoutsData") var storedSyncedTodayWorkoutsData: String = ""
     @AppStorage("syncedHealthSourceDeviceTypeRaw") var storedSyncedHealthSourceDeviceTypeRaw: String = ""
-    @AppStorage("cachedBurnedCaloriesToday") var cachedBurnedCaloriesToday: Int = 0
-    @AppStorage("cachedCalorieGoalToday") var cachedCalorieGoalToday: Int = 0
-    @AppStorage("cachedCaloriesDayIdentifier") var cachedCaloriesDayIdentifier: String = ""
+    @AppStorage("activityDetectedDayIdentifier") var activityDetectedDayIdentifier: String = ""
     @AppStorage("cloudSyncLocalModifiedAt") var cloudSyncLocalModifiedAt: Double = 0
     /// When true, Gemini can override ambiguous base servings (e.g. \"1 each\" entrees) with its inferred base oz.
     /// When false, base servings always come from the menu's serving size.

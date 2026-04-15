@@ -35,6 +35,7 @@ struct QuickAddPickerView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    @AppStorage("appThemeStyle") private var appThemeStyleRaw: String = AppThemeStyle.ember.rawValue
     @AppStorage("quickAddSectionOverridesData") private var sectionOverridesData: String = ""
     @State private var searchText = ""
     @State private var selectedQuantitiesByID: [UUID: Int] = [:]
@@ -193,6 +194,15 @@ struct QuickAddPickerView: View {
             guard quantity > 0 else { return nil }
             return (item, quantity, multiplier(for: item.id))
         }
+    }
+
+    private var isBlueprint: Bool { appThemeStyleRaw == AppThemeStyle.blueprint.rawValue }
+
+    // Mirror MenuSheetView palette exactly so Quick Add cards match PCC menu cards.
+    private var menuSurfaceSecondary: Color {
+        colorScheme == .dark
+            ? (isBlueprint ? Color(red: 0.17, green: 0.19, blue: 0.25) : Color(red: 0.170, green: 0.143, blue: 0.114))
+            : (isBlueprint ? Color(red: 0.96, green: 0.97, blue: 0.99) : Color(red: 0.97, green: 0.96, blue: 0.94))
     }
 
     private var backgroundTop: Color {
@@ -633,16 +643,16 @@ struct QuickAddPickerView: View {
         let currentMultiplier = multiplier(for: item.id)
         let displayedCalories = Int((Double(item.calories) * currentMultiplier).rounded())
         let displayedProtein = Int((Double(item.nutrientValues["g_protein"] ?? 0) * currentMultiplier).rounded())
-        let rowPadding: CGFloat = compact ? 12 : 16
-        let cornerRadius: CGFloat = compact ? 14 : 18
         let controlSize: CGFloat = compact ? 26 : 28
         let iconFontSize: CGFloat = compact ? 13 : 14
         let quantityMinWidth: CGFloat = compact ? 24 : 28
+        let controlSpacing: CGFloat = compact ? 8 : 10
+        let controlVerticalPadding: CGFloat = compact ? 7 : 8
 
-        return HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
+        return HStack {
+            VStack(alignment: .leading, spacing: compact ? 3 : 4) {
                 Text(item.name)
-                    .font(.headline.weight(.semibold))
+                    .font(.body.weight(.semibold))
                     .foregroundStyle(textPrimary)
                 HStack(spacing: 6) {
                     Text("\(displayedCalories) cal • \(displayedProtein)g protein")
@@ -669,7 +679,7 @@ struct QuickAddPickerView: View {
 
             Spacer()
 
-            HStack(spacing: 10) {
+            HStack(spacing: controlSpacing) {
                 Button {
                     decrement(item.id)
                 } label: {
@@ -705,19 +715,20 @@ struct QuickAddPickerView: View {
                 .buttonStyle(.plain)
             }
             .padding(.horizontal, 8)
-            .padding(.vertical, 8)
+            .padding(.vertical, controlVerticalPadding)
             .background(
                 Capsule(style: .continuous)
-                    .fill(Color.white.opacity(0.05))
+                    .fill(Color.white.opacity(compact ? 0.04 : 0.05))
             )
         }
-        .padding(rowPadding)
+        .padding(.horizontal, compact ? 12 : 14)
+        .padding(.vertical, compact ? 10 : 14)
         .background(
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(compact ? surfaceSecondary.opacity(0.92) : surfaceSecondary)
+            RoundedRectangle(cornerRadius: compact ? 14 : 16, style: .continuous)
+                .fill(compact ? menuSurfaceSecondary.opacity(0.94) : menuSurfaceSecondary)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            RoundedRectangle(cornerRadius: compact ? 14 : 16, style: .continuous)
                 .stroke(textSecondary.opacity(0.12), lineWidth: 1)
         )
     }

@@ -261,6 +261,11 @@ enum FoodSymbolMapper {
             "oreo", "fig newton",
             "drizzilicious", "drizzilicious cookies and cream", "cookies and cream drizzilicious",
             "drizzilicious cookie thins", "drizzilicious snack",
+            "cookie", "cookies", "cookeis", "coookies",
+            "chocolate chip cookie", "chocolate chip cookies", "choc chip cookie", "choc chip cookies",
+            "choco chip cookie", "choco chip cookies", "chocolaote chip cookie", "chocolaote chip cookies",
+            "oatmeal cookie", "oatmeal cookies", "sugar cookie", "sugar cookies", "peanut butter cookie", "peanut butter cookies",
+            "snickerdoodle", "snickerdoodles", "double chocolate cookie", "double chocolate cookies",
         ]),
         Rule(token: .asset(name: "FoodIconChicken", fallback: "flame.fill"), keywords: [
             "lightly breaded chicken breast strips", "chicken breast strips", "breast strips",
@@ -317,6 +322,10 @@ enum FoodSymbolMapper {
             "gelato", "sundae", "soft serve", "milkshake", "malt",
             "ice cream cone", "ice cream", "icecream",
             "caramel ice cream", "caramel pretzel",
+            "halo top", "halo top ice cream", "halo top pint", "halo top chocolate vanilla twist",
+            "chocolate vanilla twist", "ice cream twist", "soft serve twist",
+            "frozen dairy dessert", "low calorie ice cream", "light ice cream",
+            "ice cream pint", "pint of ice cream", "vanilla ice cream", "chocolate ice cream",
         ]),
         Rule(token: .asset(name: "FoodIconSandwich", fallback: "takeoutbag.and.cup.and.straw"), keywords: [
             "sandwich", "blt", "panini", "reuben", "hoagie", "submarine", "grinder", "po boy",
@@ -431,8 +440,6 @@ enum FoodSymbolMapper {
             "chahan", "chaufan", "rice bowl", "dirty rice", "yellow rice", "spanish rice", "cilantro lime rice",
             "bibimbap", "donburi", "gyudon", "oyakodon", "katsudon", "jasmine rice", "basmati rice",
             "teriyaki chicken rice bowl", "beef rice bowl", "poke rice bowl",
-            "rice cake", "rice cakes", "rice crisp", "rice crisps", "puffed rice", "rice thin", "rice thins",
-            "lundberg rice", "quaker rice crisps", "caramel rice crisps",
         ]),
         Rule(token: .asset(name: "FoodIconCupToGo", fallback: "cup.and.saucer.fill"), keywords: [
             "coffee to go", "to go coffee", "takeout coffee", "iced coffee cup", "paper cup coffee",
@@ -474,6 +481,8 @@ enum FoodSymbolMapper {
         ]),
         Rule(token: .asset(name: "FoodIconCake", fallback: "birthday.cake.fill"), keywords: [
             "cake", "cupcake", "cupcakes", "birthday cake", "wedding cake", "cheesecake slice", "cheesecake",
+            "brownie", "brownies", "protein brownie", "chocolate brownie", "chocolate fudge brownie",
+            "brownie chocolate fudge", "fudge brownie", "double chocolate brownie",
         ]),
         Rule(token: .asset(name: "FoodIconLollipop", fallback: "birthday.cake.fill"), keywords: [
             "lollipop", "lollipops", "sucker", "tootsie pop", "dum dum",

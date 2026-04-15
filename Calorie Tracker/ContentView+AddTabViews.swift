@@ -202,8 +202,8 @@ extension ContentView {
                             colors: isHeroBlueprint
                                 ? [Color(red: 0.03, green: 0.07, blue: 0.19), Color(red: 0.05, green: 0.10, blue: 0.24)]
                                 : [
-                                    Color(red: 0.085, green: 0.10, blue: 0.145),
-                                    Color(red: 0.125, green: 0.135, blue: 0.195),
+                                    Color(red: 0.118, green: 0.094, blue: 0.071),
+                                    Color(red: 0.165, green: 0.133, blue: 0.098),
                                 ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -211,11 +211,18 @@ extension ContentView {
                     )
 
                 Circle()
-                    .fill(isHeroBlueprint
-                        ? Color(red: 0.20, green: 0.23, blue: 0.48).opacity(0.38)
-                        : Color(red: 0.30, green: 0.48, blue: 0.68).opacity(0.14))
+                    .fill(
+                        RadialGradient(
+                            colors: isHeroBlueprint
+                                ? [Color(red: 0.20, green: 0.23, blue: 0.48).opacity(0.40), .clear]
+                                : [Color(red: 0.72, green: 0.47, blue: 0.24).opacity(0.22), .clear],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 115
+                        )
+                    )
                     .frame(width: 230, height: 230)
-                    .offset(x: 74, y: -26)
+                    .offset(x: 74, y: -64)
 
                 VStack(alignment: .leading, spacing: 18) {
                     let caloriePalette = calorieBarPalette(consumed: totalCalories, goal: calorieGoal, burned: burnedCaloriesToday)
@@ -275,6 +282,7 @@ extension ContentView {
                 }
                 .padding(24)
             }
+            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
             .frame(minHeight: 248)
             .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
             .listRowBackground(Color.clear)

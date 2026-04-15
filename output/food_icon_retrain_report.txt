@@ -1,12 +1,12 @@
 Food Icon Retrain Report
-Generated: 2026-04-14T19:57:26Z
+Generated: 2026-04-15T04:38:54Z
 Model output: /Users/micah/Documents/Calorie Tracker/Calorie Tracker/FoodIconClassifier.mlmodel
 Model backup: /Users/micah/Documents/Calorie Tracker/Calorie Tracker/FoodIconClassifier.pre-retrain.backup.mlmodel
 
-Raw samples from assetBackedRules: 1172
+Raw samples from assetBackedRules: 1206
 Duplicates dropped during parse: 1
-Augmented samples total: 8323
+Augmented samples total: 8561
 Distinct labels: 82
-Training samples: 6628
-Holdout samples: 1695
-Holdout top-1 accuracy: 92.80%
+Training samples: 6818
+Holdout samples: 1743
+Holdout top-1 accuracy: 93.17%

@@ -107,6 +107,39 @@ enum FoodIconMLMapper {
         return nil
     }()
 
+    // MARK: - Keyword overrides (applied before the ML model, highest priority)
+    // Use this to correct known misclassifications without retraining.
+
+    private static let keywordOverrides: [(keywords: [String], token: FoodLogIconToken)] = [
+        (
+            keywords: [
+                "cookie", "cookies", "cookeis", "coookies",
+                "chocolate chip cookie", "chocolate chip cookies",
+                "choc chip cookie", "choc chip cookies",
+                "choco chip cookie", "choco chip cookies",
+                "chocolaote chip cookie", "chocolaote chip cookies",
+            ],
+            token: .asset(name: "FoodIconCookie", fallback: "birthday.cake.fill")
+        ),
+        (
+            keywords: [
+                "rice cake", "rice cakes", "rice crisp", "rice crisps",
+                "puffed rice", "rice thin", "rice thins", "lundberg rice",
+                "quaker rice crisps", "caramel rice crisps",
+            ],
+            token: .asset(name: "FoodIconPopcorn", fallback: "bag.fill")
+        ),
+    ]
+
+    private static func overrideToken(for text: String) -> FoodLogIconToken? {
+        for entry in keywordOverrides {
+            if entry.keywords.contains(where: { text.contains($0) }) {
+                return entry.token
+            }
+        }
+        return nil
+    }
+
     // MARK: - Public API (drop-in replacement for FoodSymbolMapper.icon(for:))
 
     static func icon(for raw: String) -> FoodLogIconToken {
@@ -126,6 +159,10 @@ enum FoodIconMLMapper {
             return cached
         }
         cacheLock.unlock()
+
+        if let overridden = overrideToken(for: text) {
+            return storeCached(overridden, for: cacheKey)
+        }
 
         guard let model = nlModel else {
             return storeCached(.sf("fork.knife"), for: cacheKey)

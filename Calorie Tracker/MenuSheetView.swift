@@ -44,6 +44,11 @@ struct MenuSheetView: View {
     let onRequestExternalAIPopup: (() -> Void)?
     let requestedExternalAIPickerSource: PlateImagePickerView.Source?
     let clearRequestedExternalAIPickerSource: () -> Void
+    var onAddToQuickAdd: ((QuickAddFood) -> Void)?
+    var quickAddFoodNames: Set<String> = []
+
+    @State private var isQuickAddSaveToastPresented = false
+    @State private var quickAddSaveToastTask: Task<Void, Never>?
 
     @State private var isRetrying = false
     @State private var showImagePickerSource = false
@@ -1277,7 +1282,7 @@ struct MenuSheetView: View {
         .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(surfaceSecondary.opacity(0.90))
+                .fill(surfaceSecondary.opacity(0.94))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -1422,6 +1427,31 @@ struct MenuSheetView: View {
                     .ignoresSafeArea(edges: .bottom)
                 )
             }
+            .overlay(alignment: .bottom) {
+                if isQuickAddSaveToastPresented {
+                    HStack(spacing: 10) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(accent)
+                            .symbolEffect(.bounce, value: isQuickAddSaveToastPresented)
+                        Text("Added to Quick Add")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(textPrimary)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 13)
+                    .background(Capsule(style: .continuous).fill(.ultraThinMaterial))
+                    .overlay(Capsule(style: .continuous).stroke(Color.white.opacity(0.12), lineWidth: 1))
+                    .shadow(color: accent.opacity(0.22), radius: 20, y: 8)
+                    .shadow(color: Color.black.opacity(0.18), radius: 8, y: 4)
+                    .padding(.bottom, 124)
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .bottom).combined(with: .opacity).combined(with: .scale(scale: 0.88)),
+                        removal: .move(edge: .bottom).combined(with: .opacity)
+                    ))
+                    .allowsHitTesting(false)
+                }
+            }
+            .animation(.spring(response: 0.32, dampingFraction: 0.86), value: isQuickAddSaveToastPresented)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
@@ -1430,6 +1460,39 @@ struct MenuSheetView: View {
                         Image(systemName: "chevron.left")
                     }
                     .foregroundStyle(textPrimary)
+                }
+                if let onAddToQuickAdd {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        let alreadySaved = quickAddFoodNames.contains(MealEntry.normalizedName(item.name))
+                        Button {
+                            let food = QuickAddFood(
+                                id: UUID(),
+                                name: item.name,
+                                calories: item.calories,
+                                nutrientValues: item.nutrientValues,
+                                servingAmount: item.servingAmount,
+                                servingUnit: item.servingUnit,
+                                createdAt: Date()
+                            )
+                            onAddToQuickAdd(food)
+                            quickAddSaveToastTask?.cancel()
+                            withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                                isQuickAddSaveToastPresented = true
+                            }
+                            quickAddSaveToastTask = Task { @MainActor in
+                                try? await Task.sleep(for: .seconds(1.35))
+                                guard !Task.isCancelled else { return }
+                                withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
+                                    isQuickAddSaveToastPresented = false
+                                }
+                            }
+                        } label: {
+                            Text(alreadySaved ? "Saved to Quick Add" : "Save to Quick Add")
+                        }
+                        .tint(accent)
+                        .disabled(alreadySaved)
+                        .opacity(alreadySaved ? 0.4 : 1)
+                    }
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { notification in

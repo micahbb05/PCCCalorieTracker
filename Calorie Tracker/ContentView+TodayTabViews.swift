@@ -346,7 +346,7 @@ extension ContentView {
     }
 
     func logRow(_ entry: FoodLogDisplayEntry) -> some View {
-        let nutrientSummary = activeNutrients.prefix(2).map {
+        let nutrientSummary = activeNutrients.prefix(1).map {
             "\(entryValue(for: $0.key, in: entry))\($0.unit) \($0.name)"
         }.joined(separator: " • ")
         let iconName = foodLogIcon(for: entry.name)

@@ -163,7 +163,11 @@ extension ContentView {
                 requestedExternalAIPickerSource: embeddedMenuRequestedAIPickerSource,
                 clearRequestedExternalAIPickerSource: {
                     embeddedMenuRequestedAIPickerSource = nil
-                }
+                },
+                onAddToQuickAdd: { food in
+                    addMenuItemToQuickAdd(food)
+                },
+                quickAddFoodNames: Set(quickAddFoods.map(\.name))
             )
             .safeAreaInset(edge: .bottom) {
                 Color.clear

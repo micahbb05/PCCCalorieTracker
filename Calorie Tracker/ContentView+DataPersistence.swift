@@ -374,12 +374,14 @@ extension ContentView {
         syncWidgetSnapshot()
     }
 
-    func syncWidgetSnapshot() {
+    func syncWidgetSnapshot(force: Bool = false) {
         // Don't push a BMR-only snapshot to the widget before any activity has been
         // detected for today. If activity has been detected the archive holds real
         // values and currentDailyCalorieModel already returns them, so the snapshot
         // will be correct even before HealthKit finishes its fresh load.
-        if !hasResolvedInitialLiveCalorieInputsThisLaunch, !activityDetectedToday {
+        // `force: true` bypasses this guard for new-day resets, where consumed = 0
+        // is correct and we need to immediately clear yesterday's stale snapshot.
+        if !force, !hasResolvedInitialLiveCalorieInputsThisLaunch, !activityDetectedToday {
             return
         }
         let safeGoal = max(calorieGoal, 1)

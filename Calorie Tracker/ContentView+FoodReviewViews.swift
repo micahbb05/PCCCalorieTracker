@@ -235,6 +235,31 @@ extension ContentView {
                 .scrollIndicators(.hidden)
 
             }
+            .overlay(alignment: .bottom) {
+                if isQuickAddSaveConfirmationPresented {
+                    HStack(spacing: 10) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(accent)
+                            .symbolEffect(.bounce, value: isQuickAddSaveConfirmationPresented)
+                        Text("Added to Quick Add")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(textPrimary)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 13)
+                    .background(Capsule(style: .continuous).fill(.ultraThinMaterial))
+                    .overlay(Capsule(style: .continuous).stroke(Color.white.opacity(0.12), lineWidth: 1))
+                    .shadow(color: accent.opacity(0.22), radius: 20, y: 8)
+                    .shadow(color: Color.black.opacity(0.18), radius: 8, y: 4)
+                    .padding(.bottom, 124)
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .bottom).combined(with: .opacity).combined(with: .scale(scale: 0.88)),
+                        removal: .move(edge: .bottom).combined(with: .opacity)
+                    ))
+                    .allowsHitTesting(false)
+                }
+            }
+            .animation(.spring(response: 0.32, dampingFraction: 0.86), value: isQuickAddSaveConfirmationPresented)
             .safeAreaInset(edge: .bottom) {
                 Button {
                     addReviewedFood(item)
@@ -270,6 +295,21 @@ extension ContentView {
                         Image(systemName: "chevron.left")
                     }
                     .foregroundStyle(textPrimary)
+                }
+                let isQuickAddSource: Bool = { if case .quickAdd = item.entrySource { return true }; return false }()
+                if !isQuickAddSource {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        let resolvedName = foodReviewNameText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? item.name : foodReviewNameText
+                        let alreadySaved = quickAddFoods.contains(where: { $0.name == MealEntry.normalizedName(resolvedName) })
+                        Button {
+                            addItemToQuickAdd(from: item)
+                        } label: {
+                            Text(alreadySaved ? "Saved to Quick Add" : "Save to Quick Add")
+                        }
+                        .tint(accent)
+                        .disabled(alreadySaved)
+                        .opacity(alreadySaved ? 0.4 : 1)
+                    }
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { notification in

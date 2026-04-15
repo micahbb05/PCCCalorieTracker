@@ -227,6 +227,9 @@ extension ContentView {
             selectedMenuType = menuService.currentMenuType()
             saveVenueMenus()
             syncHistorySelection(preferToday: true)
+            // Push a zeroed snapshot immediately so the widget doesn't carry
+            // yesterday's stale consumed/burned values into the new day.
+            syncWidgetSnapshot(force: true)
         }
 
         if forceMenuReload {

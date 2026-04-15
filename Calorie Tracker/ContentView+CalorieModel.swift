@@ -53,7 +53,10 @@ extension ContentView {
 
     func workoutsForToday(_ workouts: [ExerciseEntry]) -> [ExerciseEntry] {
         workouts.filter { entry in
-            centralDayIdentifier(for: entry.createdAt) == todayDayIdentifier
+            guard centralDayIdentifier(for: entry.createdAt) == todayDayIdentifier else { return false }
+            // Walking calories are already accounted for via step activity, so skip walking workouts.
+            guard entry.symbolName != "figure.walk" else { return false }
+            return true
         }
     }
 

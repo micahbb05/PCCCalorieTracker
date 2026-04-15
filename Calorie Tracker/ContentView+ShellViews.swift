@@ -576,6 +576,34 @@ extension ContentView {
 
             if let barcodeErrorToastMessage, selectedAddDestination != .barcode {
                 barcodeErrorToastView
+            } else if isQuickAddSaveConfirmationPresented {
+                HStack(spacing: 10) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(accent)
+                        .symbolEffect(.bounce, value: isQuickAddSaveConfirmationPresented)
+                    Text("Added to Quick Add")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(textPrimary)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 13)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(.ultraThinMaterial)
+                )
+                .overlay(
+                    Capsule(style: .continuous)
+                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                )
+                .shadow(color: accent.opacity(0.22), radius: 20, y: 8)
+                .shadow(color: Color.black.opacity(0.18), radius: 8, y: 4)
+                .padding(.bottom, 124)
+                .transition(
+                    .asymmetric(
+                        insertion: .move(edge: .bottom).combined(with: .opacity).combined(with: .scale(scale: 0.88)),
+                        removal: .move(edge: .bottom).combined(with: .opacity)
+                    )
+                )
             } else if isAddConfirmationPresented {
                 HStack(spacing: 10) {
                     Image(systemName: "checkmark.circle.fill")
@@ -610,6 +638,7 @@ extension ContentView {
         .padding(.horizontal, 24)
         .allowsHitTesting(false)
         .animation(.spring(response: 0.32, dampingFraction: 0.86), value: isAddConfirmationPresented)
+        .animation(.spring(response: 0.32, dampingFraction: 0.86), value: isQuickAddSaveConfirmationPresented)
         .animation(.spring(response: 0.32, dampingFraction: 0.86), value: barcodeErrorToastMessage)
     }
 
@@ -814,7 +843,11 @@ extension ContentView {
             bottomOverlayClearance: bottomOverlayClearance,
             onRequestExternalAIPopup: onRequestExternalAIPopup,
             requestedExternalAIPickerSource: requestedExternalAIPickerSource,
-            clearRequestedExternalAIPickerSource: clearRequestedExternalAIPickerSource
+            clearRequestedExternalAIPickerSource: clearRequestedExternalAIPickerSource,
+            onAddToQuickAdd: { food in
+                addMenuItemToQuickAdd(food)
+            },
+            quickAddFoodNames: Set(quickAddFoods.map(\.name))
         )
     }
 

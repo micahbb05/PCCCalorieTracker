@@ -679,6 +679,8 @@ struct ContentView: View {
     @State var addConfirmationTask: Task<Void, Never>?
     @State var barcodeErrorToastMessage: String?
     @State var barcodeErrorToastTask: Task<Void, Never>?
+    @State var isQuickAddSaveConfirmationPresented = false
+    @State var quickAddSaveConfirmationTask: Task<Void, Never>?
 
     @FocusState var focusedField: Field?
     @FocusState var foodReviewFocusedField: FoodReviewField?

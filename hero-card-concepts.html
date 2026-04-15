@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hero Card Background Concepts — Ember Theme</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    /* Ember theme core */
+    --bg-top:     rgb(15, 13, 10);
+    --bg-bottom:  rgb(20, 16, 10);
+    --surface:    rgb(35, 30, 25);
+    --surface-elevated: rgb(45, 35, 30);
+    --accent:     #B8924A;
+    --accent-dim: rgba(184,146,74,0.12);
+    --text-primary:   rgb(245, 240, 230);
+    --text-secondary: rgb(168, 176, 186);
+    --divider:    rgba(107, 97, 87, 0.35);
+
+    /* Bar colors */
+    --bar-green:  #38c75a;
+    --bar-yellow: #ffc21f;
+    --bar-red:    #f24235;
+  }
+
+  body {
+    background: linear-gradient(160deg, var(--bg-top), var(--bg-bottom));
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+    color: var(--text-primary);
+    padding: 40px 20px 60px;
+  }
+
+  /* Page header */
+  .page-header {
+    text-align: center;
+    margin-bottom: 52px;
+  }
+  .page-header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+  }
+  .page-header p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    letter-spacing: 0.1px;
+  }
+
+  /* Phone grid */
+  .phones-grid {
+    display: flex;
+    gap: 32px;
+    justify-content: center;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .phone-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .phone-label {
+    text-align: center;
+  }
+  .phone-label .variant-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+  }
+  .phone-label .variant-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 3px;
+  }
+
+  /* Phone frame */
+  .phone-frame {
+    width: 320px;
+    height: 693px;
+    background: linear-gradient(170deg, var(--bg-top), var(--bg-bottom));
+    border-radius: 44px;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,0.5),
+      0 32px 80px rgba(0,0,0,0.7),
+      inset 0 1px 0 rgba(255,255,255,0.06);
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Dynamic island */
+  .dynamic-island {
+    width: 116px;
+    height: 34px;
+    background: #000;
+    border-radius: 20px;
+    margin: 14px auto 0;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.04);
+  }
+
+  /* Scrollable content */
+  .screen-content {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 0 0 0 0;
+  }
+
+  /* Screen header */
+  .screen-header {
+    padding: 14px 16px 6px;
+    flex-shrink: 0;
+  }
+  .screen-header .title {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.5px;
+    line-height: 1.1;
+  }
+  .screen-header .subtitle {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+  }
+
+  /* List body */
+  .list-body {
+    flex: 1;
+    overflow: hidden;
+    padding: 4px 12px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* ——— HERO CARD ——— */
+  .hero-card {
+    border-radius: 24px;
+    overflow: hidden;
+    position: relative;
+    padding: 20px;
+    flex-shrink: 0;
+    min-height: 200px;
+  }
+
+  /* Decorative glow circle (top-right) */
+  .hero-card::before {
+    content: '';
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    top: -30px;
+    right: -50px;
+    pointer-events: none;
+  }
+
+  /* Option A: Warm Coal — deep warm brown, earthy */
+  .hero-a {
+    background: linear-gradient(135deg,
+      rgb(22, 17, 13) 0%,
+      rgb(33, 26, 18) 100%
+    );
+  }
+  .hero-a::before {
+    background: radial-gradient(circle, rgba(184,120,60,0.18) 0%, transparent 70%);
+  }
+
+  /* Option B: Ember Glow — reddish coal warmth */
+  .hero-b {
+    background: linear-gradient(135deg,
+      rgb(26, 14, 8) 0%,
+      rgb(38, 22, 11) 100%
+    );
+  }
+  .hero-b::before {
+    background: radial-gradient(circle, rgba(200,100,50,0.22) 0%, transparent 70%);
+  }
+
+  /* Option C: Ashen Gold — neutral dark with golden undertone */
+  .hero-c {
+    background: linear-gradient(135deg,
+      rgb(19, 17, 13) 0%,
+      rgb(30, 27, 20) 100%
+    );
+  }
+  .hero-c::before {
+    background: radial-gradient(circle, rgba(184,146,74,0.20) 0%, transparent 70%);
+  }
+
+  .hero-card-inner {
+    position: relative;
+    z-index: 1;
+  }
+
+  .hero-top-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .hero-number {
+    font-size: 52px;
+    font-weight: 800;
+    letter-spacing: -2px;
+    line-height: 1;
+    color: rgba(252, 248, 240, 0.97);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .hero-label {
+    font-size: 18px;
+    font-weight: 500;
+    color: rgba(252, 248, 240, 0.65);
+    margin-top: 4px;
+    letter-spacing: -0.2px;
+  }
+
+  .hero-flame {
+    font-size: 30px;
+    margin-top: 8px;
+    /* flame icon via emoji, real app uses SF Symbol */
+    filter: none;
+    color: var(--accent);
+    opacity: 0.9;
+  }
+
+  /* Progress bar track */
+  .hero-progress-track {
+    height: 18px;
+    border-radius: 99px;
+    background: rgba(255,255,255,0.09);
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+  .hero-progress-fill {
+    height: 100%;
+    border-radius: 99px;
+    background: var(--bar-green);
+    width: 42%;
+  }
+
+  .hero-footer {
+    display: flex;
+    justify-content: space-between;
+  }
+  .hero-footer-text {
+    font-size: 15px;
+    font-weight: 500;
+    color: rgba(252, 248, 240, 0.55);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.2px;
+  }
+
+  /* ——— MACRO CARD ——— */
+  .macro-card {
+    background: var(--surface);
+    border-radius: 14px;
+    padding: 14px 16px;
+    border: 1px solid var(--divider);
+    flex-shrink: 0;
+  }
+
+  .macro-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .macro-card-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .macro-badge {
+    font-size: 10px;
+    font-weight: 700;
+    color: rgba(184,146,74,0.85);
+    background: rgba(184,146,74,0.12);
+    padding: 3px 8px;
+    border-radius: 99px;
+  }
+
+  .macro-row {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+
+  .macro-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .macro-item-header {
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .macro-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .macro-value {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .macro-track {
+    height: 6px;
+    border-radius: 99px;
+    background: rgba(255,255,255,0.08);
+    overflow: hidden;
+  }
+
+  .macro-fill {
+    height: 100%;
+    border-radius: 99px;
+  }
+
+  /* ——— FOOD LOG ——— */
+  .section-header-row {
+    padding: 4px 0 2px;
+  }
+  .section-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.1px;
+  }
+
+  .meal-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0 2px;
+  }
+  .meal-group-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .meal-group-cals {
+    font-size: 10px;
+    font-weight: 700;
+    color: rgba(184,146,74,0.85);
+    background: rgba(184,146,74,0.10);
+    padding: 2px 8px;
+    border-radius: 99px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .log-item {
+    background: var(--surface);
+    border-radius: 11px;
+    padding: 9px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+    border: 1px solid var(--divider);
+  }
+
+  .log-icon {
+    font-size: 18px;
+    width: 26px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .log-text {
+    flex: 1;
+    min-width: 0;
+  }
+  .log-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .log-detail {
+    font-size: 10px;
+    color: var(--text-secondary);
+    margin-top: 1px;
+  }
+  .log-time {
+    font-size: 10px;
+    color: rgba(168,176,186,0.6);
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+  }
+
+  /* ——— TAB BAR ——— */
+  .tab-bar {
+    flex-shrink: 0;
+    background: rgba(20, 16, 12, 0.92);
+    border-top: 1px solid rgba(255,255,255,0.06);
+    padding: 8px 0 16px;
+    display: flex;
+    justify-content: space-around;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  .tab-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    flex: 1;
+  }
+
+  .tab-icon {
+    font-size: 20px;
+  }
+
+  .tab-text {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+
+  .tab-item.active .tab-icon,
+  .tab-item.active .tab-text {
+    color: var(--accent);
+  }
+
+  .tab-item:not(.active) .tab-icon,
+  .tab-item:not(.active) .tab-text {
+    color: rgba(168,176,186,0.5);
+  }
+
+  /* Swatch legend under phones */
+  .swatch-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .swatch-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Hero Card Background Concepts</h1>
+  <p>Three ember-native alternatives — dark mode, Ember theme</p>
+</div>
+
+<div class="phones-grid">
+
+  <!-- ── OPTION A: Warm Coal ── -->
+  <div class="phone-column">
+    <div class="phone-label">
+      <div class="variant-name">A — Warm Coal</div>
+      <div class="variant-desc">Deep brown, earthy warmth</div>
+    </div>
+
+    <div class="phone-frame">
+      <div class="dynamic-island"></div>
+      <div class="screen-content">
+        <div class="screen-header">
+          <div class="title">Today</div>
+          <div class="subtitle">Calories, nutrients, and today's log</div>
+        </div>
+        <div class="list-body">
+
+          <!-- Hero Card A -->
+          <div class="hero-card hero-a">
+            <div class="hero-card-inner">
+              <div class="hero-top-row">
+                <div>
+                  <div class="hero-number">912</div>
+                  <div class="hero-label">calories remaining</div>
+                </div>
+                <div class="hero-flame">🔥</div>
+              </div>
+              <div class="hero-progress-track">
+                <div class="hero-progress-fill" style="width:42%; background: var(--bar-green);"></div>
+              </div>
+              <div class="hero-footer">
+                <span class="hero-footer-text">Consumed: 688</span>
+                <span class="hero-footer-text">Goal: 1,600</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Macros -->
+          <div class="macro-card">
+            <div class="macro-card-header">
+              <span class="macro-card-title">Daily Macros</span>
+              <span class="macro-badge">3 tracked</span>
+            </div>
+            <div class="macro-row">
+              <div class="macro-item">
+                <div class="macro-item-header">
+                  <span class="macro-name">Protein</span>
+                  <span class="macro-value">42g / 140g</span>
+                </div>
+                <div class="macro-track"><div class="macro-fill" style="width:30%; background:#5e9fcc;"></div></div>
+              </div>
+              <div class="macro-item">
+                <div class="macro-item-header">
+                  <span class="macro-name">Carbs</span>
+                  <span class="macro-value">88g / 180g</span>
+                </div>
+                <div class="macro-track"><div class="macro-fill" style="width:49%; background:#e0a84a;"></div></div>
+              </div>
+              <div class="macro-item">
+                <div class="macro-item-header">
+                  <span class="macro-name">Fat</span>
+                  <span class="macro-value">22g / 60g</span>
+                </div>
+                <div class="macro-track"><div class="macro-fill" style="width:37%; background:#c47f7f;"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Food log -->
+          <div class="section-header-row">
+            <span class="section-title">Food Log</span>
+          </div>
+          <div class="meal-group-header">
+            <span class="meal-group-name">Breakfast</span>
+            <span class="meal-group-cals">380 cal</span>
+          </div>
+          <div class="log-item">
+            <span class="log-icon">🥣</span>
+            <div class="log-text">
+              <div class="log-name">Oatmeal w/ Berries</div>
+              <div class="log-detail">320 cal · 8g protein</div>
+            </div>
+            <span class="log-time">7:42 AM</span>
+          </div>
+          <div class="log-item">
+            <span class="log-icon">☕</span>
+            <div class="log-text">
+              <div class="log-name">Cold Brew Coffee</div>
+              <div class="log-detail">60 cal</div>
+            </div>
+            <span class="log-time">7:50 AM</span>
+          </div>
+          <div class="meal-group-header" style="margin-top:4px;">
+            <span class="meal-group-name">Lunch</span>
+            <span class="meal-group-cals">308 cal</span>
+          </div>
+          <div class="log-item">
+            <span class="log-icon">🥗</span>
+            <div class="log-text">
+              <div class="log-name">Grilled Chicken Salad</div>
+              <div class="log-detail">308 cal · 34g protein</div>
+            </div>
+            <span class="log-time">12:15 PM</span>
+          </div>
+
+        </div>
+
+        <div class="tab-bar">
+          <div class="tab-item active">
+            <span class="tab-icon">🌅</span>
+            <span class="tab-text">Today</span>
+          </div>
+          <div class="tab-item">
+            <span class="tab-icon">📊</span>
+            <span class="tab-text">History</span>
+          </div>
+          <div class="tab-item">
+            <span class="tab-icon">➕</span>
+            <span class="tab-text">Add</span>
+          </div>
+          <div class="tab-item">
+            <span class="tab-icon">⚙️</span>
+            <span class="tab-text">Settings</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="swatch-row">
+        <div class="swatch" style="background:linear-gradient(135deg, rgb(22,17,13), rgb(33,26,18));"></div>
+        <span class="swatch-label">rgb(22,17,13) → rgb(33,26,18)</span>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ── OPTION B: Ember Glow ── -->
+  <div class="phone-column">
+    <div class="phone-label">
+      <div class="variant-name">B — Ember Glow</div>
+      <div class="variant-desc">Reddish coal, fire warmth</div>
+    </div>
+
+    <div class="phone-frame">
+      <div class="dynamic-island"></div>
+      <div class="screen-content">
+        <div class="screen-header">
+          <div class="title">Today</div>
+          <div class="subtitle">Calories, nutrients, and today's log</div>
+        </div>
+        <div class="list-body">
+
+          <!-- Hero Card B -->
+          <div class="hero-card hero-b">
+            <div class="hero-card-inner">
+              <div class="hero-top-row">
+                <div>
+                  <div class="hero-number">912</div>
+                  <div class="hero-label">calories remaining</div>
+                </div>
+                <div class="hero-flame">🔥</div>
+              </div>
+              <div class="hero-progress-track">
+                <div class="hero-progress-fill" style="width:42%; background: var(--bar-green);"></div>
+              </div>
+              <div class="hero-footer">
+                <span class="hero-footer-text">Consumed: 688</span>
+                <span class="hero-footer-text">Goal: 1,600</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Macros -->
+          <div class="macro-card">
+            <div class="macro-card-header">
+              <span class="macro-card-title">Daily Macros</span>
+              <span class="macro-badge">3 tracked</span>
+            </div>
+            <div class="macro-row">
+              <div class="macro-item">
+                <div class="macro-item-header">
+                  <span class="macro-name">Protein</span>
+                  <span class="macro-value">42g / 140g</span>
+                </div>
+                <div class="macro-track"><div class="macro-fill" style="width:30%; background:#5e9fcc;"></div></div>
+              </div>
+              <div class="macro-item">
+                <div class="macro-item-header">
+                  <span class="macro-name">Carbs</span>
+                  <span class="macro-value">88g / 180g</span>
+                </div>
+                <div class="macro-track"><div class="macro-fill" style="width:49%; background:#e0a84a;"></div></div>
+              </div>
+              <div class="macro-item">
+                <div class="macro-item-header">
+                  <span class="macro-name">Fat</span>
+                  <span class="macro-value">22g / 60g</span>
+                </div>
+                <div class="macro-track"><div class="macro-fill" style="width:37%; background:#c47f7f;"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Food log -->
+          <div class="section-header-row">
+            <span class="section-title">Food Log</span>
+          </div>
+          <div class="meal-group-header">
+            <span class="meal-group-name">Breakfast</span>
+            <span class="meal-group-cals">380 cal</span>
+          </div>
+          <div class="log-item">
+            <span class="log-icon">🥣</span>
+            <div class="log-text">
+              <div class="log-name">Oatmeal w/ Berries</div>
+              <div class="log-detail">320 cal · 8g protein</div>
+            </div>
+            <span class="log-time">7:42 AM</span>
+          </div>
+          <div class="log-item">
+            <span class="log-icon">☕</span>
+            <div class="log-text">
+              <div class="log-name">Cold Brew Coffee</div>
+              <div class="log-detail">60 cal</div>
+            </div>
+            <span class="log-time">7:50 AM</span>
+          </div>
+          <div class="meal-group-header" style="margin-top:4px;">
+            <span class="meal-group-name">Lunch</span>
+            <span class="meal-group-cals">308 cal</span>
+          </div>
+          <div class="log-item">
+            <span class="log-icon">🥗</span>
+            <div class="log-text">
+              <div class="log-name">Grilled Chicken Salad</div>
+              <div class="log-detail">308 cal · 34g protein</div>
+            </div>
+            <span class="log-time">12:15 PM</span>
+          </div>
+
+        </div>
+
+        <div class="tab-bar">
+          <div class="tab-item active">
+            <span class="tab-icon">🌅</span>
+            <span class="tab-text">Today</span>
+          </div>
+          <div class="tab-item">
+            <span class="tab-icon">📊</span>
+            <span class="tab-text">History</span>
+          </div>
+          <div class="tab-item">
+            <span class="tab-icon">➕</span>
+            <span class="tab-text">Add</span>
+          </div>
+          <div class="tab-item">
+            <span class="tab-icon">⚙️</span>
+            <span class="tab-text">Settings</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="swatch-row">
+        <div class="swatch" style="background:linear-gradient(135deg, rgb(26,14,8), rgb(38,22,11));"></div>
+        <span class="swatch-label">rgb(26,14,8) → rgb(38,22,11)</span>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ── OPTION C: Ashen Gold ── -->
+  <div class="phone-column">
+    <div class="phone-label">
+      <div class="variant-name">C — Ashen Gold</div>
+      <div class="variant-desc">Neutral dark, golden shimmer</div>
+    </div>
+
+    <div class="phone-frame">
+      <div class="dynamic-island"></div>
+      <div class="screen-content">
+        <div class="screen-header">
+          <div class="title">Today</div>
+          <div class="subtitle">Calories, nutrients, and today's log</div>
+        </div>
+        <div class="list-body">
+
+          <!-- Hero Card C -->
+          <div class="hero-card hero-c">
+            <div class="hero-card-inner">
+              <div class="hero-top-row">
+                <div>
+                  <div class="hero-number">912</div>
+                  <div class="hero-label">calories remaining</div>
+                </div>
+                <div class="hero-flame">🔥</div>
+              </div>
+              <div class="hero-progress-track">
+                <div class="hero-progress-fill" style="width:42%; background: var(--bar-green);"></div>
+              </div>
+              <div class="hero-footer">
+                <span class="hero-footer-text">Consumed: 688</span>
+                <span class="hero-footer-text">Goal: 1,600</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Macros -->
+          <div class="macro-card">
+            <div class="macro-card-header">
+              <span class="macro-card-title">Daily Macros</span>
+              <span class="macro-badge">3 tracked</span>
+            </div>
+            <div class="macro-row">
+              <div class="macro-item">
+                <div class="macro-item-header">
+                  <span class="macro-name">Protein</span>
+                  <span class="macro-value">42g / 140g</span>
+                </div>
+                <div class="macro-track"><div class="macro-fill" style="width:30%; background:#5e9fcc;"></div></div>
+              </div>
+              <div class="macro-item">
+                <div class="macro-item-header">
+                  <span class="macro-name">Carbs</span>
+                  <span class="macro-value">88g / 180g</span>
+                </div>
+                <div class="macro-track"><div class="macro-fill" style="width:49%; background:#e0a84a;"></div></div>
+              </div>
+              <div class="macro-item">
+                <div class="macro-item-header">
+                  <span class="macro-name">Fat</span>
+                  <span class="macro-value">22g / 60g</span>
+                </div>
+                <div class="macro-track"><div class="macro-fill" style="width:37%; background:#c47f7f;"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Food log -->
+          <div class="section-header-row">
+            <span class="section-title">Food Log</span>
+          </div>
+          <div class="meal-group-header">
+            <span class="meal-group-name">Breakfast</span>
+            <span class="meal-group-cals">380 cal</span>
+          </div>
+          <div class="log-item">
+            <span class="log-icon">🥣</span>
+            <div class="log-text">
+              <div class="log-name">Oatmeal w/ Berries</div>
+              <div class="log-detail">320 cal · 8g protein</div>
+            </div>
+            <span class="log-time">7:42 AM</span>
+          </div>
+          <div class="log-item">
+            <span class="log-icon">☕</span>
+            <div class="log-text">
+              <div class="log-name">Cold Brew Coffee</div>
+              <div class="log-detail">60 cal</div>
+            </div>
+            <span class="log-time">7:50 AM</span>
+          </div>
+          <div class="meal-group-header" style="margin-top:4px;">
+            <span class="meal-group-name">Lunch</span>
+            <span class="meal-group-cals">308 cal</span>
+          </div>
+          <div class="log-item">
+            <span class="log-icon">🥗</span>
+            <div class="log-text">
+              <div class="log-name">Grilled Chicken Salad</div>
+              <div class="log-detail">308 cal · 34g protein</div>
+            </div>
+            <span class="log-time">12:15 PM</span>
+          </div>
+
+        </div>
+
+        <div class="tab-bar">
+          <div class="tab-item active">
+            <span class="tab-icon">🌅</span>
+            <span class="tab-text">Today</span>
+          </div>
+          <div class="tab-item">
+            <span class="tab-icon">📊</span>
+            <span class="tab-text">History</span>
+          </div>
+          <div class="tab-item">
+            <span class="tab-icon">➕</span>
+            <span class="tab-text">Add</span>
+          </div>
+          <div class="tab-item">
+            <span class="tab-icon">⚙️</span>
+            <span class="tab-text">Settings</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="swatch-row">
+        <div class="swatch" style="background:linear-gradient(135deg, rgb(19,17,13), rgb(30,27,20));"></div>
+        <span class="swatch-label">rgb(19,17,13) → rgb(30,27,20)</span>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /phones-grid -->
+
+<!-- Notes section -->
+<div style="max-width: 1020px; margin: 52px auto 0; padding: 0 20px;">
+  <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 18px; padding: 24px 28px;">
+    <div style="font-size: 13px; font-weight: 700; color: var(--accent); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 14px;">Notes</div>
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;">
+
+      <div>
+        <div style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">A — Warm Coal</div>
+        <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
+          Most grounded. Matches the app's warm charcoal palette almost exactly but with a richer lift.
+          Subtle and premium — the hero card recedes into the screen, making the number pop.
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">B — Ember Glow</div>
+        <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
+          Most on-brand. The red-brown warmth directly evokes glowing coals — ties closely to
+          the "Ember" name. The glow circle amplifies the fireside feel without being distracting.
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">C — Ashen Gold</div>
+        <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
+          Best contrast with the accent. The golden radial glow mirrors the flame icon and amber
+          accent color, creating a subtle halo effect. Neutral enough to not fight the content.
+        </div>
+      </div>
+
+    </div>
+
+    <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 11px; color: rgba(168,176,186,0.5);">
+      Current hero card uses a blue-tinted gradient (0.085–0.145 blue channel) — all three options above replace that with warm tones that align with the ember surface palette (0.059–0.078 bg, 0.136 surfaceBase).
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

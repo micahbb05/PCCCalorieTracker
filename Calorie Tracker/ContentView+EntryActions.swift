@@ -289,13 +289,14 @@ extension ContentView {
     }
 
     func netCalorieColor(_ net: Int) -> Color {
+        let targetNetGoal = weightedAverageNetGoalAmount()
         switch goalType {
         case .deficit:
             if net >= 0 {
                 return .red
             }
             let deficit = -net
-            if deficit >= storedDeficitCalories {
+            if deficit >= Int((Double(targetNetGoal) * 0.85).rounded()) {
                 return .green
             } else {
                 return .yellow
@@ -304,7 +305,7 @@ extension ContentView {
             if net < 0 {
                 return .red
             }
-            if net <= storedSurplusCalories {
+            if net <= targetNetGoal {
                 return .green
             } else {
                 return .red
@@ -315,6 +316,26 @@ extension ContentView {
             }
             return .yellow
         }
+    }
+
+    private func weightedAverageNetGoalAmount() -> Int {
+        let weekdayGoal: Int
+        switch goalType {
+        case .deficit:
+            weekdayGoal = deficitCalories
+        case .surplus:
+            weekdayGoal = surplusCalories
+        case .fixed:
+            weekdayGoal = 0
+        }
+
+        guard goalType != .fixed, useWeekendDeficit else {
+            return weekdayGoal
+        }
+
+        let weekendGoal = weekendDeficitCalories
+        let weightedAverage = ((Double(weekdayGoal) * 5.0) + (Double(weekendGoal) * 2.0)) / 7.0
+        return Int(weightedAverage.rounded())
     }
 
     func netSign(_ net: Int) -> String {
@@ -581,7 +602,7 @@ extension ContentView {
             return
         }
 
-        quickAddFoods = decoded.sorted { $0.lastUsedAt > $1.lastUsedAt }
+        quickAddFoods = decoded
     }
 
     func saveQuickAddFoods() {
@@ -669,14 +690,59 @@ extension ContentView {
         showAddConfirmation()
     }
 
-    /// Moves matching quick adds to the top of the list by updating `lastUsedAt`.
+    /// Saves the food from a review item directly to the quick add list.
+    /// Uses the edited name from the review form, and the base serving size (not the user's current selection).
+    func addItemToQuickAdd(from item: FoodReviewItem) {
+        let now = Date()
+        let resolvedName = foodReviewNameText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? item.name
+            : foodReviewNameText
+        let newFood = QuickAddFood(
+            id: UUID(),
+            name: resolvedName,
+            calories: item.calories,
+            nutrientValues: item.nutrientValues,
+            servingAmount: item.servingAmount,
+            servingUnit: item.servingUnit,
+            createdAt: now
+        )
+        quickAddFoods.append(newFood)
+        saveQuickAddFoods()
+        showQuickAddSaveConfirmation()
+    }
+
+    /// Saves a menu item directly to the quick add list.
+    func addMenuItemToQuickAdd(_ item: QuickAddFood) {
+        quickAddFoods.append(item)
+        saveQuickAddFoods()
+        showQuickAddSaveConfirmation()
+    }
+
+    @MainActor
+    func showQuickAddSaveConfirmation() {
+        quickAddSaveConfirmationTask?.cancel()
+        Haptics.notification(.success)
+
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+            isQuickAddSaveConfirmationPresented = true
+        }
+
+        quickAddSaveConfirmationTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.35))
+            guard !Task.isCancelled else { return }
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
+                isQuickAddSaveConfirmationPresented = false
+            }
+        }
+    }
+
+    /// Updates `lastUsedAt` on matching quick adds without changing their order.
     func markQuickAddFoodsRecentlyUsed(ids: Set<UUID>) {
         guard !ids.isEmpty else { return }
         let now = Date()
-        let touched = quickAddFoods.map { food in
+        quickAddFoods = quickAddFoods.map { food in
             ids.contains(food.id) ? food.withLastUsedAt(now) : food
         }
-        quickAddFoods = touched.sorted { $0.lastUsedAt > $1.lastUsedAt }
     }
 
     @MainActor
